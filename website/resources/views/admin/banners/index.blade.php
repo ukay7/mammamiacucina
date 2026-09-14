@@ -1,0 +1,7 @@
+@extends('admin.layout')
+@section('title','Home Banners')
+@section('content')
+<div class="mmc-toolbar"><p>Manage the home page slider. Lower priority numbers appear first; ties use creation order.</p>@if(auth()->user()->hasAdminPermission('banners.manage'))<a class="btn btn-primary" href="{{ route('admin.banners.create') }}">Add Banner</a>@endif</div>
+<p><strong>Recommended image size: 2129 × 739 px.</strong> JPG, PNG or WebP, up to 10 MB. Keep space in the centre for the heading and button.</p>
+<div class="panel"><div class="panel-container show"><div class="panel-content table-responsive"><table class="table"><thead><tr><th>Image</th><th>Heading / Subheading</th><th>Priority</th><th>Status</th><th></th></tr></thead><tbody>@forelse($banners as $banner)<tr><td><img src="{{ $banner->image_url }}" alt="{{ $banner->alt_text }}" style="width:210px;max-width:35vw;aspect-ratio:2129/739;object-fit:cover;border-radius:4px"></td><td><strong class="d-block">{{ $banner->heading }}</strong>{{ $banner->subheading }}<small class="d-block">{{ $banner->button_text }} → Product grid</small></td><td>{{ $banner->priority }}</td><td>{{ $banner->is_active?'Active':'Inactive' }}</td><td>@if(auth()->user()->hasAdminPermission('banners.manage'))<a class="btn btn-outline-primary btn-sm" href="{{ route('admin.banners.edit',$banner) }}">Edit</a>@endif</td></tr>@empty<tr><td colspan="5">No banners yet.</td></tr>@endforelse</tbody></table>{{ $banners->links('pagination::bootstrap-4') }}</div></div></div>
+@endsection

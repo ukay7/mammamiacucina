@@ -1,0 +1,7 @@
+<div class="panel"><div class="panel-hdr"><h2>Product Images & Videos</h2></div><div class="panel-container show"><div class="panel-content">
+@if($editing)<label for="media_files">Upload images or videos</label><input class="form-control" type="file" id="media_files" name="media_files[]" multiple accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm"><p class="text-muted mt-2">Select up to 10 files per save. JPG, PNG, WebP, GIF, MP4 or WebM; up to 50 MB per file (subject to server upload limits). New files are appended in selection order. Save to preview them, then set their display order below. Lower numbers appear first.</p>@endif
+<div class="mmc-media-grid">@forelse($product->media as $item)<article class="mmc-media-card">
+@if($item->kind==='video')<video controls preload="metadata" src="{{ route('admin.products.media',[$product,$item]) }}"></video>@else<img src="{{ route('admin.products.media',[$product,$item]) }}" alt="{{ $product->premium_marketing_name }}" loading="lazy">@endif
+<p class="text-break mb-2">{{ $item->original_name }}</p>
+@if($editing)<label>Display order<input class="form-control" type="number" min="0" max="9999" name="media_order[{{ $item->id }}]" value="{{ old('media_order.'.$item->id,$item->sort_order) }}"></label><label class="d-block mt-2"><input type="checkbox" name="remove_media[]" value="{{ $item->id }}"> Remove on save</label>@endif
+</article>@empty<p class="text-muted">No images or videos uploaded yet.</p>@endforelse</div></div></div></div>

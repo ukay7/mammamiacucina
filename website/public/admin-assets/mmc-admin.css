@@ -1,0 +1,58 @@
+.mmc-admin {background:#f7f0e4;color:#514231;font-family:Roboto,Arial,sans-serif}
+.mmc-admin .page-sidebar {background:#1d160d}
+.mmc-admin .page-logo {background:#171008;box-shadow:none;height:100px}
+.mmc-admin .page-logo-link {display:flex;align-items:center;color:#e3bd70;text-decoration:none;font:20px Georgia,serif}
+.mmc-admin .page-logo img {height:80px;width:80px;object-fit:contain;margin-right:10px}
+.mmc-admin .page-logo small {display:block;font:9px Arial,sans-serif;letter-spacing:2px;margin-top:5px}
+.mmc-admin .page-header {background:#fffaf2;border-bottom:1px solid #dfcba5}
+.mmc-admin .page-footer {background:#fffaf2;color:#8b704c;border-top:1px solid #dfcba5}
+.mmc-admin .nav-menu li a {color:#e8d7ba}
+.mmc-admin .nav-menu li a:hover,.mmc-admin .nav-menu li.active>a {background:#8e0718;color:#fff4e5}
+.mmc-admin .nav-menu li a i {color:#d3ae66}
+.mmc-admin .nav-title {color:#aa8951}
+.mmc-sidebar-profile {padding:25px;color:#f5e4c8;border-bottom:1px solid #4b3821}
+.mmc-sidebar-profile strong,.mmc-sidebar-profile span {display:block}
+.mmc-sidebar-profile span {color:#b89863;margin-top:6px;font-size:12px}
+.mmc-admin .panel,.mmc-admin .card {border:1px solid #dfcba5;background:#fffaf2;box-shadow:0 3px 12px #4a30100a}
+.mmc-admin .panel-hdr {background:#fcf6ed;border-bottom-color:#dfcba5}
+.mmc-admin .panel-content {padding:26px}
+.mmc-admin .subheader-title,.mmc-admin h1,.mmc-admin h2 {color:#61421e;font-family:Georgia,serif}
+.mmc-admin .btn-primary,.mmc-admin .badge-primary {background:#8e0718;border-color:#8e0718;color:#fff4e5}
+.mmc-admin .btn-primary:hover {background:#a80c23;border-color:#a80c23}
+.mmc-admin .btn-outline-primary {border-color:#b88e43;color:#8e0718}
+.mmc-admin .btn-outline-primary:hover {background:#8e0718;color:#fff}
+.mmc-admin a {color:#8e0718}
+.mmc-admin .form-control {border-color:#d9c29d;background:#fffdf8;color:#514231}
+.mmc-admin .form-control:focus {border-color:#b48a40;box-shadow:0 0 0 .2rem #bd94432a}
+.mmc-admin .custom-control-input:checked~.custom-control-label::before {background:#8e0718;border-color:#8e0718}
+.mmc-admin .badge-light {background:#efe3cb;color:#775727;padding:7px;font-weight:400}
+.mmc-admin .page-item.active .page-link {background:#8e0718;border-color:#8e0718}
+.mmc-admin .table td {vertical-align:middle}
+.mmc-admin .table thead th {border-color:#dfcba5;color:#8b6b3c}
+.mmc-admin .table td {border-color:#eee1cc}
+.mmc-admin-heading {color:#61421e;font-family:Georgia,serif;font-size:18px}
+.mmc-admin-heading small {display:block;color:#a08455;font:11px Arial,sans-serif;margin-top:4px}
+.mmc-admin-menu {display:none}
+.mmc-welcome {padding:32px;border:1px solid #dfcba5;background:linear-gradient(110deg,#f0e2c8,#fffaf2)}
+.mmc-eyebrow {letter-spacing:2px;font-size:11px;color:#a77c32}
+.mmc-permission-tags {display:flex;flex-wrap:wrap;gap:10px}
+.mmc-form-panel {max-width:1000px}
+.mmc-login-layout {display:grid;grid-template-columns:1fr 1fr;min-height:100vh}
+.mmc-login-story {background:linear-gradient(#1c130deb,#1c130dd9),url('../assets/images/mmc/italian-pastries-hero.png') center/cover;padding:6vw;display:flex;flex-direction:column;justify-content:center;color:#dfc89f}
+.mmc-login-story img {width:175px;height:175px;object-fit:contain;margin-bottom:20px}
+.mmc-login-story h1 {font:clamp(36px,4vw,60px)/1.15 Georgia,serif;color:#fff4e5;margin:18px 0 28px}
+.mmc-login-story p {color:#c59a4f;font-size:12px;letter-spacing:2px}
+.mmc-login-story span {font-size:17px;line-height:1.8}
+.mmc-login-form {display:flex;flex-direction:column;justify-content:center;padding:50px;max-width:660px;width:100%;margin:auto}
+.mmc-back-link {text-align:center;margin-top:24px}
+.mmc-admin :focus-visible {outline:2px solid #bb9146;outline-offset:3px}
+@media(max-width:991px){.mmc-admin-menu{display:block}.mmc-admin .page-sidebar{position:fixed;z-index:1100;top:0;bottom:0;left:0;transform:translateX(-100%);transition:transform .2s}.mmc-admin.sidebar-open .page-sidebar{transform:translateX(0)}.mmc-admin.sidebar-open .page-content-wrapper::before{content:'';position:fixed;inset:0;background:#0006;z-index:1090}.mmc-login-layout{grid-template-columns:1fr}.mmc-login-story{display:none}.mmc-login-form{padding:24px}.mmc-admin .page-content{padding:20px}.mmc-admin .page-header{padding:0 16px}.mmc-admin .page-footer{font-size:11px}.mmc-admin .panel-hdr{flex-wrap:wrap;padding:10px}}
+
+.mmc-admin .page-content-wrapper,.mmc-admin .page-content {background:#f7f0e4}
+.mmc-admin .pace .pace-progress {background:#b88e43}
+.mmc-admin .nav-menu li.active>a:before {color:#d3ae66}
+.mmc-admin .nav-menu li.active>a:after {background:#d3ae66;color:#d3ae66}
+
+.mmc-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}.mmc-toolbar p{margin:0}.mmc-filters{display:flex;gap:16px;align-items:end;flex-wrap:wrap;margin-bottom:24px}.mmc-filters label{min-width:180px;flex:1;margin-bottom:0}.mmc-filters .btn{flex-shrink:0}.mmc-product-details{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 36px}.mmc-product-details>div{padding:16px 0;border-bottom:1px solid #e8dcc6;overflow-wrap:anywhere}.mmc-product-details dt,.mmc-import-fields dt{color:#795a29;font-weight:600}.mmc-product-details dd{margin:5px 0 0;white-space:pre-wrap}.mmc-import-fields{min-width:220px;max-width:500px;margin-top:15px}.mmc-raw-data{max-width:600px;white-space:pre-wrap;overflow-wrap:anywhere}.mmc-admin summary{color:#8e0718;cursor:pointer}.mmc-admin .table td{vertical-align:middle}.mmc-admin .table th{white-space:nowrap}.mmc-admin .panel-content{padding:24px}.mmc-admin input[type=checkbox]{accent-color:#8e0718;width:17px;height:17px}@media(max-width:767px){.mmc-product-details{grid-template-columns:1fr}.mmc-filters label{min-width:100%}.mmc-admin .panel-content{padding:16px}.mmc-toolbar .btn{margin-bottom:8px}}.mmc-admin .page-content > .subheader-title{flex:0 0 auto}
+
+#product-dialog{width:min(1200px,96vw);height:92vh;max-width:96vw;max-height:94vh;padding:0;border:1px solid #bd944b;border-radius:10px;background:#f8f0e3;box-shadow:0 20px 80px #0008}#product-dialog::backdrop{background:#170f08b8}#product-dialog[open]{display:flex;flex-direction:column}#product-dialog header{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid #d7bd8e}#product-dialog iframe{border:0;width:100%;flex:1;min-height:0}.mmc-modal-page{background:#f8f0e3}.mmc-media-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;margin-top:16px}.mmc-media-card{padding:12px;border:1px solid #dfcba8;border-radius:6px;min-width:0}.mmc-media-card img,.mmc-media-card video{width:100%;height:160px;object-fit:contain;background:#eee5d7;margin-bottom:10px}.mmc-media-card label{width:100%}

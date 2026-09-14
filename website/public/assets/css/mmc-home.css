@@ -185,3 +185,4 @@
 .mmc-mini-cart-info strong { display:block; font:16px/1.3 Georgia,serif; color:#61421e; }
 .mmc-mini-cart-info > span { display:block; font:13px/1.5 Arial,sans-serif; color:#8b704c; margin-top:6px; }
 .mmc-mini-cart-item:hover strong { color:#8e0718; }
+.mmc-hero.mmc-hero--empty { aspect-ratio:auto; min-height:150px; padding-bottom:0; overflow:visible; }

@@ -1,0 +1,27 @@
+<?php
+
+return [
+    'supplier' => ['Supplier', 'text'],
+    'product_code' => ['Product Code', 'text'],
+    'qr_code' => ['QR CODE', 'text'],
+    'premium_marketing_name' => ['Premium Marketing Name', 'text'],
+    'italian_subtitle' => ['Italian Subtitle', 'text'],
+    'original_description' => ['Original Description', 'textarea'],
+    'status' => ['Status', 'text'],
+    'uom' => ['UoM', 'text'],
+    'invoice_quantity' => ['Invoice Quantity', 'decimal'],
+    'cartons' => ['Cartons (CRT)', 'decimal'],
+    'pieces_per_pack' => ['Pieces per Pack (PZ)', 'decimal'],
+    'unit_weight_g' => ['Unit Weight (g)', 'decimal'],
+    'pack_weight_kg' => ['Pack Weight (kg)', 'decimal'],
+    'size_diameter_cm' => ['Size / Diameter (cm)', 'text'],
+    'supplier_unit_price_eur' => ['Supplier Unit Price (EUR)', 'decimal'],
+    'supplier_discount' => ['Supplier Discount', 'decimal'],
+    'supplier_unit_price_eur_2' => ['Supplier Unit Price (EUR) 2', 'decimal'],
+    'supplier_line_total_eur' => ['Supplier Line Total (EUR)', 'decimal'],
+    'rate_exchange_cad' => ['Rate Exchange (CAD)', 'decimal'],
+    'shipping_cost_cad' => ['Shipping Cost (CAD)', 'decimal'],
+    'surcharge_increase_cad' => ['Surcharge Increase (CAD)', 'decimal'],
+    'total_selling_price_cad' => ['Total Selling Price (CAD)', 'decimal'],
+    'product_notes' => ['Product Notes', 'textarea'],
+];

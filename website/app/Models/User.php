@@ -22,6 +22,8 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role_id',
+        'is_active',
     ];
 
     /**
@@ -39,11 +41,32 @@ class User extends Authenticatable
      *
      * @return array<string, string>
      */
+    public function role()
+    {
+        return $this->belongsTo(Role::class);
+    }
+
+    public function isSuper(): bool
+    {
+        return $this->is_active && (bool) $this->role?->is_super;
+    }
+
+    public function permissions(): array
+    {
+        return $this->isSuper() ? array_keys(config('admin.permissions')) : ($this->role?->permissions ?? []);
+    }
+
+    public function hasAdminPermission(string $permission): bool
+    {
+        return $this->is_active && in_array($permission, $this->permissions(), true);
+    }
+
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean',
         ];
     }
 }

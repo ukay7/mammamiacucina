@@ -1,0 +1,10 @@
+@extends('admin.layout')
+@section('title',$category->exists?'Edit Category':'Add Category')
+@section('content')
+<div class="panel"><div class="panel-container show"><div class="panel-content"><form method="post" action="{{ $category->exists?route('admin.categories.update',$category):route('admin.categories.store') }}">@csrf @if($category->exists)@method('PUT')@endif
+<div class="form-group"><label for="name">Category name</label><input class="form-control" id="name" name="name" value="{{ old('name',$category->name) }}" maxlength="120" required @readonly($category->slug==='general')></div>
+<div class="form-group"><label for="description">Description</label><textarea class="form-control" id="description" name="description" rows="3">{{ old('description',$category->description) }}</textarea></div>
+<div class="row"><div class="form-group col-md-6"><label for="sort_order">Display order</label><input class="form-control" type="number" min="0" id="sort_order" name="sort_order" value="{{ old('sort_order',$category->sort_order) }}" required></div><div class="form-group col-md-6"><label for="is_active">Status</label><select class="form-control" id="is_active" name="is_active"><option value="1" @selected(old('is_active',$category->is_active)==1)>Active</option>@if($category->slug!=='general')<option value="0" @selected(old('is_active',$category->is_active)==0)>Inactive</option>@endif</select></div></div>
+<button class="btn btn-primary">Save Category</button> <a class="btn btn-outline-primary" href="{{ route('admin.categories.index') }}">Back to Categories</a></form>
+@if($category->exists && $category->slug!=='general')<form class="mt-4" method="post" action="{{ route('admin.categories.destroy',$category) }}" data-confirm="Delete this category?">@csrf @method('DELETE')<button class="btn btn-outline-danger">Delete Category</button><small class="d-block mt-2">Categories used by products or imports must be kept for history. You can deactivate them.</small></form>@endif</div></div></div>
+@endsection

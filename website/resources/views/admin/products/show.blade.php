@@ -1,0 +1,8 @@
+@extends(request()->boolean('modal')?'admin.modal':'admin.layout')
+@section('title',$product->premium_marketing_name)
+@section('content')
+@unless(request()->boolean('modal'))<div class="mb-3"><a class="btn btn-outline-primary" href="{{ route('admin.products.index') }}">← Back to Products</a></div>@endunless
+<div class="mmc-toolbar"><p>{{ $product->categories->pluck('name')->join(', ') }} · {{ $product->is_active?'Active':'Inactive' }}</p><div>@if(auth()->user()->hasAdminPermission('products.manage'))<a class="btn btn-primary" href="{{ route('admin.products.edit',[$product,'modal'=>request()->boolean('modal')?1:0]) }}">Edit Product</a>@endif @if(auth()->user()->hasAdminPermission('inventory.view'))<a class="btn btn-outline-primary" href="{{ route('admin.inventory.show',$product) }}">Inventory & History</a>@endif</div></div>
+@include('admin.products.media',['editing'=>false])
+<div class="panel"><div class="panel-hdr"><h2>Complete Catalogue Record</h2></div><div class="panel-container show"><div class="panel-content"><dl class="mmc-product-details">@foreach(config('product_fields') as $key=>$field)<div><dt>{{ $field[0] }}</dt><dd>{{ $product->$key===null?'—':($field[1]==='decimal'?rtrim(rtrim($product->$key,'0'),'.'):$product->$key) }}</dd></div>@endforeach</dl></div></div></div>@unless(request()->boolean('modal'))<a class="btn btn-outline-primary" href="{{ route('admin.products.index') }}">← Back to Products</a>@endunless
+@endsection

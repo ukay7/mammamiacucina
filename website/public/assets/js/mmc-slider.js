@@ -2,6 +2,7 @@
     const hero = document.querySelector('.mmc-hero');
     if (!hero) return;
     const slides = Array.from(hero.querySelectorAll('.mmc-slide'));
+    if (slides.length < 2) return;
     const dots = Array.from(hero.querySelectorAll('.mmc-slider-dot'));
     const pause = hero.querySelector('.mmc-slider-pause');
     const track = hero.querySelector('.mmc-slides');

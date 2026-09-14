@@ -1,0 +1,6 @@
+@extends('admin.layout')
+@section('title','Categories')
+@section('content')
+<div class="mmc-toolbar"><p>Create categories, then assign products individually or in bulk.</p>@if(auth()->user()->hasAdminPermission('categories.manage'))<a class="btn btn-primary" href="{{ route('admin.categories.create') }}">Add Category</a>@endif</div>
+<div class="panel"><div class="panel-container show"><div class="panel-content table-responsive"><table class="table"><thead><tr><th>Name</th><th>Description</th><th>Products</th><th>Order</th><th>Status</th><th></th></tr></thead><tbody>@forelse($categories as $category)<tr><td><strong>{{ $category->name }}</strong>@if($category->slug==='general') <small class="text-muted">Default</small>@endif</td><td>{{ $category->description ?: '—' }}</td><td>{{ $category->products_count }}</td><td>{{ $category->sort_order }}</td><td>{{ $category->is_active?'Active':'Inactive' }}</td><td>@if(auth()->user()->hasAdminPermission('categories.manage'))<a href="{{ route('admin.categories.edit',$category) }}" class="btn btn-sm btn-outline-primary">Edit</a>@endif</td></tr>@empty<tr><td colspan="6">No categories yet.</td></tr>@endforelse</tbody></table>{{ $categories->links('pagination::bootstrap-4') }}</div></div></div>
+@endsection

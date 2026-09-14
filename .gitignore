@@ -14,3 +14,11 @@
 **/Thumbs.db
 **/*.pem
 **/*.key
+
+# Licensed SmartAdmin distribution (install privately on the server)
+/smartadmin-package-4.4.1/
+/website/public/admin-assets/smartadmin/
+
+# Private catalogue source files and Excel lock files
+/website/public/product_sample/
+~$*.xlsx
