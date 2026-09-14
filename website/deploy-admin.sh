@@ -4,6 +4,10 @@ set -euo pipefail
 app=/var/www/mammamiacucina-app/website
 cd "$app"
 test -f .env
+if ! grep -Eq 'root[[:space:]]+/var/www/mammamiacucina-app/website/public/?[[:space:]]*;' /etc/nginx/sites-available/mammamiacucina.ca; then
+    echo 'Nginx must point this domain to /var/www/mammamiacucina-app/website/public. Stop and check the site configuration before deploying.'
+    exit 1
+fi
 test -f public/admin-assets/smartadmin/css/app.bundle.css || { echo 'Copy the private SmartAdmin assets first.'; exit 1; }
 # Install the database driver missing from the original static-site deployment.
 apt-get update
