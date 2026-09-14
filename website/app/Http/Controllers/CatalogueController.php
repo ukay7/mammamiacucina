@@ -60,8 +60,7 @@ class CatalogueController extends Controller
         $total = (clone $query)->count();
         $page = min((int) ($input['page'] ?? 1), max(1, (int) ceil($total / $perPage)));
         $products = $query->orderBy('id')->with(['media' => fn ($q) => $q->where('kind', 'image')->limit(1)])->paginate($perPage, ['*'], 'page', $page)->appends($r->except('page'));
-        $promoCategories = collect(['cakes' => ['cake', 'cakes'], 'pastries' => ['pastry', 'pastries'], 'cannoli' => ['cannoli']])->map(fn ($names) => $categories->first(fn ($c) => in_array(mb_strtolower($c->name), $names, true))?->slug);
-        $data = compact('products', 'categories', 'category', 'sort', 'perPage', 'view', 'min', 'max', 'total', 'page', 'allCount', 'promoCategories');
+        $data = compact('products', 'categories', 'category', 'sort', 'perPage', 'view', 'min', 'max', 'total', 'page', 'allCount');
         if ($r->expectsJson()) {
             return response()->json(['html' => view('partials.catalogue-grid', $data)->render(), 'total' => $total]);
         }

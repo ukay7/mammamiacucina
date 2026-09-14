@@ -10,13 +10,9 @@
 <button class="mmc-button" type="submit">Filter</button><a href="{{ route('theme.product-grid',['category'=>$category]) }}">Reset</a>
 <p class="mmc-note">Price-on-request products are excluded when a price filter is applied.</p>
 </form></section>
-<section><h2>Italian Favourites</h2><a class="mmc-sidebar-banner" href="{{ route('theme.product-grid',['category'=>$promoCategories['cannoli']]) }}"><img src="{{ asset('assets/images/mmc/category-cannoli-hd.png') }}" alt="Cannoli and cornetti"><span>A little taste of Sicily</span><strong>Explore Cannoli →</strong></a></section>
+
 </aside>
 <div class="mmc-shop-main">
-<div class="mmc-shop-banners ps-shop-features">
-<a class="mmc-shop-promo" href="{{ route('theme.product-grid',['category'=>$promoCategories['cakes']]) }}"><img src="{{ asset('assets/images/mmc/category-cakes-hd.png') }}" alt="Traditional cassata cake"><div><span>MADE FOR SHARING</span><h2>Italian Cakes</h2><b>Discover the collection →</b></div></a>
-<a class="mmc-shop-promo mmc-shop-promo--wide" href="{{ route('theme.product-grid',['category'=>$promoCategories['pastries']]) }}"><img src="{{ asset('assets/images/mmc/pastries-hero.png') }}" alt="Golden Italian pastries"><div><span>GOLDEN LAYERS, SWEET MOMENTS</span><h2>Discover Our Pastries</h2><b>Explore pastries →</b></div></a>
-</div>
 <form class="mmc-shop-toolbar" method="get" action="{{ route('theme.product-grid') }}" aria-label="Product display options">
 <input type="hidden" name="category" value="{{ $category }}">
 @if($min!==null)<input type="hidden" name="min" value="{{ $min }}">@endif
