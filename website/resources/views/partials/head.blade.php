@@ -4,8 +4,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="format-detection" content="telephone=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <link href="{{ asset('assets/apple-touch-icon.png') }}" rel="apple-touch-icon">
-    <link href="{{ asset('assets/favicon.png') }}" rel="icon">
+    <link href="{{ asset('assets/mmc-favicon.png') }}?v=1" rel="apple-touch-icon">
+    <link href="{{ asset('assets/mmc-favicon.png') }}?v=1" rel="icon" type="image/png">
     <meta name="author" content="#{author}">
     <meta name="keywords" content="#{keyword}">
     <meta name="description" content="#{description}">
