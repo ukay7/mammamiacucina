@@ -1,0 +1,30 @@
+<?php
+
+return [
+    'pages' => [
+        '404',
+        'about',
+        'action-mobile',
+        'blog-detail',
+        'blog-listing',
+        'cart',
+        'checkout',
+        'compare',
+        'contact-2',
+        'contact',
+        'gallery',
+        'homepage-2',
+        'homepage-3',
+        'index',
+        'menu-1',
+        'menu-2',
+        'order-form',
+        'order-success',
+        'pages',
+        'product-detail',
+        'product-grid',
+        'product-listing',
+        'README',
+        'whist-list',
+    ],
+];

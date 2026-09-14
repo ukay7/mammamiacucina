@@ -1,0 +1,26 @@
+.mmc-baking { position: relative; isolation: isolate; overflow: hidden; box-sizing: border-box; width: 100%; max-width: 1920px; margin-inline: auto; height: clamp(390px,27vw,520px); padding: 0; background: #faf2e5 url('../images/mmc/baking-background.png') center calc(50% + var(--baking-parallax,0px)) / 100% calc(100% + 60px) no-repeat; border-block: 1px solid #fff8ed; container-type: inline-size; }
+.mmc-baking__copy { position: absolute; z-index: 1; top: 50%; left: 5%; width: 32%; transform: translateY(-50%); color: #2d241a; }
+.mmc-baking__heading { text-align: center; margin-bottom: 16px; }
+.mmc-baking__heading>p { margin: 0 0 7px; font: 400 clamp(13px,1.05cqw,19px)/1.3 Georgia,serif; text-transform: uppercase; color: #a87834; }
+.mmc-baking__heading h2 { margin: 0; color: #241d16; font: 400 clamp(25px,2.2cqw,40px)/1.12 Georgia,serif; }
+.mmc-baking__ornament { display: flex; align-items: center; gap: 7px; width: 145px; max-width: 50%; margin: 8px auto 0; color: #bc914b; font: 21px/1 Georgia,serif; }
+.mmc-baking__ornament::before,.mmc-baking__ornament::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg,transparent,#c09b63); }
+.mmc-baking__ornament::after { transform: scaleX(-1); }
+.mmc-baking__features { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
+.mmc-baking__features li { display: flex; align-items: flex-start; gap: 17px; }
+.mmc-baking__icon { flex: 0 0 clamp(44px,3.7cqw,64px); aspect-ratio: 1; box-sizing: border-box; border: 1px solid #b99155; border-radius: 50%; display: grid; place-items: center; color: #b1813d; background: #fffaf255; box-shadow: inset 0 0 0 3px #fff9ec; }
+.mmc-baking__icon svg { display: block; width: 72%; height: 72%; }
+.mmc-baking__features h3 { margin: 0 0 4px; color: #2c241b; font: 600 clamp(16px,1.25cqw,22px)/1.2 Georgia,serif; }
+.mmc-baking__features p { margin: 0; color: #3c3125; font: 400 clamp(14px,1.02cqw,18px)/1.35 Georgia,serif; }
+@media(max-width:1024px) {
+ .mmc-baking { height: auto; padding: 36px 0 0; background: #faf2e5; }
+ .mmc-baking__copy { position: relative; left: auto; top: auto; transform: none; width: min(100%,560px); padding: 0 24px; box-sizing: border-box; margin: 0 auto 24px; }
+ .mmc-baking__heading h2 { font-size: clamp(28px,5vw,36px); }
+ .mmc-baking__heading>p { font-size: 14px; }
+ .mmc-baking__features { gap: 20px; }
+ .mmc-baking__icon { flex-basis: 50px; }
+ .mmc-baking__features h3 { font-size: 19px; }
+ .mmc-baking__features p { font-size: 16px; line-height: 1.45; }
+ .mmc-baking::after { content: ''; display: block; width: 100%; aspect-ratio: 1.65; max-height: 400px; background: url('../images/mmc/baking-background.png') right center / 160% auto no-repeat; }
+}
+

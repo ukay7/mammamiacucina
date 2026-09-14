@@ -1,0 +1,7 @@
+# The Art of Italian Baking
+
+Sixth homepage section with static HTML copy and inline SVG icons. A single scroll-linked background moves at the same 0.35 rate as Our Tradition. Motion is disabled for reduced-motion preferences and on the stacked mobile/tablet layout. The section shares the 1920px maximum width of preceding sections.
+
+Background recreated from the supplied mockup with the built-in image generation tool. Saved at public/assets/images/mmc/baking-background.png.
+
+Prompt: Recreate this reference as ONLY a high-resolution bakery background photograph, removing every text, icon, divider, border, white strip and dark outer gutter. Preserve its composition: pale warm ivory parchment tabletop, LEFT 38% completely empty quiet parchment for HTML text; RIGHT green Sicilian cassata cake with white icing candied citrus radial pattern and red cherry, wedge removed revealing ricotta filling, on gold board near center-right; far right ivory plate with two chocolate-drizzled layered sfogliatelle pastries, orange half and chocolate curls; wheat ears behind at top. Warm soft natural lighting, premium photorealistic food styling. Entire cake and pastry plate visible with small margins. Landscape 3:1 at least 2100px wide; add extra quiet parchment above and below the food to allow vertical parallax cropping. No lettering, logos, icons or text anywhere. Follow the reference food arrangement and palette faithfully.

@@ -1,0 +1,4 @@
+@extends('layouts.mmc-page', ['pageTitle' => 'Order Confirmation'])
+@section('page-content')
+<nav class="mmc-shopping-steps"><span>01 · Cart</span><span>02 · Checkout</span><strong>03 · Confirmation</strong></nav><section class="mmc-success mmc-panel"><div class="mmc-success-icon" aria-hidden="true">✓</div><p class="mmc-eyebrow">THANK YOU FOR CHOOSING MAMMA MIA</p><h2>A Sweet Moment Awaits</h2><p>This is how your order confirmation will look.</p><p class="mmc-note">Design preview only — no order has been placed and no payment has been taken.</p><div data-checkout-items></div><div class="mmc-summary-line"><span>Preview subtotal</span><strong data-cart-total>$0.00</strong></div><a class="mmc-button" href="{{ route('theme.product-grid') }}">Continue Exploring</a><a class="mmc-text-link" href="{{ route('theme.index') }}">Return Home</a></section>
+@endsection

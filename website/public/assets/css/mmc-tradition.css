@@ -1,0 +1,33 @@
+.mmc-tradition { position: relative; isolation: isolate; overflow: hidden; height: clamp(390px,30vw,620px); padding: 0; background: #faf2e5 url('../images/mmc/tradition-caprese.png') center calc(50% + var(--tradition-parallax, 0px)) / auto max(calc(100% + 180px), 33.34vw) no-repeat; border-top: 1px solid #fff8ed; border-bottom: 1px solid #fff8ed; }
+.mmc-tradition__copy { position: absolute; z-index: 2; left: 8.5%; top: 50%; transform: translateY(-50%); width: 25%; text-align: center; color: #261d15; }
+.mmc-tradition__eyebrow { font: 400 clamp(13px,1.15vw,20px)/1.3 Georgia,serif; color: #a6742b; text-transform: uppercase; letter-spacing: .045em; margin: 0; }
+.mmc-tradition__rule { display: flex; align-items: center; justify-content: center; gap: 6px; width: 42%; margin: 8px auto 13px; font: 20px/1 Georgia,serif; color: #be9345; }
+.mmc-tradition__rule::before,.mmc-tradition__rule::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg,transparent,#b98d44); }
+.mmc-tradition__rule::after { transform: scaleX(-1); }
+.mmc-tradition__copy h2 { font: 400 clamp(27px,2.7vw,48px)/1.04 Georgia,'Times New Roman',serif; color: #21180f; letter-spacing: -.02em; margin: 0 0 18px; }
+.mmc-tradition__description { font: 400 clamp(14px,1.15vw,20px)/1.48 Georgia,'Times New Roman',serif; color: #34291c; margin: 0; }
+.mmc-tradition__ornament { margin-top: 17px; color: #bf9858; font: 20px/1 Georgia,serif; }
+@media(max-width:900px) {
+ .mmc-tradition { height: auto; min-height: 610px; padding: 36px 22px 280px; background: #faf2e5 url('../images/mmc/tradition-caprese.png') right bottom / auto 260px no-repeat; }
+ .mmc-tradition__copy { position: relative; left: auto; top: auto; transform: none; width: min(100%,430px); margin: 0 auto; }
+ .mmc-tradition__copy h2 { font-size: 32px; }
+ .mmc-tradition__description { font-size: 15px; }
+}
+
+
+
+@media (max-width: 1024px) {
+ .mmc-tradition { height: auto; min-height: 0; padding: 38px 0 0; background: #faf2e5; }
+ .mmc-tradition__copy { position: relative; left: auto; top: auto; transform: none; width: min(100%, 540px); box-sizing: border-box; padding: 0 24px; margin: 0 auto 22px; }
+ .mmc-tradition__copy h2 { font-size: clamp(29px,5vw,38px); line-height: 1.12; }
+ .mmc-tradition__description { font-size: 16px; line-height: 1.6; }
+ .mmc-tradition::after { content: ''; display: block; width: 100%; aspect-ratio: 2 / 1; max-height: 360px; background: url('../images/mmc/tradition-caprese.png') right center / 150% auto no-repeat; }
+}
+
+/* Align both introductory sections to the same desktop canvas. */
+@media (min-width: 1025px) {
+ .mmc-tradition { width: 100%; max-width: 1920px; margin-inline: auto; container-type: inline-size; height: clamp(390px,30vw,576px); background-size: auto calc(100% + 180px); }
+ .mmc-tradition__eyebrow { font-size: clamp(13px,1.15cqw,20px); }
+ .mmc-tradition__copy h2 { font-size: clamp(27px,2.7cqw,48px); }
+ .mmc-tradition__description { font-size: clamp(14px,1.15cqw,20px); }
+}

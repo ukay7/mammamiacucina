@@ -1,0 +1,16 @@
+# Local runtime and generated tooling
+/.tools/
+**/node_modules/
+**/vendor/
+**/.env
+**/.env.*
+!**/.env.example
+**/auth.json
+**/*.log
+**/*.sqlite
+**/*.sqlite-shm
+**/*.sqlite-wal
+**/.DS_Store
+**/Thumbs.db
+**/*.pem
+**/*.key
