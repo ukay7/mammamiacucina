@@ -1,2 +1,1 @@
-<script id="mmc-catalogue-data" type="application/json">{!! json_encode(config('catalogue.products'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
-<script src="{{ asset('assets/js/mmc-shop.js') }}?v={{ filemtime(public_path('assets/js/mmc-shop.js')) }}"></script>
+<script src="{{ asset('assets/js/mmc-live-shop.js') }}?v={{ filemtime(public_path('assets/js/mmc-live-shop.js')) }}"></script>

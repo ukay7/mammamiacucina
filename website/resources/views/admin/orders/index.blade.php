@@ -1,0 +1,6 @@
+@extends('admin.layout')
+@section('title','Orders')
+@section('content')
+<form method="get" class="mmc-filters"><label>Search orders<input class="form-control" name="q" value="{{ $search }}" placeholder="Order number, customer or email"></label><button class="btn btn-primary">Search</button><a href="{{ route('admin.orders.index') }}">Reset</a></form>
+<div class="panel"><div class="panel-container show"><div class="panel-content table-responsive"><table class="table"><thead><tr><th>Order / Date</th><th>Customer</th><th>Product subtotal (CAD)</th><th>Status</th><th>Payment</th><th></th></tr></thead><tbody>@forelse($orders as $order)<tr><td>{{ $order->number }}<small class="d-block">{{ $order->created_at->format('d M Y H:i') }}</small></td><td>{{ $order->first_name }} {{ $order->last_name }}<small class="d-block">{{ $order->email }}</small></td><td>${{ number_format($order->subtotal_cents/100,2) }}</td><td>{{ ucfirst($order->status) }}</td><td>Cash · {{ ucfirst($order->payment_status) }}</td><td><a class="btn btn-outline-primary btn-sm" href="{{ route('admin.orders.show',$order) }}">View</a></td></tr>@empty<tr><td colspan="6">No orders yet.</td></tr>@endforelse</tbody></table>{{ $orders->links() }}</div></div></div>
+@endsection

@@ -71,4 +71,19 @@ class StorefrontCatalogueTest extends TestCase
         $this->getJson('/product-grid')->assertJsonPath('total', 0);
         $this->get(route('catalogue.media',[$product, $image]))->assertNotFound();
     }
+    public function test_header_lists_all_active_categories_and_unfiltered_products_link(): void
+    {
+        $category=Category::create(['name'=>'Seasonal Specials','slug'=>'seasonal-specials','is_active'=>true,'sort_order'=>2]);
+        Category::create(['name'=>'Hidden Category','slug'=>'hidden-category','is_active'=>false]);
+        $product=$this->product('Special','15');$product->categories()->sync([$category->id]);
+        foreach(['/','/about','/product-grid'] as $url){
+            $response=$this->get($url)->assertOk();
+            $menu=explode('</ul>',explode('id="mmc-products-submenu"',$response->getContent())[1])[0];
+            $this->assertStringContainsString('>All Products</a>',$menu);
+            $this->assertStringContainsString(route('theme.product-grid',['category'=>'seasonal-specials']),$menu);
+            $this->assertStringContainsString('Seasonal Specials',$menu);
+            $this->assertStringNotContainsString('Hidden Category',$menu);
+        }
+        $this->getJson('/product-grid?category=seasonal-specials')->assertJsonPath('total',1);
+    }
 }

@@ -1,4 +1,2 @@
-@extends('layouts.mmc-page', ['pageTitle' => 'Your Cart'])
-@section('page-content')
-<nav class="mmc-shopping-steps" aria-label="Shopping steps"><strong>01 · Cart</strong><span>02 · Checkout</span><span>03 · Confirmation</span></nav><div class="mmc-cart-layout ps-cart-listing"><div><div data-cart-items></div><a class="mmc-text-link" href="{{ route('theme.product-grid') }}">← Continue Shopping</a></div><aside class="mmc-panel"><h2>Order Summary</h2><div class="mmc-summary-line"><span>Subtotal</span><strong data-cart-total>$0.00</strong></div><p class="mmc-note">Delivery and tax will be confirmed when ordering is available.</p><p class="mmc-note">Browser preview only. No order is submitted.</p><a class="mmc-button" href="{{ route('theme.checkout') }}">Proceed to Checkout</a></aside></div>
-@endsection
+@extends('layouts.mmc-page',['pageTitle'=>'Your Cart'])
+@section('page-content')<p role="status" data-cart-feedback>{{ session('cart_status') }}</p><div data-live-cart-content>@include('partials.live-cart')</div>@endsection

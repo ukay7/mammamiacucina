@@ -1,6 +1,7 @@
 <?php
 
 return ['permissions' => [
+    'orders.view' => 'View orders and customer details',
     'banners.view' => 'View home banners',
     'banners.manage' => 'Create and edit home banners',
     'dashboard.view' => 'View dashboard',

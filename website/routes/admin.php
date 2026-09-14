@@ -14,6 +14,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::get('/login', [AuthController::class, 'create'])->name('login');
     Route::post('/login', [AuthController::class, 'store'])->middleware('throttle:10,1')->name('login.store');
     Route::middleware(['auth', 'auth.session', AdminAccess::class])->group(function () {
+        Route::get('/orders',[\App\Http\Controllers\Admin\OrderController::class,'index'])->middleware(AdminAccess::class.':orders.view')->name('orders.index');
+        Route::get('/orders/{order}',[\App\Http\Controllers\Admin\OrderController::class,'show'])->middleware(AdminAccess::class.':orders.view')->name('orders.show');
         Route::get('/banners', [\App\Http\Controllers\Admin\BannerController::class, 'index'])->middleware(AdminAccess::class.':banners.view')->name('banners.index');
         Route::resource('banners', \App\Http\Controllers\Admin\BannerController::class)->only(['create','store','edit','update'])->middleware(AdminAccess::class.':banners.manage');
         foreach (['categories' => CategoryController::class, 'products' => ProductController::class] as $module => $controller) {
