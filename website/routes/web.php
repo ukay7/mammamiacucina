@@ -24,6 +24,11 @@ Route::patch('/cart/items/{product}', [\App\Http\Controllers\CartController::cla
 Route::delete('/cart/items/{product}', [\App\Http\Controllers\CartController::class,'remove'])->block(10,10)->name('cart.remove');
 Route::post('/checkout',[\App\Http\Controllers\CheckoutController::class,'store'])->block(10,10)->middleware('throttle:20,1')->name('checkout.store');
 foreach (config('theme.pages') as $page) {
+    if ($page === 'product-detail') {
+        Route::redirect('/product-detail', '/product-grid', 301)->name('theme.product-detail');
+        Route::redirect('/product-detail.html', '/product-grid', 301);
+        continue;
+    }
     if($page==='gallery'){Route::get('/gallery',[\App\Http\Controllers\GalleryController::class,'index'])->name('theme.gallery');Route::redirect('/gallery.html','/gallery',301);continue;}
     if(in_array($page,['checkout','order-success'])){Route::get('/'.$page,[\App\Http\Controllers\CheckoutController::class,$page==='checkout'?'create':'success'])->name('theme.'.$page);Route::redirect('/'.$page.'.html','/'.$page,301);continue;}
     if($page==='cart'){Route::get('/cart',[\App\Http\Controllers\CartController::class,'index'])->name('theme.cart');Route::redirect('/cart.html','/cart',301);continue;}
