@@ -22,13 +22,7 @@ class Product extends Model
 
     public function getBarcodeNumberAttribute(): string
     {
-        // Derived from the immutable primary key: existing products need no data rewrite.
-        return 'MMC-P-'.str_pad((string) $this->id, 8, '0', STR_PAD_LEFT);
-    }
-
-    public static function idFromBarcode(string $value): ?int
-    {
-        return preg_match('/^MMC-P-(\d{8,18})$/D', $value, $match) ? (int) $match[1] : null;
+        return (string) $this->qr_code;
     }
 
     public function media()

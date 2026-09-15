@@ -10,5 +10,5 @@ Served locally; the POS never sends product codes or camera frames to a CDN.
   https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/barcodes/JsBarcode.code128.min.js
   MIT license in JSBARCODE-LICENSE.txt.
 
-Generated MMC barcodes are internal Code128 identifiers derived from the product ID.
+Printed Code128 barcodes encode exactly the Product QR Code field, without any prefix or product ID.
 Existing supplier QR and product codes are preserved and also supported by POS lookup.

@@ -36,6 +36,18 @@ class PosSaleTest extends TestCase
         return $this->postJson(route('admin.pos.store'), array_merge(['quote' => $quote['quote'], 'payment_method' => 'cash', 'payment_status' => 'paid'], $extra));
     }
 
+    public function test_barcode_label_uses_only_qr_field_and_preserves_leading_zeros(): void
+    {
+        $this->staff();
+        $product = $this->product('QR-LABEL');
+        $product->update(['qr_code' => '00100068']);
+        $this->assertSame('00100068', $product->barcode_number);
+        $this->get(route('admin.products.labels', ['product_ids' => [$product->id]]))
+            ->assertOk()->assertSee('data-code="00100068"', false)->assertDontSee('MMC-P-');
+        $this->getJson(route('admin.pos.products', ['q' => '00100068', 'scan' => 1]))
+            ->assertOk()->assertJsonPath('products.0.id', $product->id)->assertJsonPath('products.0.barcode', '00100068');
+        $this->get('/admin/products')->assertOk()->assertSee('fa-eye')->assertSee('fa-edit')->assertSee('fa-barcode');
+    }
     public function test_counter_sale_uses_selling_price_tax_no_delivery_and_retries_once(): void
     {
         $this->staff();
@@ -132,7 +144,7 @@ class PosSaleTest extends TestCase
         $this->get('/admin/pos')->assertOk()->assertSee('Scan with camera');
         $this->get(route('admin.products.labels',['product_ids'=>[$product->id],'copies'=>2]))->assertOk()->assertSee($product->barcode_number)->assertSee('Print / Save as PDF');
         $this->get('/admin/products')->assertOk()->assertSee($product->barcode_number);
-        $this->get(route('admin.products.index',['q'=>$product->barcode_number]))->assertOk()->assertViewHas('products',fn ($rows)=>$rows->total()===1 && $rows->first()->id===$product->id);
+        $this->get(route('admin.products.index',['q'=>$product->barcode_number]))->assertOk()->assertViewHas('products',fn ($rows)=>$rows->contains('id', $product->id));
     }
 
     public function test_permissions_quote_ownership_and_tampering(): void

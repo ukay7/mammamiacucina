@@ -18,17 +18,14 @@ class PosController extends Controller
     {
         $data = $request->validate(['q' => 'required|string|max:255', 'scan' => 'nullable|boolean']);
         $term = trim($data['q']);
-        $barcodeId = Product::idFromBarcode($term);
         $query = Product::with(['inventory', 'media' => fn ($q) => $q->where('kind', 'image')->limit(1)]);
         if ($request->boolean('scan')) {
-            $query->where(function ($q) use ($term, $barcodeId) {
+            $query->where(function ($q) use ($term) {
                 $q->where('qr_code', $term)->orWhere('product_code', $term);
-                if ($barcodeId !== null) $q->orWhere('id', $barcodeId);
             });
         } else {
-            $query->where(function ($q) use ($term, $barcodeId) {
+            $query->where(function ($q) use ($term) {
                 $q->where('premium_marketing_name', 'like', '%'.$term.'%')->orWhere('product_code', 'like', '%'.$term.'%')->orWhere('qr_code', 'like', '%'.$term.'%');
-                if ($barcodeId !== null) $q->orWhere('id', $barcodeId);
             });
         }
         return response()->json(['products' => $query->orderBy('premium_marketing_name')->limit(20)->get()->map(function ($product) {

@@ -38,8 +38,8 @@
 
 ## Barcode labels
 
-- Manage Products displays a stable barcode such as MMC-P-00001234.
-- This internal Code128 identifier is derived from the product ID. Existing QR
+- Barcode labels encode exactly the Product QR Code field (for example 100068), including any leading zeros.
+- Code128 is the printed barcode format; no prefix or product ID is added. Existing QR
   codes, supplier product codes and product records are not rewritten.
 - POS also accepts existing QR codes and supplier codes. If a code matches multiple
   products, staff must choose the correct product.
