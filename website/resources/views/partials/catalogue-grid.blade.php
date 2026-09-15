@@ -1,23 +1,30 @@
 <div class="mmc-shop-layout">
-<aside class="mmc-shop-sidebar" aria-label="Product filters">
-<section><h2>Category</h2><nav class="mmc-shop-categories" aria-label="Product categories">
-<a href="{{ route('theme.product-grid',request()->except(['category','page'])) }}" @if(!$category) aria-current="page" @endif><span class="mmc-category-check" aria-hidden="true">{{ !$category?'✓':'' }}</span>All Products <small>({{ $allCount }})</small></a>
-@foreach($categories as $item)<a href="{{ route('theme.product-grid',array_merge(request()->except(['category','page']),['category'=>$item->slug])) }}" @if($category===$item->slug) aria-current="page" @endif><span class="mmc-category-check" aria-hidden="true">{{ $category===$item->slug?'✓':'' }}</span>{{ $item->name }} <small>({{ $item->products_count }})</small></a>@endforeach
-</nav></section>
-<section><h2>Allergies & Dietary Labels</h2><form class="mmc-allergy-filter" method="get" action="{{ route('theme.product-grid') }}">
-@foreach(request()->except(['allergy','page']) as $key=>$value)@if(is_scalar($value))<input type="hidden" name="{{ $key }}" value="{{ $value }}">@endif @endforeach
-<label for="allergy-filter">Show products labelled</label><select class="form-control" id="allergy-filter" name="allergy"><option value="">All products</option>@foreach($allergies as $label)<option value="{{ $label->id }}" @selected((string)$allergy===(string)$label->id)>{{ $label->name }}</option>@endforeach</select><button class="mmc-button" type="submit">Apply</button></form></section>
-<section><h2>Filter Prices</h2><form method="get" action="{{ route('theme.product-grid') }}" class="mmc-price-filter">
-@foreach(['allergy'=>$allergy,'category'=>$category,'sort'=>$sort,'show'=>$perPage,'view'=>$view] as $key=>$value)<input type="hidden" name="{{ $key }}" value="{{ $value }}">@endforeach
+<aside class="mmc-shop-sidebar mmc-refined-filters" aria-label="Product filters">
+<div class="mmc-filter-heading"><h2>Filters</h2><a href="{{ route('theme.product-grid') }}">Clear all</a></div>
+<section><h3>Categories <span>{{ $categories->count() }}</span></h3>
+<label class="sr-only" for="category-search">Search categories</label><input id="category-search" class="mmc-category-search" type="search" placeholder="Search categories…" autocomplete="off">
+<nav class="mmc-shop-categories mmc-filter-scroll" aria-label="Product categories">
+<a href="{{ route('theme.product-grid',request()->except(['category','page','allergy'])) }}" @if(!$category) aria-current="page" @endif><span class="mmc-category-check" aria-hidden="true">{{ !$category?'✓':'' }}</span><span>All Products</span><small>{{ $allCount }}</small></a>
+@foreach($categories as $item)<a data-category-name="{{ $item->name }}" href="{{ route('theme.product-grid',array_merge(request()->except(['category','page','allergy']),['category'=>$item->slug])) }}" @if($category===$item->slug) aria-current="page" @endif><span class="mmc-category-check" aria-hidden="true">{{ $category===$item->slug?'✓':'' }}</span><span>{{ $item->name }}</span><small>{{ $item->products_count }}</small></a>@endforeach
+</nav><p data-category-empty hidden>No matching categories.</p></section>
+<section><h3>Allergies & Dietary Labels</h3><p class="mmc-filter-hint">Show products with any selected label.</p>
+<form class="mmc-allergy-filter" method="get" action="{{ route('theme.product-grid') }}">
+@foreach(['category'=>$category,'sort'=>$sort,'show'=>$perPage,'view'=>$view,'min'=>$min,'max'=>$max] as $key=>$value)@if($value!==null)<input type="hidden" name="{{ $key }}" value="{{ $value }}">@endif @endforeach
+<div class="mmc-filter-scroll mmc-allergy-options">
+@foreach($allergies as $label)<label class="mmc-allergy-option" for="allergy-{{ $label->id }}"><input type="checkbox" id="allergy-{{ $label->id }}" name="allergies[]" value="{{ $label->id }}" @checked(in_array($label->id,$selectedAllergies))><img src="{{ $label->iconUrl() }}" alt="" width="26" height="26" loading="lazy"><span>{{ $label->name }}</span></label>@endforeach
+</div><noscript><button class="mmc-button" type="submit">Apply Labels</button></noscript></form></section>
+<section><h3>Price range <span>CAD</span></h3><form method="get" action="{{ route('theme.product-grid') }}" class="mmc-price-filter">
+@foreach($selectedAllergies as $id)<input type="hidden" name="allergies[]" value="{{ $id }}">@endforeach
+@foreach(['category'=>$category,'sort'=>$sort,'show'=>$perPage,'view'=>$view] as $key=>$value)<input type="hidden" name="{{ $key }}" value="{{ $value }}">@endforeach
 <div class="mmc-price-fields"><label>Min ($)<input type="number" name="min" min="0" step="0.01" placeholder="0" value="{{ $min }}"></label><span aria-hidden="true">–</span><label>Max ($)<input type="number" name="max" min="0" step="0.01" placeholder="Any" value="{{ $max }}"></label></div>
-<button class="mmc-button" type="submit">Filter</button><a href="{{ route('theme.product-grid',['category'=>$category]) }}">Reset</a>
-<p class="mmc-note">Price-on-request products are excluded when a price filter is applied.</p>
+<button class="mmc-button" type="submit">Apply price</button>
+<p class="mmc-filter-hint">Products without a price are excluded when a price filter is set.</p>
 </form></section>
-
 </aside>
 <div class="mmc-shop-main">
 <form class="mmc-shop-toolbar" method="get" action="{{ route('theme.product-grid') }}" aria-label="Product display options">
-<input type="hidden" name="allergy" value="{{ $allergy }}"><input type="hidden" name="category" value="{{ $category }}">
+@foreach($selectedAllergies as $id)<input type="hidden" name="allergies[]" value="{{ $id }}">@endforeach
+<input type="hidden" name="category" value="{{ $category }}">
 @if($min!==null)<input type="hidden" name="min" value="{{ $min }}">@endif
 @if($max!==null)<input type="hidden" name="max" value="{{ $max }}">@endif
 <label for="shop-sort">Sort by<select id="shop-sort" name="sort"><option value="featured" @selected($sort==='featured')>Latest products</option><option value="name" @selected($sort==='name')>Name: A–Z</option><option value="price-low" @selected($sort==='price-low')>Price: low to high</option><option value="price-high" @selected($sort==='price-high')>Price: high to low</option></select></label>

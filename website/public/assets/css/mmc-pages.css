@@ -183,3 +183,39 @@
 .mmc-checkout-summary{align-self:start;min-width:0}.mmc-checkout-summary>.mmc-eyebrow{margin-bottom:8px}.mmc-checkout-summary>h2{margin:0 0 22px;font-size:34px}.mmc-checkout-items{border-bottom:1px solid #dfcba5;padding-bottom:14px}.mmc-checkout-item{display:flex;justify-content:space-between;gap:18px;padding:10px 0}.mmc-checkout-item>span{min-width:0;overflow-wrap:anywhere}.mmc-checkout-item small{display:block;font-size:13px;color:#8b704c;margin-top:4px}.mmc-checkout-item>strong{white-space:nowrap}.mmc-checkout-charges{padding:14px 0 20px}.mmc-checkout-charges>div{display:flex;justify-content:space-between;gap:16px;padding:7px 0}.mmc-checkout-charges .mmc-checkout-subtotal{font-size:18px;color:#3d2915;padding:10px 0 14px}.mmc-checkout-subtotal strong{font-weight:700}.mmc-checkout-subtotal small{font-size:12px}.mmc-checkout-total{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:20px;border:1px solid #d3a550;border-radius:6px;background:#f1e5ce;color:#4e3219}.mmc-checkout-total>div>strong{font-size:18px;font-weight:700}.mmc-checkout-total small{display:block;margin-top:4px;font-size:11px;color:#735b38}.mmc-checkout-total>strong{font-size:28px;font-weight:700;color:#8e0718;white-space:nowrap}.mmc-checkout-payment{display:flex;gap:12px;align-items:start;padding:22px 0 18px}.mmc-checkout-payment strong{font-size:15px}.mmc-checkout-payment p{font-size:13px;line-height:1.5;margin:5px 0 0}.mmc-payment-dot{flex:0 0 16px;height:16px;border:4px solid #fffaf2;outline:1px solid #b98c43;border-radius:50%;background:#8e0718;margin-top:4px}.mmc-checkout-summary>.mmc-button{width:100%}@media(max-width:400px){.mmc-checkout-total{padding:15px;flex-wrap:wrap}.mmc-checkout-total>strong{font-size:25px}}
 
 .mmc-live-stage img{cursor:default}.mmc-product-allergies{margin-top:24px;border-top:1px solid #dfc69c;padding-top:18px}.mmc-product-allergies h3{font-size:22px}.mmc-product-allergies ul{display:flex;flex-wrap:wrap;gap:12px;list-style:none;padding:0}.mmc-product-allergies li{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#fffaf2;border:1px solid #dfc69c;border-radius:8px;font-size:14px}.mmc-product-allergies img{object-fit:contain}.mmc-allergy-filter select{width:100%;margin:10px 0 12px}
+
+.mmc-shop-sidebar.mmc-refined-filters{background:#fffaf2;border:1px solid #e4d3b6;border-radius:14px;padding:20px;align-self:start;}
+.mmc-refined-filters .mmc-filter-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px;}
+.mmc-refined-filters .mmc-filter-heading h2{font:400 26px Georgia,serif;margin:0;}
+.mmc-refined-filters .mmc-filter-heading a{font-size:12px;color:#990018;text-decoration:underline;}
+.mmc-refined-filters section{padding:18px 0;margin:0;border-top:1px solid #ecdfcd;}
+.mmc-refined-filters section:last-child{padding-bottom:0;}
+.mmc-refined-filters h3{display:flex;justify-content:space-between;align-items:center;font:600 15px/1.5 Poppins,sans-serif;margin:0 0 12px;color:#38291c;}
+.mmc-refined-filters h3 span{font-size:11px;color:#947341;background:#f1e7d5;padding:2px 7px;border-radius:20px;}
+.mmc-refined-filters .mmc-category-search{width:100%;border:1px solid #dfcba8;border-radius:7px;background:#fff;padding:10px 12px;font-size:13px;margin-bottom:10px;}
+.mmc-refined-filters .mmc-filter-scroll{max-height:285px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#d6c2a0 transparent;padding-right:5px;}
+.mmc-refined-filters .mmc-shop-categories a{display:flex;align-items:center;gap:9px;padding:9px 8px;margin:0;border-radius:7px;font-size:13px;line-height:1.5;}
+.mmc-refined-filters .mmc-shop-categories a[hidden]{display:none;}
+.mmc-refined-filters .mmc-shop-categories a[aria-current],.mmc-refined-filters .mmc-allergy-option:has(input:checked){background:#f5e8dc;color:#94051b;}
+.mmc-refined-filters .mmc-category-check{width:18px;height:18px;flex:0 0 18px;font-size:12px;}
+.mmc-refined-filters .mmc-shop-categories small{margin-left:auto;font-size:11px;color:#8f7759;}
+.mmc-refined-filters .mmc-filter-hint{font-size:11px;line-height:1.6;color:#89745d;margin:0 0 10px;}
+.mmc-refined-filters .mmc-allergy-option{display:flex;align-items:center;gap:8px;padding:8px;margin:0;border-radius:7px;cursor:pointer;font-size:13px;font-weight:400;}
+.mmc-refined-filters .mmc-allergy-option input{width:16px;height:16px;margin:0;accent-color:#990018;flex-shrink:0;}
+.mmc-refined-filters .mmc-allergy-option img{object-fit:contain;flex-shrink:0;}
+.mmc-refined-filters .mmc-price-fields input{width:100%;border-radius:6px;background:white;}
+.mmc-refined-filters .mmc-button{width:100%;font-size:13px;padding:10px 16px;margin:12px 0;}
+.mmc-refined-filters input:focus-visible,.mmc-refined-filters a:focus-visible{outline:2px solid #b58a40;outline-offset:2px;}
+
+.mmc-shop-sidebar.mmc-refined-filters section+section{margin-top:0}.mmc-shop-sidebar.mmc-refined-filters section{padding-top:12px;padding-bottom:12px}.mmc-refined-filters .mmc-shop-categories{gap:4px}.mmc-refined-filters .mmc-filter-heading{margin-bottom:12px}
+/* Compact catalogue cards; preserve list-view layout. */
+.mmc-shop-products:not(.is-list){gap:18px;}
+.mmc-shop-products:not(.is-list) .mmc-product-card{padding-bottom:12px;}
+.mmc-shop-products:not(.is-list) .mmc-product-image{aspect-ratio:3/2;}
+.mmc-shop-products:not(.is-list) .mmc-product-card h3{font-size:17px;line-height:1.35;margin:13px 8px 8px;overflow-wrap:anywhere;}
+.mmc-shop-products:not(.is-list) .mmc-product-card .mmc-price{font-size:16px;line-height:1.4;margin:0 0 12px;}
+.mmc-shop-products:not(.is-list) .mmc-product-card>.mmc-text-link{display:inline-block;font-size:13px;line-height:1.5;margin:0;padding:4px 0;}
+.mmc-shop-products:not(.is-list) .mmc-hover-cart button{width:46px;height:46px;}
+.mmc-shop-products:not(.is-list) .mmc-hover-cart svg{width:24px;height:24px;}
+@media(min-width:1280px){.mmc-shop-products:not(.is-list){grid-template-columns:repeat(4,minmax(0,1fr));}}
+@media(max-width:700px){.mmc-shop-products:not(.is-list){gap:12px;}.mmc-shop-products:not(.is-list) .mmc-product-card h3{font-size:15px;margin:10px 4px 6px;}.mmc-shop-products:not(.is-list) .mmc-product-card .mmc-price{font-size:14px;}}

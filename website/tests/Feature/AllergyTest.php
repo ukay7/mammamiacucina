@@ -22,6 +22,14 @@ class AllergyTest extends TestCase {
   unset($data['allergy_ids']);$this->put('/admin/products/'.$p->id,$data)->assertSessionHasNoErrors();$this->assertCount(0,$p->fresh()->allergies);
   $this->get('/products/'.$p->slug)->assertOk()->assertDontSee('mmc-product-allergies');
  }
+ public function test_multiple_labels_match_any_without_duplicates_and_preserve_selection():void {
+  $ids=Allergy::orderBy('id')->limit(2)->pluck('id')->all();
+  $p=Product::create(['category_id'=>1,'slug'=>'multi-label','premium_marketing_name'=>'Multi Label Cake','is_active'=>true,'total_selling_price_cad'=>10]);$p->allergies()->sync($ids);
+  $query=http_build_query(['allergies'=>$ids,'sort'=>'price-low','min'=>5]);
+  $this->getJson('/product-grid?'.$query)->assertOk()->assertJsonPath('total',1);
+  $this->get('/product-grid?'.$query)->assertOk()->assertSee('name="allergies[]"',false)->assertSee('Search categories');
+  $this->getJson('/product-grid?allergies[]=999999')->assertUnprocessable();
+ }
  public function test_crud_upload_validation_and_access():void {
   Storage::fake('local');$this->get('/admin/allergies')->assertRedirect();
   $this->actingAs(User::factory()->create(['role_id'=>Role::where('is_super',true)->value('id'),'is_active'=>true]));
