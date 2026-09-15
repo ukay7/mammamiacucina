@@ -36,3 +36,18 @@
 .mmc-home #back2top i { color: #fff4e5; }
 .mmc-home #back2top:hover { background: #ac1127; border-color: #ebc772; }
 .mmc-home #back2top:hover i { color: #ebc772; }
+/* Compact footer with grouped business hours. */
+.ps-footer.mmc-footer-compact { padding:40px 0 28px; }
+.ps-footer.mmc-footer-compact .ps-widget { margin-bottom:16px;padding-bottom:0; }
+.ps-footer.mmc-footer-compact .ps-widget__header { margin-bottom:16px;padding-bottom:0; }
+.ps-footer.mmc-footer-compact .ps-widget__title { font-size:17px;line-height:1.3;margin:0; }
+.ps-footer.mmc-footer-compact .mmc-footer-brand { width:160px;max-width:100%;margin:0 auto; }
+.ps-footer.mmc-footer-compact .ps-widget__content p { font-size:14px;line-height:1.6;margin:0 0 12px; }
+.ps-footer.mmc-footer-compact .mmc-hours-row strong { display:block;font-size:13px;font-weight:600;margin:0 0 2px; }
+.ps-footer.mmc-footer-compact .mmc-hours-row span { display:block;font-size:14px;white-space:nowrap; }
+.ps-footer.mmc-footer-compact .ps-list--line li { margin-bottom:8px; }
+.ps-footer.mmc-footer-compact .ps-list--line a { font-size:14px;line-height:1.5; }
+.ps-footer.mmc-footer-compact .ps-widget__social { margin:0 0 18px; }
+.ps-footer.mmc-footer-compact .ps-widget__social li { margin-right:18px; }
+.ps-footer.mmc-footer-compact .ps-widget__social a { font-size:18px; }
+@media(max-width:767px) { .ps-footer.mmc-footer-compact { padding:28px 0 16px; } .ps-footer.mmc-footer-compact .mmc-footer-brand { width:130px;margin:0 0 22px; } }

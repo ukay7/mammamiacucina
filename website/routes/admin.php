@@ -14,6 +14,20 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::get('/login', [AuthController::class, 'create'])->name('login');
     Route::post('/login', [AuthController::class, 'store'])->middleware('throttle:10,1')->name('login.store');
     Route::middleware(['auth', 'auth.session', AdminAccess::class])->group(function () {
+        Route::middleware(AdminAccess::class.':gallery.manage')->group(function(){
+            Route::resource('gallery', \App\Http\Controllers\Admin\GalleryController::class)->except('show')->parameters(['gallery'=>'event']);
+            Route::delete('/gallery/{event}/photos/{photo}',[\App\Http\Controllers\Admin\GalleryController::class,'removePhoto'])->name('gallery.photos.remove');
+        });
+        Route::middleware(AdminAccess::class.':enquiries.manage')->group(function(){
+            Route::get('/enquiries',[\App\Http\Controllers\Admin\EnquiryController::class,'index'])->name('enquiries.index');
+            Route::get('/enquiries/{enquiry}',[\App\Http\Controllers\Admin\EnquiryController::class,'show'])->name('enquiries.show');
+            Route::patch('/enquiries/{enquiry}',[\App\Http\Controllers\Admin\EnquiryController::class,'update'])->name('enquiries.update');
+        });
+        Route::get('/orders/{order}/print',[\App\Http\Controllers\Admin\OrderController::class,'printOrder'])->middleware(AdminAccess::class.':orders.view')->name('orders.print');
+        Route::get('/settings/general',[\App\Http\Controllers\Admin\GeneralSettingController::class,'edit'])->middleware(AdminAccess::class.':settings.manage')->name('settings.general');
+        Route::put('/settings/general',[\App\Http\Controllers\Admin\GeneralSettingController::class,'update'])->middleware(AdminAccess::class.':settings.manage')->name('settings.update');
+        Route::patch('/orders/{order}/status',[\App\Http\Controllers\Admin\OrderController::class,'updateStatus'])->middleware(AdminAccess::class.':orders.manage')->name('orders.status');
+        Route::patch('/orders/{order}',[\App\Http\Controllers\Admin\OrderController::class,'update'])->middleware(AdminAccess::class.':orders.manage')->name('orders.update');
         Route::get('/orders',[\App\Http\Controllers\Admin\OrderController::class,'index'])->middleware(AdminAccess::class.':orders.view')->name('orders.index');
         Route::get('/orders/{order}',[\App\Http\Controllers\Admin\OrderController::class,'show'])->middleware(AdminAccess::class.':orders.view')->name('orders.show');
         Route::get('/banners', [\App\Http\Controllers\Admin\BannerController::class, 'index'])->middleware(AdminAccess::class.':banners.view')->name('banners.index');

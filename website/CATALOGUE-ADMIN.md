@@ -80,3 +80,15 @@ Priced products have an Add to Cart hover button and a quantity form on their de
 Cart > Proceed to Checkout collects name, email, phone and delivery address. Place Order stores orders and order_items with immutable product names, codes, quantities and CAD prices; cash is the only payment method and starts unpaid. Product subtotal excludes delivery/tax, which remain unconfirmed (null), not zero. The success page is available only to the ordering session. Duplicate submissions reuse the same order. Checkout rechecks availability, price and stock in a transaction; configured stock is deducted with an inventory movement, while unset stock remains unset.
 
 Admin > Orders lists placed orders and shows customer, address, notes and product details. Super Admin has access automatically; grant orders.view to other user types. Run php artisan migrate during deployment for the two new tables. No payment gateway or customer notification is sent.
+
+
+## Order operations and customer tracking
+
+Grant orders.manage to staff who can change statuses, final delivery/tax amounts, or cash collection; orders.view still controls read/print access. Workflow: Placed > Confirmed > Preparing > Out for Delivery > Delivered. Undelivered orders may be cancelled; tracked stock deductions are restored once. Orders placed without configured stock do not create inventory when cancelled. Record cash as Paid only after collecting it and confirming both charges (0 is a confirmed zero; blank is pending). Paid charges are locked. Cancelling a paid order requires cash returned and Refunded selected. Delivered/cancelled statuses are terminal. Changes record staff/time in Order History and reject stale edits.
+
+Customers can bookmark the private tracking link on confirmation or use order number + private access code at /track-order. The code is printed on the order document. Keep it private: it grants access to delivery details, current status, totals and printing without a browser session. No email/SMS notifications are sent. Existing orders receive private tokens and deduction flags when migrations run. Short references use mmc-{database ID}.
+
+
+## General Settings
+
+Settings > General Settings controls the fixed CAD delivery and tax amounts applied once per new order. Both start at 0.00. Grant settings.manage to authorized staff. Checkout displays the defaults and final total and rechecks them on submission; if they changed while checkout was open, customers must review the new amount. Each order stores its own values so later default changes do not affect existing orders. Individual charges can still be overridden under Orders before payment is collected. Existing orders with pending charges remain pending until individually updated.

@@ -69,3 +69,5 @@
 @media(max-width:480px) { .mmc-arrivals__grid { --visible-products: 1; } }
 
 
+
+.mmc-arrival__actions form{margin:0;display:flex}.mmc-arrival__actions button svg{width:24px;height:24px;}

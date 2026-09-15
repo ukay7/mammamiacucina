@@ -100,4 +100,26 @@
  });
  window.addEventListener('pageshow', () => {const button=document.querySelector('[data-place-order] button[type="submit"]');if(button){button.disabled=false;button.textContent='Place Order';}});
  document.querySelector('[data-contact-preview]')?.addEventListener('submit',e=>{e.preventDefault();document.querySelector('[data-contact-status]').textContent='Please contact us directly while online messaging is being connected.';});
+ document.querySelectorAll('.mmc-categories').forEach(section => {
+  const track=section.querySelector('.mmc-categories__grid');
+  const controls=section.querySelector('.mmc-categories__controls');
+  if(!track || !controls)return;
+  const prev=controls.querySelector('[data-category-prev]');
+  const next=controls.querySelector('[data-category-next]');
+  const sync=()=>{
+   const max=track.scrollWidth-track.clientWidth;
+   controls.hidden=max<=2;
+   prev.disabled=track.scrollLeft<=2;
+   next.disabled=track.scrollLeft>=max-2;
+  };
+  const move=direction=>track.scrollBy({left:direction*(track.querySelector('.mmc-category')?.getBoundingClientRect().width||track.clientWidth),behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+  prev.addEventListener('click',()=>move(-1));next.addEventListener('click',()=>move(1));
+  track.addEventListener('scroll',sync,{passive:true});
+  track.addEventListener('keydown',event=>{
+   if(event.target!==track || !['ArrowLeft','ArrowRight'].includes(event.key))return;
+   event.preventDefault();move(event.key==='ArrowLeft'?-1:1);
+  });
+  window.addEventListener('resize',sync);
+  sync();
+ });
 })();

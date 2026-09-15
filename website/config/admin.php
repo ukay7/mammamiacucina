@@ -1,6 +1,10 @@
 <?php
 
 return ['permissions' => [
+    'gallery.manage' => 'Manage gallery events and photos',
+    'enquiries.manage' => 'View and manage contact enquiries',
+    'settings.manage' => 'Manage general settings and default charges',
+    'orders.manage' => 'Manage order status, charges and cash collection',
     'orders.view' => 'View orders and customer details',
     'banners.view' => 'View home banners',
     'banners.manage' => 'Create and edit home banners',

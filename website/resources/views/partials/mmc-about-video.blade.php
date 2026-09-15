@@ -1,5 +1,5 @@
 @php
-    $youtubeId = config('homepage.youtube_video_id');
+    $youtubeId = $siteSettings?->youtube_video_id;
     $hasVideo = is_string($youtubeId) && preg_match('/^[A-Za-z0-9_-]{11}$/', $youtubeId);
 @endphp
 <section class="mmc-about-video" aria-label="About Mamma Mia Cucina">

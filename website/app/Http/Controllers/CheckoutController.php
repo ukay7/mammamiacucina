@@ -27,10 +27,13 @@ class CheckoutController extends Controller
         foreach ($cart['items'] as $item) {
             $quote[$item['product']->id] = [$item['quantity'], $item['unit_cents']];
         }
+        $settings=\App\Models\GeneralSetting::findOrFail(1);
+        $charges=['delivery'=>$settings->delivery_cents,'tax'=>$settings->taxFor($cart['total']),'rate'=>$settings->tax_basis_points];
+        session(['checkout_charges'=>['delivery'=>$settings->delivery_cents,'rate'=>$settings->tax_basis_points]]);
         $token = (string) Str::uuid();
         session(['checkout_token' => $token, 'checkout_quote' => $quote]);
 
-        return response()->view('pages.checkout', compact('cart', 'token'))->header('Cache-Control', 'no-store, private');
+        return response()->view('pages.checkout', compact('cart', 'token', 'charges'))->header('Cache-Control', 'no-store, private');
     }
 
     public function store(Request $r)
@@ -52,6 +55,8 @@ class CheckoutController extends Controller
             if ($existing = Order::where('checkout_token', $d['checkout_token'])->first()) {
                 return $existing;
             }
+            $settings=\App\Models\GeneralSetting::lockForUpdate()->findOrFail(1);
+            if(session('checkout_charges')!==['delivery'=>$settings->delivery_cents,'rate'=>$settings->tax_basis_points])throw ValidationException::withMessages(['cart'=>'Delivery or tax has changed. Open checkout from your cart again to review the new total.']);
             $products = Product::whereIn('id', array_keys($quantities))->orderBy('id')->lockForUpdate()->get();
             if ($products->count() !== count($quantities)) {
                 throw ValidationException::withMessages(['cart' => 'A product is no longer available. Please review your cart.']);
@@ -74,9 +79,11 @@ class CheckoutController extends Controller
                 $lines[] = [$p, $qty, $price, $inventory];
                 $subtotal += $price * $qty;
             }
-            $order = Order::create(array_merge($d, ['number' => 'MMC-'.strtoupper((string) Str::ulid()), 'subtotal_cents' => $subtotal, 'payment_method' => 'cash', 'payment_status' => 'unpaid', 'status' => 'placed']));
+            $order = Order::create(array_merge($d, ['number' => 'MMC-'.strtoupper((string) Str::ulid()), 'subtotal_cents' => $subtotal, 'delivery_cents'=>$settings->delivery_cents, 'tax_cents'=>$settings->taxFor($subtotal), 'payment_method' => 'cash', 'payment_status' => 'unpaid', 'status' => 'placed']));
+            // The database-generated ID avoids collisions between simultaneous orders.
+            $order->update(['number' => 'mmc-'.$order->id]);
             foreach ($lines as [$p,$qty,$price,$inventory]) {
-                $order->items()->create(['product_id' => $p->id, 'name' => $p->premium_marketing_name, 'product_code' => $p->product_code, 'qr_code' => $p->qr_code, 'quantity' => $qty, 'unit_cents' => $price, 'line_cents' => $price * $qty]);
+                $order->items()->create(['product_id' => $p->id, 'name' => $p->premium_marketing_name, 'product_code' => $p->product_code, 'qr_code' => $p->qr_code, 'stock_deducted' => $inventory && $inventory->quantity_on_hand !== null, 'quantity' => $qty, 'unit_cents' => $price, 'line_cents' => $price * $qty]);
                 if ($inventory && $inventory->quantity_on_hand !== null) {
                     $before = $inventory->quantity_on_hand;
                     $after = ((int) round((float) $before * 1000) - $qty * 1000) / 1000;
@@ -88,9 +95,16 @@ class CheckoutController extends Controller
             return $order;
         }, 3);
         session(['last_order_id' => $order->id, 'last_order_token' => $order->checkout_token]);
-        session()->forget(['storefront_cart', 'checkout_token', 'checkout_quote']);
+        session()->forget(['storefront_cart', 'checkout_token', 'checkout_quote','checkout_charges']);
 
         return redirect()->route('theme.order-success');
+    }
+
+    public function printOrder()
+    {
+        $order = Order::with('items')->find(session('last_order_id'));
+        abort_unless($order, 404);
+        return response()->view('orders.print', compact('order'))->header('Cache-Control', 'no-store, private');
     }
 
     public function success()

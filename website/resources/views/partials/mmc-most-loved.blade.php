@@ -1,7 +1,3 @@
-@php
-    $lovedProducts = collect($products ?? config('most-loved.products', []))
-        ->filter(fn ($product) => !empty($product['most_loved']))->values();
-@endphp
 @if ($lovedProducts->isNotEmpty())
 <section class="mmc-loved" aria-labelledby="mmc-loved-title">
     <div class="mmc-loved__panel">
@@ -15,11 +11,11 @@
                 <ul class="mmc-loved__list">
                     @foreach ($column as $product)
                         <li>
-                            <a class="mmc-loved__product" href="{{ route('theme.product-detail', ['product' => $product['slug']]) }}">
-                                <span class="mmc-loved__picture"><img src="{{ asset($product['image']) }}" alt="" width="1536" height="1024" loading="eager"></span>
+                            <a class="mmc-loved__product" href="{{ route('catalogue.product', $product->slug) }}">
+                                <span class="mmc-loved__picture">@if($product->media->first())<img src="{{ route('catalogue.media',[$product,$product->media->first()]) }}" alt="" width="1536" height="1024" loading="lazy">@else<span class="mmc-loved__placeholder">Image coming soon</span>@endif</span>
                                 <span class="mmc-loved__details">
-                                    <span class="mmc-loved__name">{{ $product['name'] }}</span>
-                                    <span class="mmc-loved__price">${{ number_format($product['price_cents'] / 100, 2) }}</span>
+                                    <span class="mmc-loved__name">{{ $product->premium_marketing_name }}</span>
+                                    <span class="mmc-loved__price">{{ $product->total_selling_price_cad === null ? 'Price on request' : '$'.number_format($product->total_selling_price_cad, 2) }}</span>
                                 </span>
                             </a>
                         </li>

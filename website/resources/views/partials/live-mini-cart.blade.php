@@ -21,3 +21,4 @@
 @if($cart['count'])<p>{{ $cart['count'] }} items · ${{ number_format($cart['total']/100,2) }}</p>@endif
 <a class="mmc-header-cart__link" href="{{ route('theme.cart') }}">View Cart</a>
 <a class="mmc-header-cart__browse" href="{{ route('theme.product-grid') }}">Explore our products</a>
+<a class="mmc-header-cart__browse" href="{{ route('order.track-form') }}">Track an order</a>

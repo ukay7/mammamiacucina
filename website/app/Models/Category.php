@@ -10,7 +10,7 @@ class Category extends Model
 
     protected function casts(): array
     {
-        return ['is_active' => 'boolean'];
+        return ['is_active' => 'boolean', 'show_to_customer' => 'boolean', 'is_protected' => 'boolean'];
     }
 
     public function products()

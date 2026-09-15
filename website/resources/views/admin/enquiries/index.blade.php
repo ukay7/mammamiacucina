@@ -1,0 +1,6 @@
+@extends('admin.layout')
+@section('title','Contact Enquiries')
+@section('content')
+<form class="mmc-filters" method="get"><label>Search<input class="form-control" name="q" value="{{ $q }}" placeholder="Name or email"></label><label>Status<select class="form-control" name="status"><option value="">All statuses</option>@foreach(['new','read','closed'] as $value)<option value="{{ $value }}" @selected($status===$value)>{{ ucfirst($value) }}</option>@endforeach</select></label><button class="btn btn-primary">Filter</button><a href="{{ route('admin.enquiries.index') }}">Reset</a></form>
+<div class="panel"><div class="panel-content table-responsive"><table class="table"><thead><tr><th>Received</th><th>Name</th><th>Email</th><th>Status</th><th></th></tr></thead><tbody>@forelse($enquiries as $enquiry)<tr><td>{{ $enquiry->created_at->format('d M Y H:i') }}</td><td>{{ $enquiry->name }}</td><td>{{ $enquiry->email }}</td><td><span class="badge {{ $enquiry->status==='new'?'badge-warning':($enquiry->status==='closed'?'badge-success':'badge-info') }}">{{ ucfirst($enquiry->status) }}</span></td><td><a class="btn btn-outline-primary" href="{{ route('admin.enquiries.show',$enquiry) }}">View</a></td></tr>@empty<tr><td colspan="5">No enquiries found.</td></tr>@endforelse</tbody></table>{{ $enquiries->links() }}</div></div>
+@endsection

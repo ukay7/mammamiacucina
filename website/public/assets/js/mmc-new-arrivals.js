@@ -2,6 +2,7 @@
     const section = document.querySelector('.mmc-arrivals');
     if (!section) return;
     const dialog = section.querySelector('dialog');
+    if (!dialog) return;
     let trigger;
     section.querySelectorAll('.mmc-arrival__quickview').forEach(button => {
         button.addEventListener('click', () => {

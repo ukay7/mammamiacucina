@@ -1,7 +1,6 @@
 @extends('layouts.mmc-page',['pageTitle'=>'Order Successful'])
 @section('page-content')
-<section class="mmc-panel"><div class="mmc-success-icon" aria-hidden="true">✓</div><h2>Thank you, {{ $order->first_name }}!</h2><p>Your order has been placed.</p><p><strong>Order number: {{ $order->number }}</strong></p>
-@include('partials.order-lines')
-<h3>Delivery details</h3><p>{{ $order->first_name }} {{ $order->last_name }}<br>{{ $order->address }}<br>{{ $order->city }}, {{ $order->province }} {{ $order->postal_code }}<br>{{ $order->country }}</p><p>{{ $order->email }} · {{ $order->phone }}</p>
-<a class="mmc-button" href="{{ route('theme.product-grid') }}">Continue Shopping</a></section>
+<div class="mmc-order-heading"><div><p class="mmc-eyebrow">ORDER CONFIRMED</p><h2>Thank you, {{ $order->first_name }}!</h2><p>Your order has been placed.</p></div><a class="mmc-button" href="{{ route('order.print') }}" target="_blank" rel="noopener">Print / Save as PDF</a></div>
+<div class="mmc-order-columns"><section class="mmc-panel"><h2>Order Details</h2><p class="mmc-order-number"><strong>{{ $order->number }}</strong></p><p>{{ $order->created_at->format('d M Y, H:i') }}<br>Status: {{ $order->status_label }}</p><p><a class="mmc-text-link" href="{{ route('order.track',$order->number) }}">Track your order</a></p><h3>Customer & Delivery</h3><p>{{ $order->first_name }} {{ $order->last_name }}<br>{{ $order->address }}<br>{{ $order->city }}, {{ $order->province }} {{ $order->postal_code }}<br>{{ $order->country }}</p><p>{{ $order->email }}<br>{{ $order->phone }}</p>@if($order->notes)<h3>Order Notes</h3><p class="mmc-order-notes">{{ $order->notes }}</p>@endif</section><section class="mmc-panel"><h2>Your Products</h2>@include('partials.order-lines')</section></div>
+<p><a class="mmc-button" href="{{ route('theme.product-grid') }}">Continue Shopping</a></p>
 @endsection

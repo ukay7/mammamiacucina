@@ -25,7 +25,7 @@ class CatalogueController extends Controller
         if ($min !== null && $max !== null && $max < $min) {
             throw ValidationException::withMessages(['max' => 'Maximum price must be at least the minimum price.']);
         }
-        $categories = Category::where('is_active', true)->withCount(['products' => fn ($q) => $q->where('is_active', true)])->orderBy('sort_order')->orderBy('name')->get();
+        $categories = Category::where('is_active', true)->where('show_to_customer', true)->withCount(['products' => fn ($q) => $q->where('is_active', true)])->orderBy('sort_order')->orderBy('name')->get();
         $category = $input['category'] ?? '';
         $selected = $categories->firstWhere('slug', $category);
         // Keep existing home/header links working with admin-generated category slugs.
@@ -70,7 +70,7 @@ class CatalogueController extends Controller
 
     public function show(string $slug)
     {
-        $product = $this->visible()->where('slug', $slug)->with(['media', 'categories' => fn ($q) => $q->where('is_active', true)])->firstOrFail();
+        $product = $this->visible()->where('slug', $slug)->with(['media', 'categories' => fn ($q) => $q->where('is_active', true)->where('show_to_customer', true)])->firstOrFail();
 
         return view('pages.catalogue-product', compact('product'));
     }

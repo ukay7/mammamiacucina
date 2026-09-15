@@ -5,7 +5,7 @@ $extraImage = match($product['slug']) {
     'cannoli-cornetti' => 'assets/images/mmc/cannoli-hero.png',
     default => null,
 };
-$videoId=config('homepage.youtube_video_id');
+$videoId=$siteSettings?->youtube_video_id;
 $hasVideo=is_string($videoId) && preg_match('/^[A-Za-z0-9_-]{11}$/',$videoId);
 @endphp
 <div class="mmc-media-gallery" data-product-media>

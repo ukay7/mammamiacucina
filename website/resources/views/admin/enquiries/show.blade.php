@@ -1,0 +1,5 @@
+@extends('admin.layout')
+@section('title','Contact Enquiry')
+@section('content')
+<div class="panel"><div class="panel-content"><h2>{{ $enquiry->name }}</h2><p>{{ $enquiry->created_at->format('d M Y H:i') }}</p><p><strong>Email:</strong> <a href="mailto:{{ $enquiry->email }}">{{ $enquiry->email }}</a></p><p><strong>Phone:</strong> {{ $enquiry->phone ?: 'Not provided' }}</p><hr><h3>Message</h3><p style="white-space:pre-wrap;overflow-wrap:anywhere">{{ $enquiry->message }}</p><hr><form method="post" action="{{ route('admin.enquiries.update',$enquiry) }}">@csrf @method('PATCH')<label for="status">Status</label><select id="status" name="status" class="form-control mb-3">@foreach(['new','read','closed'] as $value)<option value="{{ $value }}" @selected($enquiry->status===$value)>{{ ucfirst($value) }}</option>@endforeach</select><button class="btn btn-primary">Save Status</button> <a class="btn btn-outline-primary" href="{{ route('admin.enquiries.index') }}">Back to Enquiries</a></form></div></div>
+@endsection

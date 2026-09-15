@@ -1,21 +1,20 @@
-<footer class="ps-footer">
+<footer class="ps-footer mmc-footer-compact">
         <div class="container">
           <div class="row">
                 <div class="col-lg-3 col-md-3 col-sm-6 col-xs-12 ">
                   <div class="ps-widget ps-widget--footer ps-widget--brand">
                     <a class="mmc-footer-brand" href="{{ route('theme.index') }}" aria-label="Mamma Mia Cucina home">
-                      <img src="{{ asset('logo.png') }}" alt="Mamma Mia Cucina" loading="lazy">
+                      <img src="{{ $siteSettings?->logoUrl() ?? asset('logo.png') }}" alt="Mamma Mia Cucina" loading="lazy">
                     </a>
                   </div>
                 </div>
                 <div class="col-lg-3 col-md-3 col-sm-6 col-xs-12 ">
                   <div class="ps-widget ps-widget--footer ps-widget--worktime">
                     <div class="ps-widget__header">
-                      <h3 class="ps-widget__title">WORK TIME</h3>
+                      <h3 class="ps-widget__title">Opening Hours</h3>
                     </div>
                     <div class="ps-widget__content">
-                      <p><strong>Monday - Friday</strong> 8:00 am - 8:30 pm</p>
-                      <p><strong>Satuday - Sunday</strong>10:00 am - 16:30 pm</p>
+                      @include('partials.site-hours')
                     </div>
                   </div>
                 </div>
@@ -40,12 +39,14 @@
                       <h3 class="ps-widget__title">CONNECT US</h3>
                     </div>
                     <div class="ps-widget__content">
+                          @include('partials.site-contact')
+                          @if($siteSettings?->facebook_url || $siteSettings?->instagram_url || $siteSettings?->twitter_url)
                           <ul class="ps-widget__social">
-                            <li><a href="#"><i class="fa fa-facebook"></i></a></li>
-                            
-                            <li><a href="#"><i class="fa fa-twitter"></i></a></li>
-                            <li><a href="#"><i class="fa fa-instagram"></i></a></li>
+                            @foreach(['facebook_url'=>['Facebook','facebook'],'twitter_url'=>['Twitter / X','twitter'],'instagram_url'=>['Instagram','instagram']] as $field=>$social)
+                            @if($siteSettings?->$field)<li><a href="{{ $siteSettings->$field }}" target="_blank" rel="noopener noreferrer" aria-label="{{ $social[0] }}"><i class="fa fa-{{ $social[1] }}" aria-hidden="true"></i></a></li>@endif
+                            @endforeach
                           </ul>
+                          @endif
                       <p>@2026 Design and Developed by <span class="mmc-footer-credit">360 Creative Agency.</span></p>
                     </div>
                   </div>
