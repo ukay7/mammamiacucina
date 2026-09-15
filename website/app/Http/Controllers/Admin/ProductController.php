@@ -18,8 +18,11 @@ class ProductController extends Controller
     public function index(Request $r)
     {
         $products = Product::with(['categories', 'inventory', 'media' => fn ($q) => $q->where('kind', 'image')->limit(1)])->when($r->filled('q'), fn ($q) => $q->where(function ($q) use ($r) {
+            $barcodeId = Product::idFromBarcode(trim((string) $r->input('q')));
+
             $term = '%'.mb_substr($r->string('q'), 0, 200).'%';
             $q->where('premium_marketing_name', 'like', $term)->orWhere('qr_code', 'like', $term)->orWhere('product_code', 'like', $term)->orWhere('supplier', 'like', $term);
+            if ($barcodeId !== null) $q->orWhere('id', $barcodeId);
         }))->when($r->filled('category'), fn ($q) => $q->whereHas('categories', fn ($c) => $c->where('categories.id', $r->integer('category'))))->when(in_array($r->input('active'), ['0', '1'], true), fn ($q) => $q->where('is_active', $r->input('active')))->orderBy('premium_marketing_name')->paginate(20)->withQueryString();
 
         return view('admin.products.index', ['products' => $products, 'categories' => Category::orderBy('name')->get()]);

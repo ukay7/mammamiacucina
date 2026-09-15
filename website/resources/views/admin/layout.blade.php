@@ -7,6 +7,7 @@
 @foreach(['products'=>['Manage Products','fa-box-open'],'categories'=>['Categories','fa-tags'],'imports'=>['Product Uploader','fa-file-upload'],'inventory'=>['Inventory','fa-warehouse']] as $module=>$item)
 @if(auth()->user()->hasAdminPermission($module.'.view'))<li class="{{ request()->routeIs('admin.'.$module.'.*')?'active':'' }}"><a href="{{ route('admin.'.$module.'.index') }}"><i class="fas {{ $item[1] }}" aria-hidden="true"></i><span>{{ $item[0] }}</span></a></li>@endif
 @endforeach
+@if(auth()->user()->hasAdminPermission('pos.manage'))<li class="{{ request()->routeIs('admin.pos.*')?'active':'' }}"><a href="{{ route('admin.pos.index') }}"><i class="fas fa-cash-register" aria-hidden="true"></i><span>Quick Sale / POS</span></a></li>@endif
 @if(auth()->user()->hasAdminPermission('allergies.manage'))<li class="{{ request()->routeIs('admin.allergies.*')?'active':'' }}"><a href="{{ route('admin.allergies.index') }}"><i class="fas fa-leaf" aria-hidden="true"></i><span>Allergies</span></a></li>@endif
 @if(auth()->user()->hasAdminPermission('orders.view'))<li class="{{ request()->routeIs('admin.orders.*')?'active':'' }}"><a href="{{ route('admin.orders.index') }}"><i class="fas fa-shopping-cart" aria-hidden="true"></i><span>Orders</span></a></li>@endif @if(auth()->user()->hasAdminPermission('banners.view') || auth()->user()->hasAdminPermission('settings.manage'))<li class="nav-title">SETTINGS</li>@endif
 @if(auth()->user()->hasAdminPermission('banners.view'))

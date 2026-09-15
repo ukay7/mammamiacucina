@@ -1,6 +1,7 @@
 <?php
 
 return ['permissions' => [
+    'pos.manage' => 'Use Quick Sale, scan products and record payments',
     'allergies.manage' => 'Manage allergy labels and icons',
     'gallery.manage' => 'Manage gallery events and photos',
     'enquiries.manage' => 'View and manage contact enquiries',

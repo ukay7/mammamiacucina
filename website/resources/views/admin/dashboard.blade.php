@@ -1,7 +1,12 @@
 @extends('admin.layout')
 @section('title','Dashboard')
 @section('content')
-<div class="mmc-welcome mb-4"><p class="mmc-eyebrow">WELCOME BACK</p><h2>Hello, {{ auth()->user()->name }}.</h2><p>Manage your catalogue, stock and team.</p><span class="badge badge-primary">{{ auth()->user()->role->name }}</span></div><div class="row">
+<div class="mmc-welcome mmc-dashboard-welcome mb-4">
+    <div><p class="mmc-eyebrow">WELCOME BACK</p><h2>Hello, {{ auth()->user()->name }}.</h2><p>Manage your catalogue, stock and team.</p><span class="badge badge-primary">{{ auth()->user()->role->name }}</span></div>
+    @if(auth()->user()->hasAdminPermission('pos.manage'))
+    <a class="btn btn-primary mmc-dashboard-pos" href="{{ route('admin.pos.index') }}"><i class="fas fa-cash-register" aria-hidden="true"></i><span>Quick Sale / POS</span><i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+    @endif
+</div><div class="row">
 @if(auth()->user()->hasAdminPermission('products.view'))<div class="col-md-6"><div class="panel"><div class="panel-container show"><div class="panel-content"><p class="mmc-eyebrow">PRODUCT CATALOGUE</p><h2>{{ \App\Models\Product::count() }} products</h2><p>Review catalogue details and organise your products.</p><a class="btn btn-primary" href="{{ route('admin.products.index') }}">Manage Products</a></div></div></div></div>@endif
 @if(auth()->user()->hasAdminPermission('inventory.view'))<div class="col-md-6"><div class="panel"><div class="panel-container show"><div class="panel-content"><p class="mmc-eyebrow">INVENTORY</p><h2>{{ \App\Models\Inventory::whereNull('quantity_on_hand')->count() }} awaiting opening stock</h2><p>{{ \App\Models\Inventory::whereColumn('quantity_on_hand','<=','low_stock_threshold')->count() }} products at or below their stock threshold.</p><a class="btn btn-primary" href="{{ route('admin.inventory.index') }}">View Inventory</a></div></div></div></div>@endif
 @if(auth()->user()->hasAdminPermission('users.view'))<div class="col-md-6"><div class="panel"><div class="panel-container show"><div class="panel-content"><p class="mmc-eyebrow">YOUR TEAM</p><h2>{{ \App\Models\User::count() }} users</h2><p>{{ \App\Models\User::where('is_active',true)->count() }} active accounts</p><a class="btn btn-primary" href="{{ route('admin.users.index') }}">Manage Users</a></div></div></div></div>@endif

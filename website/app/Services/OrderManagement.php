@@ -42,21 +42,21 @@ class OrderManagement
                 $fail('Cancelled orders cannot be edited.');
             }
             if ($order->payment_status !== 'unpaid' && ($delivery !== ($order->delivery_cents === null ? null : (int) $order->delivery_cents) || $tax !== ($order->tax_cents === null ? null : (int) $order->tax_cents))) {
-                $fail('Charges cannot change after cash has been collected.');
+                $fail('Charges cannot change after payment has been collected.');
             }
             if ($payment !== $order->payment_status) {
                 if ($payment === 'paid' && ($order->payment_status !== 'unpaid' || $delivery === null || $tax === null || $status === 'cancelled')) {
-                    $fail('Confirm delivery and tax before recording cash received.');
+                    $fail('Confirm delivery and tax before recording payment received.');
                 }
                 if ($payment === 'unpaid') {
-                    $fail('Cash received cannot be reset to unpaid. Record a refund if cash was returned.');
+                    $fail('Payment received cannot be reset to unpaid. Record a refund if payment was returned.');
                 }
                 if ($payment === 'refunded' && ($order->payment_status !== 'paid' || $status !== 'cancelled')) {
-                    $fail('Record a refund only when cancelling an order whose cash was collected.');
+                    $fail('Record a refund only when cancelling an order whose payment was collected.');
                 }
             }
             if ($status === 'cancelled' && $payment === 'paid') {
-                $fail('Return the collected cash and select Refunded when cancelling this order.');
+                $fail('Return the collected payment and select Refunded when cancelling this order.');
             }
             if ($status === 'cancelled' && $order->status !== 'cancelled') {
                 foreach ($order->items()->orderBy('product_id')->get() as $item) {

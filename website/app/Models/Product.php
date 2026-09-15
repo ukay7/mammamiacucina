@@ -20,6 +20,17 @@ class Product extends Model
         return $casts;
     }
 
+    public function getBarcodeNumberAttribute(): string
+    {
+        // Derived from the immutable primary key: existing products need no data rewrite.
+        return 'MMC-P-'.str_pad((string) $this->id, 8, '0', STR_PAD_LEFT);
+    }
+
+    public static function idFromBarcode(string $value): ?int
+    {
+        return preg_match('/^MMC-P-(\d{8,18})$/D', $value, $match) ? (int) $match[1] : null;
+    }
+
     public function media()
     {
         return $this->hasMany(ProductMedia::class)->orderBy('sort_order')->orderBy('id');

@@ -80,3 +80,8 @@
 
 body.mmc-admin:not(.mod-pace-custom) .pace .pace-progress,body.mmc-admin.mod-pace-custom .pace .pace-progress{background:#b88e43}
 body.mmc-admin .nav-menu li.active>a{-webkit-box-shadow:inset 3px 0 0 #d3ae66;box-shadow:inset 3px 0 0 #d3ae66}
+
+.mmc-dashboard-welcome{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap}
+.mmc-dashboard-pos{display:inline-flex;align-items:center;justify-content:center;gap:12px;padding:15px 22px;border-radius:8px;white-space:nowrap;font-weight:600}
+.mmc-dashboard-pos:focus{box-shadow:0 0 0 3px #b28a4540!important}
+@media(max-width:575px){.mmc-dashboard-pos{width:100%}.mmc-dashboard-welcome{padding:24px}}
