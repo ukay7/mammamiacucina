@@ -11,7 +11,7 @@ backup="/var/backups/mmc-update-$(date +%Y%m%d-%H%M%S)"
 install -d -m 700 "$backup"
 cp .env "$backup/env"
 cp /etc/nginx/sites-available/mammamiacucina.ca "$backup/nginx"
-git rev-parse HEAD > "$backup/release-commit"
+git -c safe.directory=/var/www/mammamiacucina-app rev-parse HEAD > "$backup/release-commit"
 echo "Backup directory: $backup"
 sudo -H -u mmcdeploy php8.4 artisan down --retry=60
 trap 'echo "Deployment stopped. Backup: $backup. Site remains in maintenance mode; resolve the error before running php8.4 artisan up as mmcdeploy."' ERR
