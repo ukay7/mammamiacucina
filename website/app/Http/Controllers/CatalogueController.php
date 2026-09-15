@@ -19,7 +19,9 @@ class CatalogueController extends Controller
 
     public function index(Request $r)
     {
-        $input = $r->validate(['category' => 'nullable|string|max:200', 'sort' => ['nullable', Rule::in(['featured', 'name', 'price-low', 'price-high'])], 'show' => ['nullable', Rule::in([6, 12, 24])], 'view' => ['nullable', Rule::in(['grid', 'list'])], 'min' => 'nullable|numeric|min:0|max:999999999999', 'max' => 'nullable|numeric|min:0|max:999999999999', 'page' => 'nullable|integer|min:1|max:1000000']);
+        $input = $r->validate(['allergy'=>'nullable|integer|exists:allergies,id','category' => 'nullable|string|max:200', 'sort' => ['nullable', Rule::in(['featured', 'name', 'price-low', 'price-high'])], 'show' => ['nullable', Rule::in([6, 12, 24])], 'view' => ['nullable', Rule::in(['grid', 'list'])], 'min' => 'nullable|numeric|min:0|max:999999999999', 'max' => 'nullable|numeric|min:0|max:999999999999', 'page' => 'nullable|integer|min:1|max:1000000']);
+        $allergy = $input['allergy'] ?? '';
+        $allergies = \App\Models\Allergy::orderBy('name')->get();
         $min = $input['min'] ?? null;
         $max = $input['max'] ?? null;
         if ($min !== null && $max !== null && $max < $min) {
@@ -44,6 +46,7 @@ class CatalogueController extends Controller
         if ($category) {
             $selected ? $query->whereHas('categories', fn ($q) => $q->where('categories.id', $selected->id)) : $query->whereRaw('1=0');
         }
+        if ($allergy) $query->whereHas('allergies', fn ($q) => $q->where('allergies.id', $allergy));
         if ($min !== null) {
             $query->where('total_selling_price_cad', '>=', $min);
         }
@@ -60,7 +63,7 @@ class CatalogueController extends Controller
         $total = (clone $query)->count();
         $page = min((int) ($input['page'] ?? 1), max(1, (int) ceil($total / $perPage)));
         $products = $query->orderBy('id')->with(['media' => fn ($q) => $q->where('kind', 'image')->limit(1)])->paginate($perPage, ['*'], 'page', $page)->appends($r->except('page'));
-        $data = compact('products', 'categories', 'category', 'sort', 'perPage', 'view', 'min', 'max', 'total', 'page', 'allCount');
+        $data = compact('allergies', 'allergy', 'products', 'categories', 'category', 'sort', 'perPage', 'view', 'min', 'max', 'total', 'page', 'allCount');
         if ($r->expectsJson()) {
             return response()->json(['html' => view('partials.catalogue-grid', $data)->render(), 'total' => $total]);
         }
@@ -70,7 +73,7 @@ class CatalogueController extends Controller
 
     public function show(string $slug)
     {
-        $product = $this->visible()->where('slug', $slug)->with(['media', 'categories' => fn ($q) => $q->where('is_active', true)->where('show_to_customer', true)])->firstOrFail();
+        $product = $this->visible()->where('slug', $slug)->with(['allergies', 'media', 'categories' => fn ($q) => $q->where('is_active', true)->where('show_to_customer', true)])->firstOrFail();
 
         return view('pages.catalogue-product', compact('product'));
     }

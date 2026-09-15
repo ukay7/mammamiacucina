@@ -35,6 +35,8 @@ class Product extends Model
         });
     }
 
+    public function allergies(){return $this->belongsToMany(Allergy::class)->orderBy("name");}
+
     public function categories()
     {
         return $this->belongsToMany(Category::class)->orderBy('name');

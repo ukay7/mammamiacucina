@@ -23,6 +23,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('/enquiries/{enquiry}',[\App\Http\Controllers\Admin\EnquiryController::class,'show'])->name('enquiries.show');
             Route::patch('/enquiries/{enquiry}',[\App\Http\Controllers\Admin\EnquiryController::class,'update'])->name('enquiries.update');
         });
+        Route::resource('allergies', \App\Http\Controllers\Admin\AllergyController::class)->except('show')->middleware(AdminAccess::class.':allergies.manage');
         Route::get('/orders/{order}/print',[\App\Http\Controllers\Admin\OrderController::class,'printOrder'])->middleware(AdminAccess::class.':orders.view')->name('orders.print');
         Route::get('/settings/general',[\App\Http\Controllers\Admin\GeneralSettingController::class,'edit'])->middleware(AdminAccess::class.':settings.manage')->name('settings.general');
         Route::put('/settings/general',[\App\Http\Controllers\Admin\GeneralSettingController::class,'update'])->middleware(AdminAccess::class.':settings.manage')->name('settings.update');

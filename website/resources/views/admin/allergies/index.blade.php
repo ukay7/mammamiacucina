@@ -1,0 +1,5 @@
+@extends('admin.layout')
+@section('title','Allergies & Dietary Labels')
+@section('content')
+<div class="mmc-toolbar"><p>Manage the labels and icons assigned to products.</p><a class="btn btn-primary" href="{{ route('admin.allergies.create') }}">Add Allergy</a></div><div class="panel"><div class="panel-content table-responsive"><table class="table"><thead><tr><th>Icon</th><th>Name</th><th>Products</th><th></th></tr></thead><tbody>@forelse($allergies as $allergy)<tr><td><img src="{{ $allergy->iconUrl() }}" alt="" width="48" height="48" style="object-fit:contain"></td><td>{{ $allergy->name }}</td><td>{{ $allergy->products_count }}</td><td><a class="btn btn-outline-primary btn-sm" href="{{ route('admin.allergies.edit',$allergy) }}">Edit</a><form class="d-inline" method="post" action="{{ route('admin.allergies.destroy',$allergy) }}" data-confirm="Delete this allergy label?">@csrf @method('DELETE')<button class="btn btn-outline-danger btn-sm">Delete</button></form></td></tr>@empty<tr><td colspan="4">No allergies yet.</td></tr>@endforelse</tbody></table>{{ $allergies->links() }}</div></div>
+@endsection

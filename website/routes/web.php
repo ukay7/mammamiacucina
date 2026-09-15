@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 
 require __DIR__.'/admin.php';
+Route::get('/allergy-icons/{allergy}',[\App\Http\Controllers\Admin\AllergyController::class,'icon'])->name('allergy.icon');
 Route::post('/contact',[\App\Http\Controllers\ContactController::class,'store'])->middleware('throttle:5,1,contact-form')->name('contact.store');
 Route::get('/gallery/events/{event}',[\App\Http\Controllers\GalleryController::class,'show'])->name('gallery.event');
 Route::get('/gallery/photos/{photo}',[\App\Http\Controllers\GalleryController::class,'image'])->name('gallery.image');

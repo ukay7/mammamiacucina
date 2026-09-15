@@ -42,7 +42,7 @@ class ProductController extends Controller
 
     private function form(Product $product)
     {
-        return view('admin.products.form', ['product' => $product, 'categories' => Category::orderBy('sort_order')->orderBy('name')->get()]);
+        return view('admin.products.form', ['allergies' => \App\Models\Allergy::orderBy('name')->get(), 'product' => $product, 'categories' => Category::orderBy('sort_order')->orderBy('name')->get()]);
     }
 
     public function store(Request $r)
@@ -58,6 +58,8 @@ class ProductController extends Controller
     private function saveProduct(Request $r, Product $product)
     {
         $data = $this->data($r, $product->exists ? $product : null);
+        $allergyData=$r->validate(['allergy_ids'=>'sometimes|array|max:100','allergy_ids.*'=>'integer|distinct|exists:allergies,id']);
+        $allergyIds=$allergyData['allergy_ids']??[];
         $categoryIds = $data['category_ids'];
         unset($data['category_ids']);
         $manager = app(ProductMediaManager::class);
@@ -65,7 +67,7 @@ class ProductController extends Controller
         $stored = [];
         $deleted = [];
         try {
-            DB::transaction(function () use ($r, $product, $data, $categoryIds, $manager, &$stored, &$deleted) {
+            DB::transaction(function () use ($r, $product, $data, $categoryIds, $allergyIds, $manager, &$stored, &$deleted) {
                 if ($product->exists) {
                     $product->setRawAttributes(Product::lockForUpdate()->findOrFail($product->id)->getAttributes(), true);
                 } else {
@@ -74,6 +76,7 @@ class ProductController extends Controller
                 $product->fill($data);
                 $product->save();
                 $product->categories()->sync($categoryIds);
+                if($r->has('allergies_present') || $r->has('allergy_ids') || $product->wasRecentlyCreated) $product->allergies()->sync($allergyIds);
                 $product->inventory()->firstOrCreate([], ['quantity_on_hand' => null]);
                 $manager->save($r, $product, $stored, $deleted);
             });

@@ -1,6 +1,7 @@
 <?php
 
 return ['permissions' => [
+    'allergies.manage' => 'Manage allergy labels and icons',
     'gallery.manage' => 'Manage gallery events and photos',
     'enquiries.manage' => 'View and manage contact enquiries',
     'settings.manage' => 'Manage general settings and default charges',
