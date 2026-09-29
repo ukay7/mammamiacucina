@@ -6,11 +6,21 @@ use Illuminate\Database\Eloquent\Model;
 
 class Product extends Model
 {
+    public static function usesBusinessPricing():bool {
+        $user=auth()->user();
+        return $user && $user->isCustomer() && $user->is_active && $user->email_verified_at && $user->account_type==='business';
+    }
+    public static function storefrontPriceSql():string {
+        return static::usesBusinessPricing() ? 'COALESCE(business_selling_price_cad,total_selling_price_cad)' : 'total_selling_price_cad';
+    }
+    public function getStorefrontPriceAttribute(){
+        return static::usesBusinessPricing() ? ($this->business_selling_price_cad ?? $this->total_selling_price_cad) : $this->total_selling_price_cad;
+    }
     protected $guarded = ['id'];
 
     protected function casts(): array
     {
-        $casts = ['is_active' => 'boolean'];
+        $casts = ['is_active' => 'boolean', 'dna' => 'array', 'editor_revision' => 'integer'];
         foreach (config('product_fields') as $key => $field) {
             if ($field[1] === 'decimal') {
                 $casts[$key] = 'decimal:8';
@@ -23,6 +33,21 @@ class Product extends Model
     public function getBarcodeNumberAttribute(): string
     {
         return (string) $this->qr_code;
+    }
+
+    public function pricingDraft()
+    {
+        return $this->hasOne(ProductPricingDraft::class);
+    }
+
+    public function priceReviews()
+    {
+        return $this->hasMany(ProductPriceReview::class);
+    }
+
+    public function documents()
+    {
+        return $this->hasMany(ProductDocument::class);
     }
 
     public function media()
@@ -40,7 +65,10 @@ class Product extends Model
         });
     }
 
-    public function allergies(){return $this->belongsToMany(Allergy::class)->orderBy("name");}
+    public function allergies()
+    {
+        return $this->belongsToMany(Allergy::class)->orderBy('name');
+    }
 
     public function categories()
     {

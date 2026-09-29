@@ -226,3 +226,151 @@
 .mmc-header-track:hover svg,.mmc-header-track:focus-visible svg{color:inherit;}
 @media(min-width:1025px){.mmc-home .mmc-masthead .mmc-menu{width:min(54%,calc(70% - 220px))}}
 @media(max-width:1024px){.mmc-header-track{min-height:38px;padding:8px 10px;font-size:11px;gap:6px;}}
+
+/* Keep long category menus above the carousel and inside the viewport. */
+.mmc-masthead { z-index:30; }
+.mmc-hero:has(.mmc-products-toggle[aria-expanded="true"]),
+.mmc-hero:has(.mmc-menu.is-open) { overflow:visible; z-index:30; }
+.mmc-inner-header:has(.mmc-products-toggle[aria-expanded="true"]),
+.mmc-inner-header:has(.mmc-menu.is-open) { z-index:30; }
+.mmc-products-submenu {
+ top:calc(100% + 8px); width:340px; min-width:0; max-width:calc(100vw - 32px);
+ max-height:min(360px,calc(100dvh - 160px)); overflow-y:auto; overflow-x:hidden;
+ box-sizing:border-box; padding:8px; border:1px solid #dfc89f; border-radius:10px;
+ background:#fffaf2; box-shadow:0 12px 30px #0003;
+ overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:#b58d49 #f4ecde;
+}
+.mmc-products-submenu::before,.mmc-products-submenu::after { display:none; }
+.mmc-products-menu:has(.mmc-products-toggle[aria-expanded="true"])::after {
+ content:""; position:absolute; top:100%; left:0; right:0; height:9px;
+}
+.mmc-masthead .mmc-menu .mmc-products-submenu a {
+ min-height:42px; padding:10px 12px; box-sizing:border-box; border-radius:6px;
+ white-space:normal; overflow-wrap:anywhere; font:14px/1.4 Arial,sans-serif; letter-spacing:.015em;
+}
+.mmc-products-submenu::-webkit-scrollbar { width:6px; }
+.mmc-products-submenu::-webkit-scrollbar-thumb { background:#b58d49; border-radius:6px; }
+@media(max-width:1024px) {
+ .mmc-menu.is-open { max-height:calc(100dvh - 124px); overflow-y:auto; overscroll-behavior:contain; }
+ .mmc-products-menu { min-width:0; }
+ .mmc-products-submenu { width:100%; max-width:100%; max-height:min(260px,45dvh); margin-top:6px; }
+ .mmc-products-menu:has(.mmc-products-toggle[aria-expanded="true"])::after { display:none; }
+}
+@media(max-width:1024px) {
+ .mmc-masthead .mmc-menu-toggle { right:204px; }
+}
+@media(max-width:600px) {
+ .mmc-masthead .mmc-menu-toggle { right:126px; width:44px; height:44px; padding:0; justify-content:center; }
+ .mmc-menu-toggle > span:last-child,.mmc-header-track > span { display:none; }
+ .mmc-masthead .mmc-header-track { right:76px; width:40px; height:40px; padding:0; }
+}@media(min-width:1025px){
+ .mmc-home .mmc-masthead .mmc-menu{left:20%;width:calc(78% - 260px);gap:4px}
+ .mmc-masthead .mmc-menu>a,.mmc-masthead .mmc-products-toggle{font-size:clamp(12px,1.25vw,22px);padding:7px 9px;white-space:nowrap}
+}
+
+@media(min-width:1025px){
+ .mmc-home .mmc-masthead .mmc-menu>a,.mmc-home .mmc-masthead .mmc-products-toggle{font-size:clamp(12px,1.2vw,20px);padding:7px 7px;white-space:nowrap}
+}
+.mmc-contact-details p{margin-bottom:8px!important;line-height:1.6;overflow-wrap:anywhere}
+.mmc-contact-details i{width:18px;text-align:center;margin-right:4px}
+.mmc-contact-socials{display:flex;flex-wrap:wrap;gap:8px 16px;margin:12px 0 16px}
+.mmc-contact-socials a{font-size:13px;line-height:1.7}
+
+/* Full-width homepage sections; constrain content rather than the page canvas. */
+.mmc-home :is(.mmc-hero,.mmc-tradition,.mmc-categories,.mmc-loved,.mmc-arrivals,.mmc-baking,.mmc-about-video){max-width:none;width:100%}
+.mmc-home .mmc-categories__grid{max-width:1768px;margin-inline:auto}
+@media(min-width:1025px){
+ .mmc-home .mmc-hero{aspect-ratio:auto;height:clamp(480px,42vw,900px)}
+ .mmc-home .mmc-hero__image{object-fit:cover}
+ .mmc-home .mmc-masthead{height:130px;background:#191209;display:flex;align-items:center;gap:24px;padding:0 max(24px,calc((100% - 1800px)/2));box-sizing:border-box}
+ .mmc-home .mmc-masthead .mmc-brand{position:relative;left:auto;top:20px;width:180px;flex:0 0 180px}
+ .mmc-home .mmc-masthead .mmc-menu{position:static;width:auto;flex:1;min-width:0;gap:4px;justify-content:space-evenly}
+ .mmc-home .mmc-masthead .mmc-header-track{position:static;flex-shrink:0}
+ .mmc-home .mmc-masthead .mmc-header-cart{position:relative;top:auto;right:auto;flex-shrink:0}
+ .mmc-home .mmc-masthead .mmc-menu>a,.mmc-home .mmc-masthead .mmc-products-toggle{font-size:clamp(12px,1.15vw,20px)}
+ .mmc-home .mmc-hero__content{top:32%;left:50%;transform:translateX(-50%);width:min(52%,820px)}
+ .mmc-home .mmc-tradition{background-size:cover}
+ .mmc-home .mmc-tradition__copy{left:max(5%,calc((100% - 1600px)/2));width:min(30%,480px)}
+ .mmc-home .mmc-baking__copy{left:max(5%,calc((100% - 1600px)/2));width:min(32%,560px)}
+}
+@media(min-width:1025px) and (max-width:1250px){
+ .mmc-home .mmc-masthead{gap:12px;padding-inline:18px;height:110px}
+ .mmc-home .mmc-masthead .mmc-brand{width:140px;flex-basis:140px}
+ .mmc-home .mmc-masthead .mmc-menu>a,.mmc-home .mmc-masthead .mmc-products-toggle{padding-inline:4px}
+}
+
+/* Use the same content width and image scale across homepage sections. */
+.mmc-home .mmc-arrivals__grid{max-width:1768px;margin-inline:auto}
+.mmc-home .mmc-arrival__image-link{aspect-ratio:1.8}
+.mmc-home .mmc-loved{background-size:cover}
+@media(min-width:1025px){
+ .mmc-home :is(.mmc-tradition,.mmc-baking){height:auto;min-height:520px;padding:48px max(5%,calc((100% - 1768px)/2));background:#faf2e5;display:flex;align-items:center}
+ .mmc-home :is(.mmc-tradition__copy,.mmc-baking__copy){position:relative;left:auto;top:auto;transform:none;width:42%;max-width:620px;margin:0;box-sizing:border-box;padding-right:28px}
+ .mmc-home :is(.mmc-tradition,.mmc-baking)::after{content:"";position:absolute;top:0;bottom:0;right:max(0px,calc((100% - 1920px)/2));width:min(52%,1000px);height:auto;max-height:none;aspect-ratio:auto;z-index:-1;background-position:right center;background-size:auto 100%;background-repeat:no-repeat}
+ .mmc-home .mmc-tradition::after{background-image:url('../images/mmc/tradition-caprese.png')}
+ .mmc-home .mmc-baking::after{background-image:url('../images/mmc/baking-background.png')}
+}
+
+/* Keep the scroll effect on the photo layer after separating it from the copy. */
+@media(min-width:1025px){
+ .mmc-home .mmc-tradition::after{background-size:auto calc(100% + 180px);background-position:right calc(50% + var(--tradition-parallax,0px))}
+ .mmc-home .mmc-baking::after{background-size:auto calc(100% + 180px);background-position:right calc(50% + var(--baking-parallax,0px))}
+}
+
+/* Keep desktop links grouped centrally instead of distributing spare space. */
+@media(min-width:1025px){
+ .mmc-home .mmc-masthead .mmc-menu{justify-content:center;gap:clamp(8px,1.4vw,28px)}
+}
+@media(min-width:1025px) and (max-width:1250px){
+ .mmc-home .mmc-masthead .mmc-menu{gap:6px}
+}
+
+/* Tradition artwork spans the entire section, including behind the text. */
+@media(min-width:1025px){
+ .mmc-home .mmc-tradition::after{left:0;right:0;width:100%;background-size:auto max(calc(100% + 180px),33.34vw);background-position:center calc(50% + var(--tradition-parallax,0px))}
+ .mmc-home .mmc-tradition__copy{width:30%;max-width:560px;padding-right:0}
+}
+@media(min-width:1025px){.mmc-home .mmc-tradition{padding-inline:8.5%}}
+
+/* Baking artwork also belongs to the whole section, not a separate image column. */
+@media(min-width:1025px){
+ .mmc-home .mmc-baking{padding-inline:5%}
+ .mmc-home .mmc-baking::after{left:0;right:0;width:100%;background-size:auto max(calc(100% + 180px),33.34vw);background-position:center calc(50% + var(--baking-parallax,0px))}
+ .mmc-home .mmc-baking__copy{width:35%;max-width:620px;padding-right:0}
+}
+
+/* The logo overlaps the banner; it must not determine the header height. */
+@media(min-width:1025px){
+ .mmc-home .mmc-masthead{height:80px}
+ .mmc-home .mmc-masthead .mmc-brand{top:0;transform:translateY(40px)}
+ .mmc-inner .mmc-inner-header{height:80px}
+}
+
+/* Match the reference header: larger crest with a natural lower overlap. */
+@media(min-width:1025px){
+ .mmc-home .mmc-masthead{height:clamp(90px,6.5vw,124px)}
+ .mmc-home .mmc-masthead .mmc-brand{align-self:flex-start;top:16px;transform:none;width:clamp(160px,14vw,260px);flex-basis:clamp(160px,14vw,260px)}
+}
+.mmc-header-account{display:grid;place-items:center;width:42px;height:42px;flex:0 0 42px;border:1px solid #c99d4c;border-radius:50%;color:#e4c181;background:#24190e;text-decoration:none;font:20px Georgia,serif;z-index:10}
+.mmc-header-account:hover{background:#8e0718;color:#fff}
+@media(max-width:1024px){.mmc-header-account{position:absolute;right:126px;top:32px}.mmc-masthead .mmc-menu-toggle{right:258px}}
+@media(max-width:600px){.mmc-header-account{right:126px;width:38px;height:38px;top:33px}.mmc-masthead .mmc-menu-toggle{right:174px}.mmc-masthead .mmc-brand{left:10px;width:92px}}
+@media(min-width:1025px) and (max-width:1250px){.mmc-home .mmc-masthead{gap:8px}.mmc-home .mmc-masthead .mmc-menu{gap:2px}.mmc-header-track>span{display:none}.mmc-home .mmc-masthead .mmc-brand{flex-basis:145px;width:145px}}
+
+/* Prominent validation errors across customer forms. */
+.mmc-home .mmc-error-alert {
+ background:#fff0f0;
+ color:#a11624;
+ border:1px solid #e4a0a7;
+ border-left:5px solid #b51e30;
+ border-radius:6px;
+ padding:16px 20px;
+ margin:0 0 24px;
+ text-align:left;
+}
+.mmc-home .mmc-error-alert strong,
+.mmc-home .mmc-error-alert p,
+.mmc-home .mmc-error-alert li,
+.mmc-home .mmc-error-alert a {color:#a11624}
+.mmc-home .mmc-error-alert ul {list-style:disc;padding-left:22px;margin:8px 0 0}
+.mmc-home .mmc-error-alert a {text-decoration:underline}

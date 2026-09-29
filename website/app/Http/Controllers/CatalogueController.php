@@ -49,15 +49,15 @@ class CatalogueController extends Controller
         }
         if ($selectedAllergies) $query->whereHas('allergies', fn ($q) => $q->whereIn('allergies.id', $selectedAllergies));
         if ($min !== null) {
-            $query->where('total_selling_price_cad', '>=', $min);
+            $query->whereRaw(Product::storefrontPriceSql().' >= ?', [$min]);
         }
         if ($max !== null) {
-            $query->where('total_selling_price_cad', '<=', $max);
+            $query->whereRaw(Product::storefrontPriceSql().' <= ?', [$max]);
         }
         if ($sort === 'name') {
             $query->orderBy('premium_marketing_name');
         } elseif (in_array($sort, ['price-low', 'price-high'], true)) {
-            $query->orderByRaw('total_selling_price_cad IS NULL')->orderBy('total_selling_price_cad', $sort === 'price-low' ? 'asc' : 'desc');
+            $query->orderByRaw(Product::storefrontPriceSql().' IS NULL')->orderByRaw(Product::storefrontPriceSql().($sort === 'price-low' ? ' asc' : ' desc'));
         } else {
             $query->orderByDesc('created_at');
         }

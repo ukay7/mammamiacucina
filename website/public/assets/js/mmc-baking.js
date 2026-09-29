@@ -12,8 +12,8 @@
         }
         const rect = section.getBoundingClientRect();
         if (rect.bottom < 0 || rect.top > innerHeight) return;
-        // Same scroll speed as Our Tradition, bounded by the 60px overscan.
-        const offset = Math.max(-30, Math.min(30, (innerHeight / 2 - rect.top - rect.height / 2) * 0.35));
+        // Same scroll speed as Our Tradition, bounded by the 180px overscan.
+        const offset = Math.max(-90, Math.min(90, (innerHeight / 2 - rect.top - rect.height / 2) * 0.35));
         section.style.setProperty('--baking-parallax', `${offset.toFixed(1)}px`);
     }
     function update() {
@@ -25,4 +25,3 @@
     desktop.addEventListener('change', update);
     render();
 })();
-

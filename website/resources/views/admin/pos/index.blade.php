@@ -2,7 +2,7 @@
 @section('title','Quick Sale / POS')
 @section('content')
 <link rel="stylesheet" href="{{ asset('admin-assets/pos.css') }}?v={{ filemtime(public_path('admin-assets/pos.css')) }}">
-<div id="pos-app" data-products="{{ route('admin.pos.products') }}" data-quote="{{ route('admin.pos.quote') }}" data-store="{{ route('admin.pos.store') }}" data-csrf="{{ csrf_token() }}">
+<div id="pos-app" data-matrix="{{ \App\Models\GeneralSetting::findOrFail(1)->matrix_delivery_enabled?'1':'0' }}" data-delivery-options="{{ route('admin.pos.delivery-options') }}" data-products="{{ route('admin.pos.products') }}" data-quote="{{ route('admin.pos.quote') }}" data-store="{{ route('admin.pos.store') }}" data-csrf="{{ csrf_token() }}">
 <div class="pos-intro"><div><span class="pos-eyebrow">THE COUNTER</span><p>Scan. Add. Serve with a smile.</p></div><span class="pos-badge">Prices in CAD</span></div>
 <div id="pos-feedback" class="pos-feedback" role="status" aria-live="polite" hidden></div>
 <div class="pos-layout">
@@ -17,7 +17,7 @@
 <section class="pos-panel pos-basket" aria-labelledby="sale-heading">
 <div class="pos-panel-heading"><h2 id="sale-heading">Current sale <span id="pos-item-count">0</span></h2><button type="button" id="clear-sale" class="pos-link">Clear sale</button></div>
 <div id="pos-lines"><p class="pos-empty">No products added yet.</p></div>
-<div class="pos-basket-footer"><label for="fulfillment">How will the customer receive it?</label><select class="form-control" id="fulfillment"><option value="pickup">Collected in store · no delivery charge</option><option value="delivery">Delivery · charge from General Settings</option></select>
+<div class="pos-basket-footer"><label for="fulfillment">How will the customer receive it?</label><select class="form-control" id="fulfillment"><option value="pickup">Collected in store · no delivery charge</option><option value="delivery">Delivery · postal code & service</option></select>
 <div class="pos-subtotal"><span>Product subtotal</span><strong id="pos-subtotal">$0.00</strong></div><p class="pos-help">Tax and any delivery charge appear in the checkout review. Stock is checked when you complete the sale.</p>
 <button id="review-sale" class="btn btn-primary pos-checkout" type="button" disabled>Review & Checkout <span aria-hidden="true">→</span></button>
 </div></section>
@@ -25,9 +25,12 @@
 <dialog id="pos-checkout" aria-labelledby="checkout-heading">
 <form id="complete-sale"><header class="pos-panel-heading"><div><span class="pos-eyebrow">FINAL CHECK</span><h2 id="checkout-heading">Complete this sale</h2></div><button type="button" id="close-checkout" class="pos-link">Close ×</button></header>
 <div class="pos-checkout-body"><div id="quote-lines"></div><div class="pos-totals" id="quote-totals"></div>
+<label>Find customer<input class="form-control" id="pos-customer-search" placeholder="Search name, email or phone" type="search"></label><label>Customer<select class="form-control" name="customer_id" id="pos-customer"><option value="">New customer</option>@foreach($customers as $customer)<option value="{{ $customer->id }}" data-profile="{{ json_encode($customer->only(['name','email','phone','address','city','province','postal_code','country'])) }}">{{ $customer->name }} — {{ $customer->email }} {{ $customer->phone }}</option>@endforeach</select></label>
+<label id="pos-account-type">Account type<select class="form-control" name="account_type"><option value="individual">Individual</option><option value="business">Business owner</option></select></label>
 <p id="customer-help" class="pos-help"></p>
-<div class="pos-customer-grid"><label>First name<input class="form-control" name="first_name" maxlength="100" autocomplete="given-name"></label><label>Last name<input class="form-control" name="last_name" maxlength="100" autocomplete="family-name"></label><label>Phone<input class="form-control" name="phone" maxlength="40" type="tel" autocomplete="tel"></label><label>Email (optional)<input class="form-control" name="email" maxlength="255" type="email" autocomplete="email"></label></div>
+<div class="pos-customer-grid"><label>First name<input class="form-control" name="first_name" maxlength="100" autocomplete="given-name"></label><label>Last name<input class="form-control" name="last_name" maxlength="100" autocomplete="family-name"></label><label>Phone<input class="form-control" name="phone" maxlength="40" type="tel" autocomplete="tel"></label><label>Email (required for new customers)<input class="form-control" name="email" required maxlength="255" type="email" autocomplete="email"></label></div>
 <div id="delivery-fields" class="pos-customer-grid" hidden><label class="pos-wide">Delivery address<input class="form-control" name="address" maxlength="255" autocomplete="street-address"></label><label>City<input class="form-control" name="city" maxlength="100" autocomplete="address-level2"></label><label>Province<input class="form-control" name="province" maxlength="100" autocomplete="address-level1"></label><label>Postal code<input class="form-control" name="postal_code" maxlength="30" autocomplete="postal-code"></label><label>Country<input class="form-control" name="country" maxlength="100" value="Canada" autocomplete="country-name"></label></div>
+<div id="pos-delivery-choice" hidden><label>Delivery service<select class="form-control" name="delivery_service" id="pos-delivery-service"><option value="">Enter postal code first</option></select></label><p id="pos-delivery-description" class="pos-help" role="status"></p></div>
 <div class="pos-customer-grid"><label>Payment method<select class="form-control" name="payment_method"><option value="cash">Cash</option><option value="card">Card · external terminal</option></select></label><label>Payment status<select class="form-control" name="payment_status"><option value="paid">Paid · payment received</option><option value="unpaid">Unpaid · collect on delivery</option></select></label></div>
 <p class="pos-help">Select Paid only after you receive the payment. Card payments must be taken on your separate card terminal.</p>
 <label>Notes (optional)<textarea class="form-control" name="notes" rows="2" maxlength="2000"></textarea></label>

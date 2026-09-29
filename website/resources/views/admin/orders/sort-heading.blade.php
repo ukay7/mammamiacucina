@@ -1,0 +1,1 @@
+<th scope="col" aria-sort="{{ request('sort','date')===$key?(request('direction','desc')==='asc'?'ascending':'descending'):'none' }}"><a href="{{ route($listRoute,array_merge(request()->except('page'),['sort'=>$key,'direction'=>request('sort','date')===$key && request('direction','desc')==='asc'?'desc':'asc'])) }}">{{ $label }} <span aria-hidden="true">↕</span></a></th>

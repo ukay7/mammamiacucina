@@ -32,6 +32,7 @@ sudo -H -u mmcdeploy composer install --no-dev --prefer-dist --optimize-autoload
 sudo -H -u mmcdeploy php8.4 artisan config:clear
 sudo -H -u mmcdeploy php8.4 artisan route:clear
 sudo -H -u mmcdeploy php8.4 artisan migrate --force
+sudo -H -u mmcdeploy php8.4 artisan db:seed --class=DeliveryRateSeeder --force
 sudo -H -u mmcdeploy php8.4 artisan config:cache
 sudo -H -u mmcdeploy php8.4 artisan view:cache
 systemctl reload php8.4-fpm

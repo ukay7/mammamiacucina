@@ -1,0 +1,1 @@
+(()=>{const availability=document.querySelector('#dr-available'),amount=document.querySelector('#dr-amount');if(!availability||!amount)return;const refresh=()=>{amount.disabled=availability.value==='0';amount.required=availability.value==='1';};availability.addEventListener('change',refresh);refresh();})();

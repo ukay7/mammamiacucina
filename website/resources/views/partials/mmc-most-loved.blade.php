@@ -15,7 +15,7 @@
                                 <span class="mmc-loved__picture">@if($product->media->first())<img src="{{ route('catalogue.media',[$product,$product->media->first()]) }}" alt="" width="1536" height="1024" loading="lazy">@else<span class="mmc-loved__placeholder">Image coming soon</span>@endif</span>
                                 <span class="mmc-loved__details">
                                     <span class="mmc-loved__name">{{ $product->premium_marketing_name }}</span>
-                                    <span class="mmc-loved__price">{{ $product->total_selling_price_cad === null ? 'Price on request' : '$'.number_format($product->total_selling_price_cad, 2) }}</span>
+                                    <span class="mmc-loved__price">{{ $product->storefront_price === null ? 'Price on request' : '$'.number_format($product->storefront_price, 2) }}</span>
                                 </span>
                             </a>
                         </li>

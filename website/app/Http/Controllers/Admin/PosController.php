@@ -11,7 +11,7 @@ class PosController extends Controller
 {
     public function index()
     {
-        return view('admin.pos.index');
+        return view('admin.pos.index',['customers'=>\App\Models\Customer::whereHas('user',fn($q)=>$q->where('is_active',true))->orderBy('name')->get()]);
     }
 
     public function products(Request $request)
@@ -40,14 +40,14 @@ class PosController extends Controller
     public function quote(Request $request, PosSale $service)
     {
         $data = $request->validate(['items' => 'required|array|min:1|max:100', 'items.*.id' => 'required|integer|distinct',
-            'items.*.quantity' => 'required|integer|min:1|max:9999', 'fulfillment' => 'required|in:pickup,delivery']);
-        return response()->json($service->quote($data['items'], $data['fulfillment'], $request->user()->id));
+            'items.*.quantity' => 'required|integer|min:1|max:9999', 'fulfillment' => 'required|in:pickup,delivery','postal_code'=>'nullable|string|max:30','country'=>'nullable|string|max:100','delivery_service'=>'nullable|string|max:20']);
+        return response()->json($service->quote($data['items'], $data['fulfillment'], $request->user()->id,$data));
     }
 
     public function store(Request $request, PosSale $service)
     {
-        $data = $request->validate(['quote' => 'required|string|max:100000', 'first_name' => 'nullable|string|max:100',
-            'last_name' => 'nullable|string|max:100', 'email' => 'nullable|email|max:255', 'phone' => 'nullable|string|max:40',
+        $data = $request->validate(['delivery_service'=>'nullable|string|max:20','customer_id'=>'nullable|integer|exists:customers,id','account_type'=>'sometimes|in:individual,business','quote' => 'required|string|max:100000', 'first_name' => 'required_without:customer_id|nullable|string|max:100',
+            'last_name' => 'nullable|string|max:100', 'email' => 'required_without:customer_id|nullable|email|max:255', 'phone' => 'nullable|string|max:40',
             'address' => 'nullable|string|max:255', 'city' => 'nullable|string|max:100', 'province' => 'nullable|string|max:100',
             'postal_code' => 'nullable|string|max:30', 'country' => 'nullable|string|max:100', 'notes' => 'nullable|string|max:2000',
             'payment_method' => 'required|in:cash,card', 'payment_status' => 'required|in:paid,unpaid']);

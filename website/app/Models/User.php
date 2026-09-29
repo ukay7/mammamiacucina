@@ -46,9 +46,20 @@ class User extends Authenticatable
         return $this->belongsTo(Role::class);
     }
 
+    public function customer(){return $this->hasOne(Customer::class);}
+    public function customerRecord(): Customer {
+        abort_unless($this->isCustomer(),403);
+        return $this->customer()->firstOrCreate([],['name'=>$this->name,'email'=>$this->email,'phone'=>$this->phone,'account_type'=>$this->account_type]);
+    }
+    protected static function booted(): void {
+        static::saved(function(User $user){
+            if($user->isCustomer()) $user->customer()->updateOrCreate([],['name'=>$user->name,'email'=>$user->email,'phone'=>$user->phone,'account_type'=>$user->account_type]);
+        });
+    }
+    public function isCustomer(): bool { return in_array($this->account_type, ['individual','business'], true); }
     public function isSuper(): bool
     {
-        return $this->is_active && (bool) $this->role?->is_super;
+        return !$this->isCustomer() && $this->is_active && (bool) $this->role?->is_super;
     }
 
     public function permissions(): array
@@ -58,7 +69,7 @@ class User extends Authenticatable
 
     public function hasAdminPermission(string $permission): bool
     {
-        return $this->is_active && in_array($permission, $this->permissions(), true);
+        return !$this->isCustomer() && $this->is_active && in_array($permission, $this->permissions(), true);
     }
 
     protected function casts(): array

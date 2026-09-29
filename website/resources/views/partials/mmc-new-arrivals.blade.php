@@ -9,14 +9,14 @@
         @foreach ($arrivalProducts as $product)
             @php
                 $productUrl = route('catalogue.product', $product->slug);
-                $price = $product->total_selling_price_cad === null ? 'Price on request' : '$'.number_format($product->total_selling_price_cad, 2);
+                $price = $product->storefront_price === null ? 'Price on request' : '$'.number_format($product->storefront_price, 2);
             @endphp
             <article class="mmc-arrival" data-name="{{ $product->premium_marketing_name }}" data-price="{{ $price }}" data-url="{{ $productUrl }}">
                 <div class="mmc-arrival__media">
                     <a class="mmc-arrival__image-link" href="{{ $productUrl }}" aria-label="View {{ $product->premium_marketing_name }}">
                         <img src="{{ route('catalogue.media', [$product, $product->media->first()]) }}" alt="{{ $product->premium_marketing_name }}" width="1536" height="1024" loading="lazy">
                     </a>
-                    @if($product->total_selling_price_cad !== null)
+                    @if($product->storefront_price !== null)
                     <div class="mmc-arrival__actions">
                         <form data-live-cart-form method="post" action="{{ route('cart.add', $product) }}">@csrf<input type="hidden" name="quantity" value="1"><button type="submit" aria-label="Add {{ $product->premium_marketing_name }} to cart" title="Add to Cart">@include('partials.cart-icon')</button></form>
                     </div>
@@ -36,4 +36,3 @@
 
 </section>
 @endif
-

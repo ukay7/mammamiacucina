@@ -13,7 +13,7 @@ class AuthController extends Controller
 {
     public function create()
     {
-        return auth()->check() ? redirect()->route('admin.dashboard') : view('admin.login');
+        return auth()->check() ? redirect()->route($this->landingRoute()) : view('admin.login');
     }
 
     public function store(Request $r)
@@ -31,7 +31,19 @@ class AuthController extends Controller
         RateLimiter::clear($key);
         $r->session()->regenerate();
 
-        return redirect()->intended(route('admin.dashboard'));
+        // The intended page may belong to a different account or require permissions this user lacks.
+        $r->session()->forget('url.intended');
+
+        return redirect()->route($this->landingRoute());
+    }
+
+    private function landingRoute(): string
+    {
+        $user = auth()->user();
+        if ($user->isCustomer()) return 'customer.orders';
+
+        return $user->hasAdminPermission('warehouse.pack') && ! $user->hasAdminPermission('orders.manage')
+            ? 'admin.orders.index' : 'admin.dashboard';
     }
 
     public function destroy(Request $r)

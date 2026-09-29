@@ -6,10 +6,12 @@ use Tests\TestCase;
 class OrderManagementTest extends TestCase {
  use RefreshDatabase;
  private function setupOrder($stock=10):array {
+  $this->actingAs(User::factory()->create(['email'=>'test@example.test','account_type'=>'individual','phone'=>'555123','role_id'=>Role::where('name','Customer')->value('id'),'is_active'=>true]));
   $p=Product::create(['category_id'=>1,'slug'=>'management-cake','premium_marketing_name'=>'Management Cake','qr_code'=>'MGMT','is_active'=>true,'total_selling_price_cad'=>10]);$p->inventory()->create(['quantity_on_hand'=>$stock]);
   $this->postJson(route('cart.add',$p),['quantity'=>2])->assertOk();$this->get('/checkout')->assertOk();
   $this->post('/checkout',['checkout_token'=>session('checkout_token'),'first_name'=>'Test','last_name'=>'Customer','email'=>'test@example.test','phone'=>'555123','address'=>'10 Example Street','city'=>'Toronto','province'=>'Ontario','postal_code'=>'M1M1M1','country'=>'Canada'])->assertRedirect('/order-success');
-  $o=Order::firstOrFail();$user=User::factory()->create(['role_id'=>Role::where('is_super',true)->value('id'),'is_active'=>true]);$this->actingAs($user);
+  $o=Order::firstOrFail();$o->update(['status'=>'placed','warehouse_round'=>0,'warehouse_sent_at'=>null]); // Legacy order transitions remain supported.
+$user=User::factory()->create(['role_id'=>Role::where('is_super',true)->value('id'),'is_active'=>true]);$this->actingAs($user);
   return [$o,$p,$user];
  }
  private function save($o,$extra=[]){$o->refresh();return $this->patch(route('admin.orders.update',$o),array_merge(['revision'=>$o->revision,'status'=>$o->status,'payment_status'=>$o->payment_status,'delivery'=>$o->delivery_cents===null?'':number_format($o->delivery_cents/100,2,'.',''),'tax'=>$o->tax_cents===null?'':number_format($o->tax_cents/100,2,'.','')],$extra));}

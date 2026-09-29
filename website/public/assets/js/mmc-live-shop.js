@@ -42,9 +42,10 @@
   });
  });
  document.querySelector('[data-place-order]')?.addEventListener('submit', e => {
+  if (!window.confirm('Are you sure you want to proceed with the order?')) { e.preventDefault(); return; }
   const button=e.target.querySelector('button[type="submit"]');button.disabled=true;button.textContent='Placing order…';
  });
- window.addEventListener('pageshow', () => {const button=document.querySelector('[data-place-order] button[type="submit"]');if(button){button.disabled=false;button.textContent='Place Order';}});
+ window.addEventListener('pageshow', () => {const button=document.querySelector('[data-place-order] button[type="submit"]');if(button){if(!document.querySelector('#delivery-service'))button.disabled=false;button.textContent='Place Order';}});
  document.querySelector('[data-contact-preview]')?.addEventListener('submit',e=>{e.preventDefault();document.querySelector('[data-contact-status]').textContent='Please contact us directly while online messaging is being connected.';});
  document.querySelectorAll('.mmc-categories').forEach(section => {
   const track=section.querySelector('.mmc-categories__grid');

@@ -1,6 +1,6 @@
 @extends('layouts.mmc-page', ['pageTitle' => 'Contact Us'])
 @section('page-content')
-<div class="mmc-two-col ps-contact"><section><p class="mmc-eyebrow">LET’S TALK</p><h2>We’d Love to Hear from You</h2><p>Planning a celebration or looking for your next Italian favourite? Tell us what you have in mind.</p><img class="mmc-feature-photo" src="{{ asset('assets/images/mmc/category-cannoli-hd.png') }}" alt="Italian cannoli and cornetti"><h3>Opening Hours</h3>@include('partials.site-hours')
+<div class="mmc-two-col ps-contact"><section>@if($siteSettings->contact_eyebrow)<p class="mmc-eyebrow">{{ $siteSettings->contact_eyebrow }}</p>@endif<h2>{{ $siteSettings->contact_heading }}</h2><p style="white-space:pre-line">{{ $siteSettings->contact_description }}</p><img class="mmc-feature-photo" src="{{ $siteSettings->contact_image_path?route('contact.image',['v'=>$siteSettings->revision]):asset('assets/images/mmc/category-cannoli-hd.png') }}" alt="{{ $siteSettings->contact_image_alt }}"><h3>Opening Hours</h3>@include('partials.site-hours')
 @include('partials.site-contact')</section>
 <form class="mmc-panel mmc-form ps-contact__form" method="post" action="{{ route('contact.store') }}">@csrf<h2>Send Us a Message</h2>
 @if(session('contact_success'))<p role="status" class="alert alert-success">{{ session('contact_success') }}</p>@endif

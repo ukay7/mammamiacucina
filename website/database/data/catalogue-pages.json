@@ -1,0 +1,218 @@
+[
+  {
+    "title": "Cover",
+    "image": "assets/catalogue/page-01.webp",
+    "thumbnail": "assets/catalogue/thumb-01.webp",
+    "label": "Cover"
+  },
+  {
+    "title": "Mamma Mia Cucina",
+    "image": "assets/catalogue/page-02.webp",
+    "thumbnail": "assets/catalogue/thumb-02.webp",
+    "label": "Mamma Mia Cucina"
+  },
+  {
+    "title": "About Us",
+    "image": "assets/catalogue/page-03.webp",
+    "thumbnail": "assets/catalogue/thumb-03.webp",
+    "label": "About Us"
+  },
+  {
+    "title": "Individual Desserts",
+    "image": "assets/catalogue/page-04.webp",
+    "thumbnail": "assets/catalogue/thumb-04.webp",
+    "label": "Individual Desserts"
+  },
+  {
+    "title": "Individual Desserts",
+    "image": "assets/catalogue/page-05.webp",
+    "thumbnail": "assets/catalogue/thumb-05.webp",
+    "label": "Individual Desserts"
+  },
+  {
+    "title": "Individual Desserts",
+    "image": "assets/catalogue/page-06.webp",
+    "thumbnail": "assets/catalogue/thumb-06.webp",
+    "label": "Individual Desserts"
+  },
+  {
+    "title": "Individual Desserts",
+    "image": "assets/catalogue/page-07.webp",
+    "thumbnail": "assets/catalogue/thumb-07.webp",
+    "label": "Individual Desserts"
+  },
+  {
+    "title": "Individual Desserts",
+    "image": "assets/catalogue/page-08.webp",
+    "thumbnail": "assets/catalogue/thumb-08.webp",
+    "label": "Individual Desserts"
+  },
+  {
+    "title": "Signature Cakes",
+    "image": "assets/catalogue/page-09.webp",
+    "thumbnail": "assets/catalogue/thumb-09.webp",
+    "label": "Signature Cakes"
+  },
+  {
+    "title": "Signature Cakes",
+    "image": "assets/catalogue/page-10.webp",
+    "thumbnail": "assets/catalogue/thumb-10.webp",
+    "label": "Signature Cakes"
+  },
+  {
+    "title": "Signature Cakes",
+    "image": "assets/catalogue/page-11.webp",
+    "thumbnail": "assets/catalogue/thumb-11.webp",
+    "label": "Signature Cakes"
+  },
+  {
+    "title": "Signature Cakes & Krapfen",
+    "image": "assets/catalogue/page-12.webp",
+    "thumbnail": "assets/catalogue/thumb-12.webp",
+    "label": "Signature Cakes & Krapfen"
+  },
+  {
+    "title": "Italian Tarts & Pastries",
+    "image": "assets/catalogue/page-13.webp",
+    "thumbnail": "assets/catalogue/thumb-13.webp",
+    "label": "Italian Tarts & Pastries"
+  },
+  {
+    "title": "Italian Tarts & Pastries",
+    "image": "assets/catalogue/page-14.webp",
+    "thumbnail": "assets/catalogue/thumb-14.webp",
+    "label": "Italian Tarts & Pastries"
+  },
+  {
+    "title": "Croissants & Pastries",
+    "image": "assets/catalogue/page-15.webp",
+    "thumbnail": "assets/catalogue/thumb-15.webp",
+    "label": "Croissants & Pastries"
+  },
+  {
+    "title": "Croissants & Pastries",
+    "image": "assets/catalogue/page-16.webp",
+    "thumbnail": "assets/catalogue/thumb-16.webp",
+    "label": "Croissants & Pastries"
+  },
+  {
+    "title": "Croissants & Pastries",
+    "image": "assets/catalogue/page-17.webp",
+    "thumbnail": "assets/catalogue/thumb-17.webp",
+    "label": "Croissants & Pastries"
+  },
+  {
+    "title": "Croissants & Pastries",
+    "image": "assets/catalogue/page-18.webp",
+    "thumbnail": "assets/catalogue/thumb-18.webp",
+    "label": "Croissants & Pastries"
+  },
+  {
+    "title": "Croissants & Pastries",
+    "image": "assets/catalogue/page-19.webp",
+    "thumbnail": "assets/catalogue/thumb-19.webp",
+    "label": "Croissants & Pastries"
+  },
+  {
+    "title": "Croissants & Pastries",
+    "image": "assets/catalogue/page-20.webp",
+    "thumbnail": "assets/catalogue/thumb-20.webp",
+    "label": "Croissants & Pastries"
+  },
+  {
+    "title": "Croissants & Pastries",
+    "image": "assets/catalogue/page-21.webp",
+    "thumbnail": "assets/catalogue/thumb-21.webp",
+    "label": "Croissants & Pastries"
+  },
+  {
+    "title": "Mamma Mia Cucina",
+    "image": "assets/catalogue/page-22.webp",
+    "thumbnail": "assets/catalogue/thumb-22.webp",
+    "label": "Mamma Mia Cucina"
+  },
+  {
+    "title": "Neapolitan Pastries",
+    "image": "assets/catalogue/page-23.webp",
+    "thumbnail": "assets/catalogue/thumb-23.webp",
+    "label": "Neapolitan Pastries"
+  },
+  {
+    "title": "Neapolitan Pastries",
+    "image": "assets/catalogue/page-24.webp",
+    "thumbnail": "assets/catalogue/thumb-24.webp",
+    "label": "Neapolitan Pastries"
+  },
+  {
+    "title": "Gluten Free & Lactose Free",
+    "image": "assets/catalogue/page-25.webp",
+    "thumbnail": "assets/catalogue/thumb-25.webp",
+    "label": "Gluten Free & Lactose Free"
+  },
+  {
+    "title": "Gluten Free & Lactose Free",
+    "image": "assets/catalogue/page-26.webp",
+    "thumbnail": "assets/catalogue/thumb-26.webp",
+    "label": "Gluten Free & Lactose Free"
+  },
+  {
+    "title": "Gluten Free & Lactose Free",
+    "image": "assets/catalogue/page-27.webp",
+    "thumbnail": "assets/catalogue/thumb-27.webp",
+    "label": "Gluten Free & Lactose Free"
+  },
+  {
+    "title": "Cannoli",
+    "image": "assets/catalogue/page-28.webp",
+    "thumbnail": "assets/catalogue/thumb-28.webp",
+    "label": "Cannoli"
+  },
+  {
+    "title": "Cannoli",
+    "image": "assets/catalogue/page-29.webp",
+    "thumbnail": "assets/catalogue/thumb-29.webp",
+    "label": "Cannoli"
+  },
+  {
+    "title": "Realistic Fruit & Nut Desserts",
+    "image": "assets/catalogue/page-30.webp",
+    "thumbnail": "assets/catalogue/thumb-30.webp",
+    "label": "Realistic Fruit & Nut Desserts"
+  },
+  {
+    "title": "Realistic Fruit & Nut Desserts",
+    "image": "assets/catalogue/page-31.webp",
+    "thumbnail": "assets/catalogue/thumb-31.webp",
+    "label": "Realistic Fruit & Nut Desserts"
+  },
+  {
+    "title": "The Collection",
+    "image": "assets/catalogue/page-32.webp",
+    "thumbnail": "assets/catalogue/thumb-32.webp",
+    "label": "The Collection"
+  },
+  {
+    "title": "The Collection",
+    "image": "assets/catalogue/page-33.webp",
+    "thumbnail": "assets/catalogue/thumb-33.webp",
+    "label": "The Collection"
+  },
+  {
+    "title": "Our Story Continues",
+    "image": "assets/catalogue/page-34.webp",
+    "thumbnail": "assets/catalogue/thumb-34.webp",
+    "label": "Our Story Continues"
+  },
+  {
+    "title": "Contact Us",
+    "image": "assets/catalogue/page-35.webp",
+    "thumbnail": "assets/catalogue/thumb-35.webp",
+    "label": "Contact Us"
+  },
+  {
+    "title": "Back Cover",
+    "image": "assets/catalogue/page-36.webp",
+    "thumbnail": "assets/catalogue/thumb-36.webp",
+    "label": "Back Cover"
+  }
+]

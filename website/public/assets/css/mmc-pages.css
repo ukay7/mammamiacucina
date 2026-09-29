@@ -219,3 +219,47 @@
 .mmc-shop-products:not(.is-list) .mmc-hover-cart svg{width:24px;height:24px;}
 @media(min-width:1280px){.mmc-shop-products:not(.is-list){grid-template-columns:repeat(4,minmax(0,1fr));}}
 @media(max-width:700px){.mmc-shop-products:not(.is-list){gap:12px;}.mmc-shop-products:not(.is-list) .mmc-product-card h3{font-size:15px;margin:10px 4px 6px;}.mmc-shop-products:not(.is-list) .mmc-product-card .mmc-price{font-size:14px;}}
+
+/* Compact contact-page illustration, preserving the uploaded image proportions. */
+.ps-contact .mmc-feature-photo{display:block;width:auto;max-width:100%;height:auto;max-height:240px;object-fit:contain;margin:20px 0 24px}
+@media(max-width:600px){.ps-contact .mmc-feature-photo{max-height:190px}}
+
+/* Inner pages share the flexible header without the old centered absolute offsets. */
+@media(min-width:1025px){
+ .mmc-inner .mmc-inner-header{height:130px}
+ .mmc-inner .mmc-inner-header .mmc-masthead{left:0;right:0;top:0;transform:none;max-width:none;width:100%;container-type:normal}
+}
+@media(min-width:1025px) and (max-width:1250px){
+ .mmc-inner .mmc-inner-header{height:110px}
+}
+
+@media(min-width:1025px){
+ .mmc-inner .mmc-inner-header{height:80px}
+ .mmc-inner .mmc-inner-header .mmc-masthead{height:80px}
+}
+
+@media(min-width:1025px){
+ .mmc-inner .mmc-inner-header,.mmc-inner .mmc-inner-header .mmc-masthead{height:clamp(90px,6.5vw,124px)}
+}
+/* Refined order confirmation */
+.mmc-home .mmc-order-heading{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:28px 32px;background:#fffcf7;border:1px solid #e4d7c0;border-radius:12px;margin-bottom:24px;border-left:5px solid #4f7856}
+.mmc-home .mmc-order-heading h2{font-size:clamp(28px,3vw,36px);margin:8px 0 12px;line-height:1.2}
+.mmc-home .mmc-order-heading p{margin:0;font-size:15px}
+.mmc-home .mmc-order-heading .mmc-eyebrow{font-size:11px;letter-spacing:2px;color:#4f7856;font-weight:600}
+.mmc-home .mmc-order-heading .mmc-button{flex-shrink:0;font-size:14px}
+.mmc-home .mmc-order-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:24px;align-items:start;margin-bottom:24px}
+.mmc-home .mmc-order-columns>.mmc-panel{padding:28px;border-radius:12px;background:#fffcf7;min-width:0;box-shadow:0 4px 18px #30251005}
+.mmc-home .mmc-order-columns h2{font-size:26px;margin:0 0 22px;padding-bottom:16px;border-bottom:1px solid #e5d8c3}
+.mmc-home .mmc-order-columns h3{font-size:20px;margin:24px 0 12px;padding-top:20px;border-top:1px solid #e5d8c3}
+.mmc-home .mmc-order-columns p{font-size:14px;line-height:1.8;margin:12px 0;overflow-wrap:anywhere}
+.mmc-home .mmc-order-columns .mmc-order-number{font-size:18px;color:#8e0718}
+.mmc-home .mmc-order-columns .mmc-order-table{width:100%;border-collapse:collapse;font-size:14px}
+.mmc-home .mmc-order-columns .mmc-order-table th{background:#f3ecdf;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:#7c6950}
+.mmc-home .mmc-order-columns .mmc-order-table td,.mmc-home .mmc-order-columns .mmc-order-table th{padding:14px 10px;border-bottom:1px solid #e6dccb;text-align:right}
+.mmc-home .mmc-order-columns .mmc-order-table td:first-child,.mmc-home .mmc-order-columns .mmc-order-table th:first-child{text-align:left;width:48%}
+.mmc-home .confirmation-totals{margin:24px 0 0 auto;max-width:380px}
+.mmc-home .confirmation-totals>div{display:flex;justify-content:space-between;gap:20px;padding:9px 0;font-size:14px}
+.mmc-home .confirmation-totals .confirmation-total{border-top:1px solid #dacaab;margin-top:12px;padding-top:18px;font-size:20px;color:#8e0718;font-weight:700}
+.mmc-home .confirmation-payment{background:#f2ecdf;padding:16px 20px;border-radius:8px;margin-top:24px;font-size:14px;line-height:1.8}
+@media(max-width:800px){.mmc-home .mmc-order-columns{grid-template-columns:1fr}.mmc-home .mmc-order-heading{flex-wrap:wrap;padding:22px}.mmc-home .mmc-order-columns>.mmc-panel{padding:22px}}
+@media(max-width:480px){.mmc-home .mmc-order-heading .mmc-button{width:100%;text-align:center}.mmc-home .mmc-order-columns>.mmc-panel{padding:16px}.mmc-home .mmc-order-columns .mmc-order-table td,.mmc-home .mmc-order-columns .mmc-order-table th{padding:12px 5px}}

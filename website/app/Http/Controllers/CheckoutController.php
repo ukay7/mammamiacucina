@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\GeneralSetting;
 use App\Models\Inventory;
 use App\Models\InventoryMovement;
 use App\Models\Order;
 use App\Models\Product;
+use App\Services\OnlinePayments;
+use App\Services\PaymentGateway;
 use App\Services\StorefrontCart;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +20,9 @@ class CheckoutController extends Controller
     public function create(StorefrontCart $service)
     {
         $cart = $service->snapshot();
+        $user=auth()->user(); $parts=explode(' ',trim($user?->name ?? ''),2); $profile=['first_name'=>$parts[0],'last_name'=>$parts[1]??'','email'=>$user?->email,'phone'=>$user?->phone,'country'=>'Canada'];
+        $savedAddress=$user->customerRecord()->only(['address','city','province','postal_code','country']);
+        $profile=array_merge($profile,array_filter($savedAddress,fn($value)=>$value!==null && $value!==''));
         if (! $cart['items']) {
             return redirect()->route('theme.cart')->with('cart_status', 'Your cart is empty.');
         }
@@ -27,20 +33,32 @@ class CheckoutController extends Controller
         foreach ($cart['items'] as $item) {
             $quote[$item['product']->id] = [$item['quantity'], $item['unit_cents']];
         }
-        $settings=\App\Models\GeneralSetting::findOrFail(1);
-        $charges=['delivery'=>$settings->delivery_cents,'tax'=>$settings->taxFor($cart['total']),'rate'=>$settings->tax_basis_points];
-        session(['checkout_charges'=>['delivery'=>$settings->delivery_cents,'rate'=>$settings->tax_basis_points]]);
+        $settings = GeneralSetting::findOrFail(1);
+        $charges = ['delivery' => $settings->delivery_cents, 'tax' => $settings->taxFor($cart['total']), 'rate' => $settings->tax_basis_points];
+        session(['checkout_charges' => ['delivery' => $settings->delivery_cents, 'rate' => $settings->tax_basis_points, 'matrix' => (bool) $settings->matrix_delivery_enabled]]);
         $token = (string) Str::uuid();
         session(['checkout_token' => $token, 'checkout_quote' => $quote]);
 
-        return response()->view('pages.checkout', compact('cart', 'token', 'charges'))->header('Cache-Control', 'no-store, private');
+        return response()->view('pages.checkout', compact('cart', 'token', 'charges', 'profile', 'settings'))->header('Cache-Control', 'no-store, private');
     }
 
     public function store(Request $r)
     {
-        $d = $r->validate(['checkout_token' => 'required|uuid', 'first_name' => 'required|string|max:100', 'last_name' => 'required|string|max:100', 'email' => 'required|email|max:255', 'phone' => 'required|string|max:40', 'address' => 'required|string|max:255', 'city' => 'required|string|max:100', 'province' => 'required|string|max:100', 'postal_code' => 'required|string|max:30', 'country' => 'required|string|max:100', 'notes' => 'nullable|string|max:2000']);
+
+        $d = $r->validate(['delivery_service'=>'nullable|string|max:20','checkout_token' => 'required|uuid', 'first_name' => 'required|string|max:100', 'last_name' => 'required|string|max:100', 'email' => 'required|email|max:255', 'phone' => 'required|string|max:40', 'address' => 'required|string|max:255', 'city' => 'required|string|max:100', 'province' => 'required|string|max:100', 'postal_code' => 'required|string|max:30', 'country' => 'required|string|max:100', 'notes' => 'nullable|string|max:2000', 'payment_method' => 'sometimes|required|in:cash,card,paypal']);
+        $d['email'] = $r->user()->email;
+        $method = $d['payment_method'] ?? 'cash';
+        $d['payment_method'] = $method;
+        if ($method !== 'cash' && ! app(PaymentGateway::class)->ready($method === 'card' ? 'stripe' : 'paypal')) {
+            throw ValidationException::withMessages(['payment_method' => 'This payment option is temporarily unavailable. Please select another option.']);
+        }
         // A successful retry returns the same order; the token must belong to this session.
         if (session('last_order_token') === $d['checkout_token']) {
+            $previous = Order::find(session('last_order_id'));
+            if ($previous?->payment && $previous->payment_status !== 'paid') {
+                return redirect()->route('payment.show', $previous->payment->reference);
+            }
+
             return redirect()->route('theme.order-success');
         }
         if (! session('checkout_token') || ! hash_equals(session('checkout_token'), $d['checkout_token'])) {
@@ -52,11 +70,23 @@ class CheckoutController extends Controller
             throw ValidationException::withMessages(['cart' => 'Your cart is empty or invalid. Please review it.']);
         }
         $order = DB::transaction(function () use ($d, $quantities, $quote) {
+            $settings = GeneralSetting::lockForUpdate()->findOrFail(1);
             if ($existing = Order::where('checkout_token', $d['checkout_token'])->first()) {
                 return $existing;
             }
-            $settings=\App\Models\GeneralSetting::lockForUpdate()->findOrFail(1);
-            if(session('checkout_charges')!==['delivery'=>$settings->delivery_cents,'rate'=>$settings->tax_basis_points])throw ValidationException::withMessages(['cart'=>'Delivery or tax has changed. Open checkout from your cart again to review the new total.']);
+
+            if (session('checkout_charges') !== ['delivery' => $settings->delivery_cents, 'rate' => $settings->tax_basis_points, 'matrix' => (bool) $settings->matrix_delivery_enabled]) {
+                throw ValidationException::withMessages(['cart' => 'Delivery or tax has changed. Open checkout from your cart again to review the new total.']);
+            }
+            $deliverySnapshot=[];
+            if($settings->matrix_delivery_enabled){
+                if(!in_array(strtolower(trim($d['country'])),['canada','ca']))throw ValidationException::withMessages(['country'=>'Delivery is available only within supported Canadian postal areas.']);
+                $deliverySnapshot=app(\App\Services\DeliveryQuote::class)->quote($settings->warehouse_postal_code??'',$d['postal_code'],$d['delivery_service']??'');
+                $expected=$deliverySnapshot+['postal_code'=>\App\Services\DeliveryQuote::postal($d['postal_code'])];
+                if(session('delivery_quote')!==$expected)throw ValidationException::withMessages(['delivery_service'=>'Delivery quote changed or expired. Select your service again to review the charge.']);
+            }
+            $d['delivery_service'] = $deliverySnapshot['delivery_service'] ?? null;
+            if($deliverySnapshot)$d['postal_code']=$deliverySnapshot['delivery_to_postal'];
             $products = Product::whereIn('id', array_keys($quantities))->orderBy('id')->lockForUpdate()->get();
             if ($products->count() !== count($quantities)) {
                 throw ValidationException::withMessages(['cart' => 'A product is no longer available. Please review your cart.']);
@@ -65,8 +95,8 @@ class CheckoutController extends Controller
             $subtotal = 0;
             foreach ($products as $p) {
                 $qty = (int) $quantities[$p->id];
-                $price = (int) round((float) $p->total_selling_price_cad * 100);
-                if (! $p->is_active || ! $p->categories()->where('is_active', true)->exists() || $p->total_selling_price_cad === null || $price < 0 || $qty < 1 || $qty > 99) {
+                $price = (int) round((float) $p->storefront_price * 100);
+                if (! $p->is_active || ! $p->categories()->where('is_active', true)->exists() || $p->storefront_price === null || $price < 0 || $qty < 1 || $qty > 99) {
                     throw ValidationException::withMessages(['cart' => 'A product is no longer available. Please review your cart.']);
                 }
                 if (($quote[$p->id] ?? null) !== [$qty, $price]) {
@@ -79,7 +109,9 @@ class CheckoutController extends Controller
                 $lines[] = [$p, $qty, $price, $inventory];
                 $subtotal += $price * $qty;
             }
-            $order = Order::create(array_merge($d, ['number' => 'MMC-'.strtoupper((string) Str::ulid()), 'subtotal_cents' => $subtotal, 'delivery_cents'=>$settings->delivery_cents, 'tax_cents'=>$settings->taxFor($subtotal), 'payment_method' => 'cash', 'payment_status' => 'unpaid', 'status' => 'placed']));
+            $order = Order::create(array_merge($d, ['customer_id' => auth()->user()->customerRecord()->id, 'created_by' => auth()->id(), 'source' => 'website', 'number' => 'MMC-'.strtoupper((string) Str::ulid()), 'subtotal_cents' => $subtotal, 'delivery_cents' => ($deliverySnapshot['delivery_cents']??$settings->delivery_cents), 'tax_cents' => $settings->taxFor($subtotal), 'tax_basis_points'=>$settings->tax_basis_points, 'payment_method' => $d['payment_method'], 'payment_status' => $d['payment_method'] === 'cash' ? 'unpaid' : 'pending', 'status' => $d['payment_method'] === 'cash' ? 'warehouse_pending' : 'awaiting_payment', 'warehouse_round' => $d['payment_method'] === 'cash' ? 1 : 0, 'warehouse_sent_at' => $d['payment_method'] === 'cash' ? now() : null]));
+            if($deliverySnapshot) $order->update($deliverySnapshot);
+            auth()->user()->customerRecord()->update(\Illuminate\Support\Arr::only($d,['address','city','province','postal_code','country']));
             // The database-generated ID avoids collisions between simultaneous orders.
             $order->update(['number' => 'mmc-'.$order->id]);
             foreach ($lines as [$p,$qty,$price,$inventory]) {
@@ -92,10 +124,18 @@ class CheckoutController extends Controller
                 }
             }
 
+            if ($order->payment_method !== 'cash') {
+                app(OnlinePayments::class)->initialize($order);
+            }
+
             return $order;
         }, 3);
         session(['last_order_id' => $order->id, 'last_order_token' => $order->checkout_token]);
-        session()->forget(['storefront_cart', 'checkout_token', 'checkout_quote','checkout_charges']);
+        session()->forget(['storefront_cart', 'checkout_token', 'checkout_quote', 'checkout_charges', 'delivery_quote']);
+
+        if ($order->payment) {
+            return app(PaymentController::class)->start($order->payment, app(OnlinePayments::class));
+        }
 
         return redirect()->route('theme.order-success');
     }
@@ -104,6 +144,7 @@ class CheckoutController extends Controller
     {
         $order = Order::with('items')->find(session('last_order_id'));
         abort_unless($order, 404);
+
         return response()->view('orders.print', compact('order'))->header('Cache-Control', 'no-store, private');
     }
 
@@ -112,6 +153,10 @@ class CheckoutController extends Controller
         $order = Order::with('items')->find(session('last_order_id'));
         if (! $order) {
             return redirect()->route('theme.cart');
+        }
+
+        if ($order->payment && ($order->payment_status !== 'paid' || $order->status === 'payment_review')) {
+            return redirect()->route('payment.show', $order->payment->reference);
         }
 
         return response()->view('pages.order-success', compact('order'))->header('Cache-Control', 'no-store, private');

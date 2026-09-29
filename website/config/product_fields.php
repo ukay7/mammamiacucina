@@ -22,6 +22,6 @@ return [
     'rate_exchange_cad' => ['Rate Exchange (CAD)', 'decimal'],
     'shipping_cost_cad' => ['Shipping Cost (CAD)', 'decimal'],
     'surcharge_increase_cad' => ['Surcharge Increase (CAD)', 'decimal'],
-    'total_selling_price_cad' => ['Total Selling Price (CAD)', 'decimal'],
+    'business_selling_price_cad' => ['Total selling price CAD (Business)', 'decimal'], 'total_selling_price_cad' => ['Total Selling Price CAD (Individual)', 'decimal'],
     'product_notes' => ['Product Notes', 'textarea'],
 ];

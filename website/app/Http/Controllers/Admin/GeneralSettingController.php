@@ -25,8 +25,9 @@ class GeneralSettingController extends Controller
 
     public function update(Request $r)
     {
-        $d = $r->validate(['facebook_url'=>'sometimes|nullable|url:http,https|max:500','instagram_url'=>'sometimes|nullable|url:http,https|max:500','twitter_url'=>'sometimes|nullable|url:http,https|max:500','logo'=>'nullable|file|image|mimes:png,jpg,jpeg,webp|max:5120','email'=>'sometimes|nullable|email|max:255','phone'=>['sometimes','nullable','string','max:60','regex:/^[0-9+(). x-]+$/i'],'youtube'=>'sometimes|nullable|string|max:500','opening_hours'=>'sometimes|array:Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday','opening_hours.*.open'=>'required|date_format:H:i','opening_hours.*.close'=>'required|date_format:H:i','opening_hours.*.closed'=>'required|boolean','revision' => 'required|integer|min:0', 'delivery' => ['required', 'regex:/^\d{1,7}(\.\d{1,2})?$/'], 'tax' => ['required','numeric','min:0','max:100','regex:/^\d{1,3}(\.\d{1,2})?$/']]);
+        $d = $r->validate(['warehouse_postal_code'=>'sometimes|nullable|string|max:7','matrix_delivery_enabled'=>'sometimes|boolean','facebook_url'=>'sometimes|nullable|url:http,https|max:500','instagram_url'=>'sometimes|nullable|url:http,https|max:500','twitter_url'=>'sometimes|nullable|url:http,https|max:500','logo'=>'nullable|file|image|mimes:png,jpg,jpeg,webp|max:5120','email'=>'sometimes|nullable|email|max:255','phone'=>['sometimes','nullable','string','max:60','regex:/^[0-9+(). x-]+$/i'],'youtube'=>'sometimes|nullable|string|max:500','opening_hours'=>'sometimes|array:Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday','opening_hours.*.open'=>'required|date_format:H:i','opening_hours.*.close'=>'required|date_format:H:i','opening_hours.*.closed'=>'required|boolean','revision' => 'required|integer|min:0', 'delivery' => ['required', 'regex:/^\d{1,7}(\.\d{1,2})?$/'], 'tax' => ['required','numeric','min:0','max:100','regex:/^\d{1,3}(\.\d{1,2})?$/']]);
         if (!empty($d['youtube']) && !GeneralSetting::youtubeId($d['youtube'])) throw ValidationException::withMessages(['youtube'=>'Enter a valid YouTube video URL or 11-character video ID.']);
+        if(!empty($d['warehouse_postal_code']))$d['warehouse_postal_code']=\App\Services\DeliveryQuote::postal($d['warehouse_postal_code']);
         $path=null;$old=null;
         try {
         if ($r->hasFile('logo')) {
@@ -35,6 +36,19 @@ class GeneralSettingController extends Controller
         }
         DB::transaction(function () use ($d, $path, &$old) {
             $settings = GeneralSetting::lockForUpdate()->findOrFail(1);
+            $enabled = $d['matrix_delivery_enabled'] ?? $settings->matrix_delivery_enabled;
+            $origin = array_key_exists('warehouse_postal_code', $d) ? $d['warehouse_postal_code'] : $settings->warehouse_postal_code;
+            if ($enabled) {
+                if (!$origin || !DB::table('delivery_postal_zones')->where('prefix', substr($origin, 0, 3))->exists()) {
+                    throw ValidationException::withMessages(['warehouse_postal_code'=>'Choose a warehouse postal code in the imported delivery coverage area.']);
+                }
+                foreach (['bullet','direct','rush','same_day','overnight'] as $code) {
+                    if (DB::table('delivery_rates')->where('service_code',$code)->whereBetween('from_zone',[1,30])->whereBetween('to_zone',[1,30])->count() !== 900) {
+                        throw ValidationException::withMessages(['matrix_delivery_enabled'=>'Import all five complete rate matrices before enabling.']);
+                    }
+                }
+            }
+
             if ($settings->revision !== (int) $d['revision']) {
                 throw ValidationException::withMessages(['settings' => 'Settings have changed. Reload before saving.']);
             }$cents = static function ($v) {
@@ -42,7 +56,7 @@ class GeneralSettingController extends Controller
 
                 return (int) $parts[0] * 100 + (int) str_pad($parts[1] ?? '', 2, '0');
             };
-            $extra=array_intersect_key($d,array_flip(['email','phone','opening_hours','facebook_url','instagram_url','twitter_url']));
+            $extra=array_intersect_key($d,array_flip(['warehouse_postal_code','matrix_delivery_enabled','email','phone','opening_hours','facebook_url','instagram_url','twitter_url']));
             if (array_key_exists('youtube',$d)) $extra['youtube_video_id']=GeneralSetting::youtubeId($d['youtube']);
             if ($path) {$old=$settings->logo_path;$extra['logo_path']=$path;}
             $settings->update($extra + ['delivery_cents' => $cents($d['delivery']), 'tax_basis_points' => $cents($d['tax']), 'revision' => $settings->revision + 1]);

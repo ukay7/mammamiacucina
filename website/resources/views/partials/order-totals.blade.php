@@ -1,4 +1,5 @@
+@include('partials.order-delivery')
 <div class="mmc-order-totals"><p><strong>Product subtotal (CAD): ${{ number_format($order->subtotal_cents/100,2) }}</strong></p><p>Delivery: {{ $order->delivery_cents===null?'To be confirmed':'$'.number_format($order->delivery_cents/100,2) }}<br>Tax: {{ $order->tax_cents===null?'To be confirmed':'$'.number_format($order->tax_cents/100,2) }}</p>
 @if($order->final_total_cents!==null)<p><strong>Final total (CAD): ${{ number_format($order->final_total_cents/100,2) }}</strong></p>@else<p>Delivery charges and tax will be confirmed separately.</p>@endif
-<p>Payment: {{ $order->payment_method }} · {{ ucfirst($order->payment_status) }}</p>
-@if($order->status==='cancelled')<p><strong>Order cancelled — no payment due.</strong></p>@elseif($order->final_total_cents!==null)<p><strong>Amount due: ${{ number_format(($order->payment_status==='paid'?0:$order->final_total_cents)/100,2) }}</strong></p>@endif</div>
+<p>Payment: {{ $order->payment_method }} · {{ ucfirst(str_replace('_',' ',$order->payment_status)) }}</p>
+@if($order->status==='cancelled')<p><strong>Order cancelled — no payment due.</strong></p>@elseif($order->final_total_cents!==null)<p><strong>Amount due: ${{ number_format(max(0,$order->balance_cents)/100,2) }}</strong></p>@endif @if($order->balance_cents<0)<p><strong>Refund due: ${{ number_format(-$order->balance_cents/100,2) }}</strong></p>@endif</div>

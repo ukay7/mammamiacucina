@@ -6,7 +6,26 @@
     const cart = new Map();
     const money = cents => new Intl.NumberFormat('en-CA', {style:'currency',currency:'CAD'}).format(cents / 100);
     const checkout = $('#pos-checkout'), success = $('#pos-success'), form = $('#complete-sale');
+    $('#pos-customer-search').addEventListener('input',()=>{
+        const term=$('#pos-customer-search').value.trim().toLowerCase();
+        Array.from($('#pos-customer').options).forEach(option=>option.hidden=!!option.value && !option.textContent.toLowerCase().includes(term));
+    });
+    $('#pos-customer').addEventListener('change',()=>{
+        const selected=$('#pos-customer').selectedOptions[0];
+        const profile=selected.dataset.profile?JSON.parse(selected.dataset.profile):null;
+        const parts=(profile?.name||'').split(' ');
+        for(const key of ['email','phone','address','city','province','postal_code','country'])form.elements[key].value=profile?.[key]||'';
+        form.elements.first_name.value=parts.shift()||'';
+        form.elements.last_name.value=parts.join(' ');
+        form.elements.email.readOnly=!!profile;
+        form.elements.email.required=!profile;
+        $('#pos-account-type').hidden=!!profile;
+        if(!form.elements.country.value)form.elements.country.value='Canada';
+        refreshDelivery();
+    });
     let quote = null, submitting = false, reviewing = false, pendingScans = 0, frozenPayload = null;
+    let quoteSerial=0, deliverySerial=0, deliveryTimer;
+    const matrixDelivery=()=>app.dataset.matrix==='1' && $('#fulfillment').value==='delivery';
     let searchSerial = 0, searchTimer, cameraControls, cameraGeneration = 0, lastCode = '', lastSeen = 0;
     const make = (tag, text, className) => {
         const node = document.createElement(tag);
@@ -164,58 +183,89 @@
     };
     function fillQuote(data) {
         quote=data.quote;
+        if(data.delivery_route?.delivery_service_name && form.elements.delivery_service.selectedOptions[0])form.elements.delivery_service.selectedOptions[0].textContent=data.delivery_route.delivery_service_name+' — '+money(data.delivery);
         const lines=$('#quote-lines');lines.replaceChildren();
         data.items.forEach(line=>{const row=make('div',undefined,'pos-quote-line');row.append(make('span',line.name+' × '+line.quantity),make('strong',money(line.unit_cents*line.quantity)));lines.append(row);});
         const totals=$('#quote-totals');totals.replaceChildren();
-        [['Product subtotal',data.subtotal],['Delivery',data.delivery],['Tax ('+data.tax_percent+'%)',data.tax],['Total (CAD)',data.total]].forEach(([label,value])=>{
+        [['Product subtotal',data.subtotal],['Delivery'+(data.delivery_route?.delivery_service_name?' · '+data.delivery_route.delivery_service_name:''),data.delivery],['Tax ('+data.tax_percent+'%)',data.tax],['Total (CAD)',data.total]].forEach(([label,value])=>{
             const row=make('div');row.append(make('span',label),make('span',money(value)));totals.append(row);
         });
         $('#complete-button').textContent='Complete sale · '+money(data.total);
+        $('#complete-button').disabled=false;
+        $('#checkout-error').hidden=true;$('#refresh-quote').hidden=true;
+    }
+    function configureDelivery(){
         const delivery=$('#fulfillment').value==='delivery';
         $('#delivery-fields').hidden=!delivery;
         $('#delivery-fields').querySelectorAll('input').forEach(input=>{input.disabled=!delivery;input.required=delivery;});
-        form.elements.first_name.required=delivery;form.elements.phone.required=delivery;
+        form.elements.first_name.required=true;form.elements.phone.required=delivery;
         form.elements.payment_status.querySelector('[value="unpaid"]').disabled=!delivery;
         if(!delivery)form.elements.payment_status.value='paid';
-        $('#customer-help').textContent=delivery?'Enter the customer name, phone and full delivery address.':'Walk-in sale: customer details are optional. Items are marked collected when completed.';
-        $('#checkout-error').hidden=true;$('#refresh-quote').hidden=true;
+        $('#customer-help').textContent=delivery?'Enter the customer name, phone and full delivery address.':'Select an existing customer or enter a new customer. Email is required to verify their account and access order history.';
+        $('#pos-delivery-choice').hidden=!matrixDelivery();
+        form.elements.delivery_service.disabled=!matrixDelivery();form.elements.delivery_service.required=matrixDelivery();
+    }
+    function clearQuote(){quote=null;$('#quote-lines').replaceChildren();cart.forEach(line=>{const row=make('div',undefined,'pos-quote-line');row.append(make('span',line.name+' × '+line.quantity),make('strong',money(line.unit_cents*line.quantity)));$('#quote-lines').append(row);});$('#complete-button').disabled=true;$('#complete-button').textContent='Complete sale';$('#quote-totals').textContent='Select a delivery service to calculate the total.';}
+    async function refreshDelivery(){
+        if(!matrixDelivery()||frozenPayload||submitting)return;
+        const serial=++deliverySerial;quoteSerial++;clearQuote();
+        const select=form.elements.delivery_service,selected=select.value;select.disabled=true;
+        const message=$('#pos-delivery-description');message.textContent='Checking delivery services…';
+        if(!form.elements.postal_code.value){message.textContent='Enter the delivery postal code to see services and prices.';return;}
+        try{
+            const data=await request(app.dataset.deliveryOptions,{postal_code:form.elements.postal_code.value,country:form.elements.country.value});
+            if(serial!==deliverySerial)return;
+            select.replaceChildren(new Option('Choose a delivery service',''));
+            data.services.forEach(s=>{const option=new Option(s.name+' — '+(s.amount_cents===null?'Unavailable':money(s.amount_cents)),s.code);option.disabled=s.amount_cents===null;select.add(option);});
+            select.disabled=false;
+            if(data.services.some(s=>s.code===selected&&s.amount_cents!==null))select.value=selected;
+            message.textContent=data.from_postal+' (Zone '+data.from_zone+') → '+data.to_postal+' (Zone '+data.to_zone+')';
+            $('#checkout-error').hidden=true;
+            if(select.value)review();
+        }catch(error){if(serial!==deliverySerial)return;message.textContent='';$('#checkout-error').textContent=error.message;$('#checkout-error').hidden=false;}
     }
     async function review(){
-        if(reviewing || submitting || frozenPayload || !cart.size || pendingScans)return;
-        stopCamera();reviewing=true;renderCart();$('#review-sale').textContent='Checking prices & stock…';
+        if(submitting || frozenPayload || !cart.size || pendingScans)return;
+        stopCamera();configureDelivery();if(!checkout.open)checkout.showModal();
+        const serial=++quoteSerial;clearQuote();
+        if(matrixDelivery() && (!form.elements.postal_code.value || !form.elements.delivery_service.value)){refreshDelivery();return;}
+        reviewing=true;renderCart();$('#review-sale').textContent='Checking prices & stock…';
         try{
-            const data=await request(app.dataset.quote,{items:items(),fulfillment:$('#fulfillment').value});
-            fillQuote(data);if(!checkout.open)checkout.showModal();
-        }catch(error){
-            if(checkout.open){$('#checkout-error').textContent=error.message;$('#checkout-error').hidden=false;}
-            else feedback(error.message,true);
-        }finally{reviewing=false;renderCart();$('#review-sale').textContent='Review & Checkout →';}
+            const data=await request(app.dataset.quote,{items:items(),fulfillment:$('#fulfillment').value,postal_code:form.elements.postal_code.value,country:form.elements.country.value,delivery_service:form.elements.delivery_service.value});
+            if(serial!==quoteSerial)return;
+            fillQuote(data);
+            if(data.delivery_route?.delivery_service_name)$('#pos-delivery-description').textContent=data.delivery_route.delivery_from_postal+' (Zone '+data.delivery_route.delivery_from_zone+') → '+data.delivery_route.delivery_to_postal+' (Zone '+data.delivery_route.delivery_to_zone+') · '+data.delivery_route.delivery_service_name+' · '+money(data.delivery);
+        }catch(error){if(serial===quoteSerial){$('#checkout-error').textContent=error.message;$('#checkout-error').hidden=false;$('#refresh-quote').hidden=false;}}
+        finally{reviewing=false;renderCart();$('#review-sale').textContent='Review & Checkout →';}
     }
+    ['postal_code','country'].forEach(key=>form.elements[key].addEventListener('input',()=>{if(!matrixDelivery()||frozenPayload||submitting)return;quoteSerial++;deliverySerial++;clearQuote();form.elements.delivery_service.disabled=true;clearTimeout(deliveryTimer);deliveryTimer=setTimeout(refreshDelivery,350);}));
+    form.elements.delivery_service.addEventListener('change',review);
     $('#review-sale').onclick=review;
     $('#refresh-quote').onclick=review;
     $('#close-checkout').onclick=()=>{if(!submitting&&!frozenPayload)checkout.close();};
     checkout.addEventListener('cancel',event=>{if(submitting||frozenPayload)event.preventDefault();});
     function lockForm(lock){
-        form.querySelectorAll('input,select,textarea').forEach(input=>input.disabled=lock || (input.closest('#delivery-fields') && $('#fulfillment').value!=='delivery'));
+        form.querySelectorAll('input,select,textarea').forEach(input=>input.disabled=lock || (input.closest('#delivery-fields') && $('#fulfillment').value!=='delivery') || (input.name==='delivery_service'&&!matrixDelivery()));
         $('#close-checkout').disabled=lock;
     }
     form.onsubmit=async event=>{
         event.preventDefault();if(submitting||!quote)return;
+        if(!window.confirm('Are you sure you want to proceed with the order?'))return;
         if(!frozenPayload){frozenPayload={...Object.fromEntries(new FormData(form)),quote};}
         submitting=true;lockForm(true);$('#complete-button').disabled=true;$('#checkout-error').hidden=true;$('#refresh-quote').hidden=true;
         try{
             const data=await request(app.dataset.store,frozenPayload);
             frozenPayload=null;cart.clear();quote=null;checkout.close();renderCart();
             $('#success-number').textContent=data.number;$('#success-total').textContent=money(data.total);
-            $('#receipt-link').href=data.print_url;success.showModal();form.reset();$('#pos-results').replaceChildren();
+            $('#receipt-link').href=data.print_url;success.showModal();form.reset();Array.from($('#pos-customer').options).forEach(option=>option.hidden=false);form.elements.email.readOnly=false;form.elements.email.required=true;$('#pos-account-type').hidden=false;$('#pos-results').replaceChildren();
             $('#product-search').value='';$('#pos-feedback').hidden=true;
         }catch(error){
             const certain=[401,403,419,422].includes(error.status);
-            if(certain){frozenPayload=null;lockForm(false);$('#refresh-quote').hidden=error.status!==422;}
+            if(certain){frozenPayload=null;quote=null;lockForm(false);$('#refresh-quote').hidden=error.status!==422;}
             $('#checkout-error').textContent=certain?error.message:error.message+' The sale may already be saved. Use Retry confirmation below; it will reuse this sale reference and will not deduct stock twice.';
             $('#checkout-error').hidden=false;
             $('#complete-button').textContent=certain?'Complete sale':'Retry confirmation';
-        }finally{submitting=false;$('#complete-button').disabled=false;if(!frozenPayload)lockForm(false);}
+        }finally{submitting=false;$('#complete-button').disabled=!quote&&!frozenPayload;if(!frozenPayload)lockForm(false);}
     };
     $('#new-sale').onclick=()=>{success.close();$('#scan-code').focus();};
     success.addEventListener('close',()=>$('#scan-code').focus());

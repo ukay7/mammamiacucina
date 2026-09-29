@@ -18,7 +18,7 @@ class CartController extends Controller
     {
         $data = $r->validate(['quantity' => 'required|integer|min:1|max:99']);
         abort_unless($product->is_active && $product->categories()->where('is_active', true)->exists(), 404);
-        if ($product->total_selling_price_cad === null) {
+        if ($product->storefront_price === null) {
             throw ValidationException::withMessages(['quantity' => 'Please enquire about this product for pricing.']);
         }
         $items = session('storefront_cart', []);

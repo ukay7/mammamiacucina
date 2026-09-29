@@ -92,7 +92,7 @@ class CatalogueAdminTest extends TestCase
         $this->assertSame($category->id, $product->fresh()->category_id);
         $this->assertFalse($product->fresh()->is_active);
         $this->assertSame('12.000', $product->fresh()->inventory->quantity_on_hand);
-        $this->assertCount(23, $second->rows()->where('status', 'updated')->first()->normalized_data);
+        $this->assertEqualsCanonicalizing(array_keys(config('product_fields')), array_keys($second->rows()->where('status', 'updated')->first()->normalized_data));
     }
 
     public function test_invalid_duplicate_and_negative_values_block_entire_import(): void

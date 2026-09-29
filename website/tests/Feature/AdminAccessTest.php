@@ -32,6 +32,28 @@ class AdminAccessTest extends TestCase
         $this->assertGuest();
     }
 
+    public function test_warehouse_login_discards_inaccessible_intended_page(): void
+    {
+        $user = $this->account('Warehouse User', ['password' => 'TestingPassword123']);
+        $this->get('/admin/users')->assertRedirect('/admin/login');
+        $this->post('/admin/login', ['email' => $user->email, 'password' => 'TestingPassword123'])
+            ->assertRedirect('/admin/orders')->assertSessionMissing('url.intended');
+        $this->assertAuthenticatedAs($user);
+        $this->get('/admin/orders')->assertOk();
+        $this->get('/admin/login')->assertRedirect('/admin/orders');
+        $this->get('/admin/users')->assertForbidden();
+    }
+
+    public function test_staff_login_also_ignores_stale_restricted_destination(): void
+    {
+        $user = $this->account('Staff', ['password' => 'TestingPassword123']);
+        $this->withSession(['url.intended' => url('/admin/users')])
+            ->post('/admin/login', ['email' => $user->email, 'password' => 'TestingPassword123'])
+            ->assertRedirect('/admin')->assertSessionMissing('url.intended');
+        $this->get('/admin')->assertOk();
+        $this->get('/admin/users')->assertForbidden();
+    }
+
     public function test_inactive_account_cannot_login(): void
     {
         $user = $this->account('Staff', ['is_active' => false, 'password' => 'TestingPassword123']);

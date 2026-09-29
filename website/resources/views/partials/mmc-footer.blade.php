@@ -40,13 +40,6 @@
                     </div>
                     <div class="ps-widget__content">
                           @include('partials.site-contact')
-                          @if($siteSettings?->facebook_url || $siteSettings?->instagram_url || $siteSettings?->twitter_url)
-                          <ul class="ps-widget__social">
-                            @foreach(['facebook_url'=>['Facebook','facebook'],'twitter_url'=>['Twitter / X','twitter'],'instagram_url'=>['Instagram','instagram']] as $field=>$social)
-                            @if($siteSettings?->$field)<li><a href="{{ $siteSettings->$field }}" target="_blank" rel="noopener noreferrer" aria-label="{{ $social[0] }}"><i class="fa fa-{{ $social[1] }}" aria-hidden="true"></i></a></li>@endif
-                            @endforeach
-                          </ul>
-                          @endif
                       <p>@2026 Design and Developed by <span class="mmc-footer-credit">360 Creative Agency.</span></p>
                     </div>
                   </div>

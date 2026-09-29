@@ -45,6 +45,9 @@ class CatalogueImportPlan
                 }
                 $targets[$product->id] = $row->source_sheet.' row '.$row->row_number;
                 $candidate = clone $product;
+                if ($product->pricingDraft()->exists() && isset($data['total_selling_price_cad']) && $data['total_selling_price_cad'] !== '' && (float) $data['total_selling_price_cad'] !== (float) $product->total_selling_price_cad) {
+                    $errors[] = 'This product uses calculated pricing. Change its selling price from the Pricing tab.';
+                }
                 $candidate->fill(array_filter($data, fn ($value) => $value !== null && $value !== ''));
                 $action = $errors ? 'invalid' : ($candidate->isDirty() ? 'ready' : 'unchanged');
             }

@@ -1,6 +1,7 @@
 @extends('admin.layout')
 @section('title','Dashboard')
 @section('content')
+@include('admin.orders.dashboard')
 <div class="mmc-welcome mmc-dashboard-welcome mb-4">
     <div><p class="mmc-eyebrow">WELCOME BACK</p><h2>Hello, {{ auth()->user()->name }}.</h2><p>Manage your catalogue, stock and team.</p><span class="badge badge-primary">{{ auth()->user()->role->name }}</span></div>
     @if(auth()->user()->hasAdminPermission('pos.manage'))

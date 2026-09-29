@@ -178,6 +178,7 @@ class CatalogueImporter
                     continue;
                 }
                 $product->fill(array_filter($row->normalized_data, fn ($value) => $value !== null && $value !== ''));
+                $product->editor_revision++;
                 $product->save();
                 $row->update(['product_id' => $product->id, 'status' => 'updated', 'errors' => null]);
                 $updated++;

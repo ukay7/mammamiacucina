@@ -43,17 +43,22 @@ class PosSale
         return array_map(fn ($line) => ['id' => $line['product']->id, 'quantity' => $line['quantity'], 'unit_cents' => $line['unit_cents']], $lines);
     }
 
-    public function quote(array $items, string $fulfillment, int $userId): array
+    public function quote(array $items, string $fulfillment, int $userId, array $destination=[]): array
     {
         $lines = $this->lines($items);
         $settings = GeneralSetting::findOrFail(1);
         $subtotal = array_sum(array_map(fn ($line) => $line['unit_cents'] * $line['quantity'], $lines));
         if ($subtotal > 999999999) $this->fail('This sale exceeds the supported total.');
-        $delivery = $fulfillment === 'delivery' ? $settings->delivery_cents : 0;
+        $route=[];
+        if($fulfillment==='delivery' && $settings->matrix_delivery_enabled){
+            app(DeliveryQuote::class)->options($settings->warehouse_postal_code??'',$destination['postal_code']??'',$destination['country']??'');
+            $route=app(DeliveryQuote::class)->quote($settings->warehouse_postal_code??'',$destination['postal_code']??'',$destination['delivery_service']??'');
+        }
+        $delivery = $fulfillment === 'delivery' ? ($route['delivery_cents']??$settings->delivery_cents) : 0;
         $tax = $settings->taxFor($subtotal);
         $data = ['token' => (string) Str::uuid(), 'user_id' => $userId, 'expires' => now()->addMinutes(30)->timestamp,
-            'items' => $this->snapshot($lines), 'fulfillment' => $fulfillment, 'delivery' => $delivery, 'rate' => $settings->tax_basis_points];
-        return ['quote' => Crypt::encryptString(json_encode($data)), 'subtotal' => $subtotal, 'delivery' => $delivery,
+            'matrix'=>(bool)$settings->matrix_delivery_enabled,'delivery_route'=>$route,'items' => $this->snapshot($lines), 'fulfillment' => $fulfillment, 'delivery' => $delivery, 'rate' => $settings->tax_basis_points];
+        return ['delivery_route'=>$route,'quote' => Crypt::encryptString(json_encode($data)), 'subtotal' => $subtotal, 'delivery' => $delivery,
             'tax' => $tax, 'total' => $subtotal + $delivery + $tax, 'tax_percent' => $settings->tax_basis_points / 100,
             'items' => array_map(fn ($line) => ['name' => $line['product']->premium_marketing_name, 'quantity' => $line['quantity'],
                 'unit_cents' => $line['unit_cents']], $lines)];
@@ -75,7 +80,17 @@ class PosSale
                 return $existing;
             }
             if ($quote['expires'] < now()->timestamp) $this->fail('Sale review expired. Review the sale again.');
-            $delivery = $quote['fulfillment'] === 'delivery' ? $settings->delivery_cents : 0;
+            $route=[];
+            if($quote['fulfillment']==='delivery'){
+                if(($quote['matrix']??false)!==(bool)$settings->matrix_delivery_enabled)$this->fail('Delivery settings changed. Review the sale again.');
+                if($settings->matrix_delivery_enabled){
+                    app(DeliveryQuote::class)->options($settings->warehouse_postal_code??'',$customer['postal_code']??'',$customer['country']??'');
+                    $route=app(DeliveryQuote::class)->quote($settings->warehouse_postal_code??'',$customer['postal_code']??'',$customer['delivery_service']??'');
+                    if(($quote['delivery_route']??[])!==$route)$this->fail('Delivery destination, service or price changed. Review the sale again before collecting payment.');
+                    $customer['postal_code']=$route['delivery_to_postal'];
+                }
+            }
+            $delivery = $quote['fulfillment'] === 'delivery' ? ($route['delivery_cents']??$settings->delivery_cents) : 0;
             if ($quote['rate'] !== $settings->tax_basis_points || $quote['delivery'] !== $delivery) {
                 $this->fail('Delivery or tax changed. Review the sale again before collecting payment.');
             }
@@ -89,6 +104,30 @@ class PosSale
                 }
             }
             if ($pickup && $customer['payment_status'] !== 'paid') $this->fail('Record payment received before completing a counter sale.');
+            $profile=null;
+            if(!empty($customer['customer_id'])){
+                $profile=\App\Models\Customer::findOrFail($customer['customer_id']);
+                if(!$profile->user->is_active || !$profile->user->isCustomer())$this->fail('This customer account is inactive.');
+                $parts=explode(' ',trim($profile->name),2);
+                $customer['email']=$profile->email;
+                $customer['first_name']=$parts[0];$customer['last_name']=$parts[1]??'';
+                $customer['phone']=$profile->phone;
+            } elseif(!empty($customer['email'])){
+                $email=strtolower(trim($customer['email']));
+                $user=\App\Models\User::whereRaw('lower(email) = ?',[$email])->first();
+                if($user)$this->fail('This email already has an account. Select the existing customer.');
+                $user=new \App\Models\User();
+                $user->forceFill(['name'=>trim(($customer['first_name']??'').' '.($customer['last_name']??'')) ?: $email,'email'=>$email,'phone'=>$customer['phone']??null,'account_type'=>$customer['account_type']??'individual','role_id'=>\App\Models\Role::where('name','Customer')->value('id'),'is_active'=>true,'password'=>Str::random(64)])->save();
+                $profile=$user->customerRecord();
+                $customer['email']=$email;
+                DB::afterCommit(function()use($user){
+                    $url=\Illuminate\Support\Facades\URL::temporarySignedRoute('customer.invite',now()->addDays(2),['user'=>$user->id,'hash'=>sha1($user->email)]);
+                    try {
+                        \Illuminate\Support\Facades\Mail::raw("Your Mamma Mia Cucina customer account is ready. Verify your email:\n".$url."\nThen use Forgot password to set your password and view your orders.",fn($m)=>$m->to($user->email)->subject('Verify your customer account'));
+                    } catch(\Throwable $e){report($e);}
+                });
+            }
+            if($profile && !$pickup)$profile->update(\Illuminate\Support\Arr::only($customer,['address','city','province','postal_code','country']));
             $details = [];
             foreach (['first_name','last_name','email','phone','address','city','province','postal_code','country'] as $field) {
                 $details[$field] = $customer[$field] ?? '';
@@ -97,11 +136,11 @@ class PosSale
             if ($pickup) {
                 foreach (['address','city','province','postal_code','country'] as $field) $details[$field] = '';
             }
-            $order = Order::create($details + [
-                'checkout_token' => $quote['token'], 'number' => 'POS-'.Str::ulid(),
+            $order = Order::create($details + $route + [
+                'customer_id'=>$profile?->id, 'checkout_token' => $quote['token'], 'number' => 'POS-'.Str::ulid(),
                 'notes' => $customer['notes'] ?? null, 'source' => 'pos', 'created_by' => $userId,
-                'fulfillment' => $quote['fulfillment'], 'status' => $pickup ? 'delivered' : 'placed',
-                'subtotal_cents' => $subtotal, 'delivery_cents' => $delivery, 'tax_cents' => $settings->taxFor($subtotal),
+                'fulfillment' => $quote['fulfillment'], 'status' => 'completed',
+                'subtotal_cents' => $subtotal, 'delivery_cents' => $delivery, 'tax_cents' => $settings->taxFor($subtotal), 'tax_basis_points'=>$settings->tax_basis_points,
                 'payment_method' => $customer['payment_method'], 'payment_status' => $customer['payment_status'],
                 'paid_at' => $customer['payment_status'] === 'paid' ? now() : null,
             ]);
