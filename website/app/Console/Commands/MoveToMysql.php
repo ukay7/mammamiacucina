@@ -15,6 +15,7 @@ class MoveToMysql extends Command
         {--port=3306}
         {--database=mammamiacucina}
         {--user=mmc_app}
+        {--reuse-empty-database : With --create, allow an existing database only if it has no tables, views, routines or events}
         {--create : Create a new database and dedicated user using an administrator connection}
         {--socket=/var/run/mysqld/mysqld.sock : Administrator socket, with --create only}';
 
@@ -25,6 +26,7 @@ class MoveToMysql extends Command
         $backup = null;
         $environmentChanged = false;
         $sourceLock = null;
+        $stage = 'preflight';
         try {
             if (!class_exists(\SQLite3::class)) { throw new RuntimeException('Enable the SQLite3 extension to create a consistent backup.'); }
             if (!extension_loaded('pdo_mysql')) { throw new RuntimeException('Install/enable pdo_mysql before running this command.'); }
@@ -41,7 +43,7 @@ class MoveToMysql extends Command
             if (!is_writable($envPath) || !is_writable(dirname($envPath))) { throw new RuntimeException('The .env file and its directory must be writable.'); }
             $env = file_get_contents($envPath);
             $this->info("Destination: MySQL $host:$port / $database. Existing databases will not be overwritten.");
-            if (!$this->confirm('Have you paused this app’s queue/import workers, and are you ready to stop the website and switch to MySQL after verification?', false)) { return self::FAILURE; }
+            if (!$this->confirm('Have you paused the MMC queue/import workers, and are you ready to stop the website and switch to MySQL after verification?', false)) { return self::FAILURE; }
 
             $backup = storage_path('app/private/mysql-migration-'.date('Ymd-His').'-'.bin2hex(random_bytes(3)));
             if (!mkdir($backup, 0700, true)) { throw new RuntimeException('Could not create private backup directory.'); }
@@ -54,19 +56,27 @@ class MoveToMysql extends Command
                 $adminPassword = $this->secret('MySQL administrator password (Enter if root uses Unix socket authentication)') ?? '';
                 $socket = (string) $this->option('socket');
                 $dsn = $socket ? "mysql:unix_socket=$socket;charset=utf8mb4" : "mysql:host=$host;port=$port;charset=utf8mb4";
+                $stage = 'administrator connection';
                 $admin = new PDO($dsn, $adminUser, $adminPassword, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
                 $check = $admin->prepare('SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = ?');
                 $check->execute([$database]);
-                if ($check->fetchColumn()) { throw new RuntimeException('Database already exists. Use an empty database without --create, or choose a new database name.'); }
+                $databaseExists = (bool) $check->fetchColumn();
+                if ($databaseExists) {
+                    if (!$this->option('reuse-empty-database')) { throw new RuntimeException('Database exists. The --reuse-empty-database option is required to reuse a verified empty database.'); }
+                    self::assertEmptyDatabase($admin, $database);
+                }
                 $check = $admin->prepare("SELECT User FROM mysql.user WHERE User = ? AND Host = 'localhost'");
                 $check->execute([$user]);
                 if ($check->fetchColumn()) { throw new RuntimeException('The dedicated MySQL user already exists; choose another username.'); }
-                $password = bin2hex(random_bytes(32));
+                $password = self::generateDatabasePassword();
                 file_put_contents($backup.'/generated-user.json', json_encode(['database' => $database, 'username' => $user, 'password' => $password], JSON_THROW_ON_ERROR));
                 chmod($backup.'/generated-user.json', 0600);
                 $account = $admin->quote($user)."@'localhost'";
-                $admin->exec("CREATE DATABASE `$database` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+                $stage = 'database creation';
+                if (!$databaseExists) { $admin->exec("CREATE DATABASE `$database` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"); }
+                $stage = 'application user creation';
                 $admin->exec('CREATE USER '.$account.' IDENTIFIED BY '.$admin->quote($password));
+                $stage = 'application user grants';
                 $admin->exec("GRANT ALL PRIVILEGES ON `$database`.* TO $account");
                 $admin = null;
             } else {
@@ -78,6 +88,7 @@ class MoveToMysql extends Command
             ]);
             config(['database.connections.mmc_target' => $mysql]);
             DB::purge('mmc_target');
+            $stage = 'application user connection';
             DB::connection('mmc_target')->getPdo();
             if (DB::connection('mmc_target')->getSchemaBuilder()->getTables($database)) { throw new RuntimeException('Destination is not empty. No data was overwritten.'); }
 
@@ -96,9 +107,11 @@ class MoveToMysql extends Command
             chmod($backup.'/database.sqlite', 0600);
             config(['database.connections.mmc_source' => array_replace(config('database.connections.sqlite'), ['url' => null, 'database' => $backup.'/database.sqlite'])]);
             DB::purge('mmc_source');
+            $stage = 'data transfer and verification';
             $summary = $transfer->transfer('mmc_source', 'mmc_target', fn ($line) => $this->line($line));
             file_put_contents($backup.'/verified-tables.json', json_encode($summary, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
             chmod($backup.'/verified-tables.json', 0600);
+            $stage = 'environment cutover';
             $next = self::mysqlEnvironment($env, $host, $port, $database, $user, $password);
             $temp = $envPath.'.mysql-'.bin2hex(random_bytes(4));
             if (file_put_contents($temp, $next) !== strlen($next)) { throw new RuntimeException('Could not write new environment file.'); }
@@ -121,8 +134,30 @@ class MoveToMysql extends Command
             }
             // QueryException text can contain customer data or credentials; never print it here.
             $this->error(get_class($e) === RuntimeException::class ? $e->getMessage() : 'Migration failed ('.class_basename($e).'). No successful cutover was reported.');
+            $this->line('Failed stage: '.$stage);
+            if ($e instanceof \PDOException) {
+                $this->line('SQLSTATE: '.($e->errorInfo[0] ?? $e->getCode()).'; driver error: '.($e->errorInfo[1] ?? 'unknown'));
+                if (($e->errorInfo[1] ?? null) === 1819) { $this->error('MySQL rejected the generated password under its password policy.'); }
+            }
             if ($backup) { $this->warn("Backup/credentials: $backup. Keep maintenance mode enabled and review before retrying. Do not erase the source."); }
             return self::FAILURE;
+        }
+    }
+
+    public static function generateDatabasePassword(): string
+    {
+        // Meet common MySQL policies without weakening the server's password validation.
+        return 'Aa9!'.bin2hex(random_bytes(32));
+    }
+
+    public static function assertEmptyDatabase(PDO $admin, string $database): void
+    {
+        foreach (['TABLES' => 'TABLE_SCHEMA', 'ROUTINES' => 'ROUTINE_SCHEMA', 'EVENTS' => 'EVENT_SCHEMA'] as $table => $column) {
+            $check = $admin->prepare("SELECT COUNT(*) FROM information_schema.$table WHERE $column = ?");
+            $check->execute([$database]);
+            if ((int) $check->fetchColumn() !== 0) {
+                throw new RuntimeException('Existing database contains objects. It will not be reused or erased.');
+            }
         }
     }
 

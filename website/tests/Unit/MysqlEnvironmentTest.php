@@ -22,6 +22,16 @@ class MysqlEnvironmentTest extends TestCase
         $this->assertSame('mammamiacucina', $values['DB_DATABASE']);
     }
 
+    public function test_generated_password_meets_mysql_character_class_requirements(): void
+    {
+        $password = MoveToMysql::generateDatabasePassword();
+        $this->assertGreaterThanOrEqual(64, strlen($password));
+        foreach (['/[A-Z]/', '/[a-z]/', '/[0-9]/', '/[^A-Za-z0-9]/'] as $pattern) {
+            $this->assertMatchesRegularExpression($pattern, $password);
+        }
+        $this->assertNotSame($password, MoveToMysql::generateDatabasePassword());
+    }
+
     public function test_multiline_credentials_are_rejected(): void
     {
         $this->expectException(\RuntimeException::class);

@@ -57,6 +57,14 @@ class SqliteToMysqlTest extends TestCase
         $this->assertSame(101, $target->table('users')->insertGetId(['name' => 'Next', 'email' => 'next@example.test', 'password' => 'hash']));
     }
 
+    public function test_only_an_empty_database_can_be_reused(): void
+    {
+        \App\Console\Commands\MoveToMysql::assertEmptyDatabase($this->admin, $this->database);
+        DB::connection('copy_target')->statement('CREATE TABLE protected_data (id INT PRIMARY KEY)');
+        $this->expectException(\RuntimeException::class);
+        \App\Console\Commands\MoveToMysql::assertEmptyDatabase($this->admin, $this->database);
+    }
+
     public function test_existing_destination_is_never_erased(): void
     {
         DB::connection('copy_target')->statement('CREATE TABLE protected_data (id INT PRIMARY KEY)');
