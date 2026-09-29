@@ -26,7 +26,7 @@ class ProductController extends Controller
 {
     private function productQuery(Request $r)
     {
-        return Product::withCount('documents')->with(['pricingDraft', 'categories', 'inventory', 'media' => fn ($q) => $q->where('kind', 'image')->limit(1)])
+        return Product::withCount('documents')->with(['pricingDraft', 'categories', 'inventory', 'media' => fn ($q) => $q->coverImage()])
             ->when($r->filled('q'), function ($q) use ($r) {
                 $term = '%'.mb_substr((string) $r->input('q'), 0, 200).'%';
                 $q->where(fn ($x) => $x->where('premium_marketing_name', 'like', $term)->orWhere('qr_code', 'like', $term)->orWhere('product_code', 'like', $term)->orWhere('supplier', 'like', $term));

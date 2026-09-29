@@ -34,10 +34,10 @@ class AppServiceProvider extends ServiceProvider
         });
         View::composer('partials.mmc-most-loved', function ($view) {
             $category = Category::where('homepage_key', 'most_loved')->where('is_active', true)->first();
-            $view->with('lovedProducts', $category ? $category->products()->where('products.is_active', true)->with(['media' => fn ($q) => $q->where('kind', 'image')->limit(1)])->orderBy('products.id')->get() : collect());
+            $view->with('lovedProducts', $category ? $category->products()->where('products.is_active', true)->with(['media' => fn ($q) => $q->coverImage()])->orderBy('products.id')->get() : collect());
         });
         View::composer('partials.mmc-new-arrivals', function ($view) {
-            $view->with('arrivalProducts', \App\Models\Product::where('is_active', true)->whereHas('categories', fn ($q) => $q->where('is_active', true))->whereHas('media', fn ($q) => $q->where('kind', 'image'))->with(['media' => fn ($q) => $q->where('kind', 'image')->limit(1)])->inRandomOrder()->limit(10)->get());
+            $view->with('arrivalProducts', \App\Models\Product::where('is_active', true)->whereHas('categories', fn ($q) => $q->where('is_active', true))->whereHas('media', fn ($q) => $q->where('kind', 'image'))->with(['media' => fn ($q) => $q->coverImage()])->inRandomOrder()->limit(10)->get());
         });
         View::composer('partials.mmc-hero', function ($view) {
             $view->with('banners', Banner::where('is_active', true)->orderBy('priority')->orderBy('id')->get());

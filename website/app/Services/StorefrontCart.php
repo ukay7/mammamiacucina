@@ -12,7 +12,7 @@ class StorefrontCart
         $items = [];
         $count = 0;
         $total = 0;
-        $products = Product::whereIn('id', array_keys($quantities))->where('is_active', true)->whereHas('categories', fn ($q) => $q->where('is_active', true))->whereNotNull('total_selling_price_cad')->with(['inventory', 'media' => fn ($q) => $q->where('kind', 'image')->limit(1)])->get();
+        $products = Product::whereIn('id', array_keys($quantities))->where('is_active', true)->whereHas('categories', fn ($q) => $q->where('is_active', true))->whereNotNull('total_selling_price_cad')->with(['inventory', 'media' => fn ($q) => $q->coverImage()])->get();
         foreach ($products as $product) {
             $quantity = max(1, min(99, (int) $quantities[$product->id]));
             $cents = (int) round((float) $product->storefront_price * 100);

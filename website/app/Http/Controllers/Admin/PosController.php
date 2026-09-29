@@ -18,7 +18,7 @@ class PosController extends Controller
     {
         $data = $request->validate(['q' => 'required|string|max:255', 'scan' => 'nullable|boolean']);
         $term = trim($data['q']);
-        $query = Product::with(['inventory', 'media' => fn ($q) => $q->where('kind', 'image')->limit(1)]);
+        $query = Product::with(['inventory', 'media' => fn ($q) => $q->coverImage()]);
         if ($request->boolean('scan')) {
             $query->where(function ($q) use ($term) {
                 $q->where('qr_code', $term)->orWhere('product_code', $term);

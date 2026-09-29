@@ -15,18 +15,8 @@ git -c safe.directory=/var/www/mammamiacucina-app rev-parse HEAD > "$backup/rele
 echo "Backup directory: $backup"
 sudo -H -u mmcdeploy php8.4 artisan down --retry=60
 trap 'echo "Deployment stopped. Backup: $backup. Site remains in maintenance mode; resolve the error before running php8.4 artisan up as mmcdeploy."' ERR
-# SQLite VACUUM INTO creates a consistent backup, including any WAL contents.
-MMC_BACKUP_DIR="$backup" php8.4 <<'PHP'
-<?php
-require 'vendor/autoload.php';
-$app=require 'bootstrap/app.php';
-$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
-if(config('database.default')!=='sqlite'){
-    fwrite(STDERR,"This updater expects the existing SQLite setup. Stop and arrange a database-specific backup.\n");exit(1);
-}
-$pdo=Illuminate\Support\Facades\DB::connection()->getPdo();
-$pdo->exec('VACUUM INTO '.$pdo->quote(getenv('MMC_BACKUP_DIR').'/database.sqlite'));
-PHP
+# Back up the actual configured database (SQLite or MySQL) before migrations.
+MMC_BACKUP_DIR="$backup" php8.4 scripts/backup-database.php
 tar -czf "$backup/storage.tar.gz" storage
 sudo -H -u mmcdeploy composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
 sudo -H -u mmcdeploy php8.4 artisan config:clear
