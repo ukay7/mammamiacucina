@@ -42,4 +42,16 @@ class PosCustomerAccountTest extends TestCase {
   $this->post(route('customer.password.send'),['email'=>'missing@example.test'])->assertSessionHas('status');
   $this->post(route('customer.password.update'),['email'=>$u->email,'token'=>Password::createToken($u),'password'=>'new-password-123','password_confirmation'=>'new-password-123'])->assertSessionHasErrors();
  }
+ public function test_pos_business_customer_requires_and_persists_business_details():void {
+  Mail::fake();$admin=User::factory()->create(['role_id'=>Role::where('is_super',true)->value('id'),'is_active'=>true]);$this->actingAs($admin);
+  $p=Product::create(['category_id'=>1,'slug'=>'business-pos','premium_marketing_name'=>'Business Cake','qr_code'=>'BIZ-POS','is_active'=>true,'total_selling_price_cad'=>10]);
+  $quote=$this->postJson(route('admin.pos.quote'),['items'=>[['id'=>$p->id,'quantity'=>1]],'fulfillment'=>'pickup'])->assertOk()->json('quote');
+  $data=['quote'=>$quote,'first_name'=>'Business','email'=>'pos-business@example.test','account_type'=>'business','payment_method'=>'cash','payment_status'=>'paid'];
+  $this->postJson(route('admin.pos.store'),$data)->assertUnprocessable()->assertJsonValidationErrors(['business_bin','business_name','business_phone','business_email']);
+  $this->assertDatabaseCount('orders',0);
+  $fields=['business_bin'=>'BIN-POS','business_name'=>'POS Company','business_phone'=>'555123','business_email'=>'office@example.test'];
+  $this->postJson(route('admin.pos.store'),$data+$fields)->assertOk();
+  $u=User::where('email',$data['email'])->firstOrFail();$this->assertDatabaseHas('customers',$fields+['user_id'=>$u->id]);
+  $this->assertSame($u->customerRecord()->id,Order::firstOrFail()->customer_id);
+ }
 }

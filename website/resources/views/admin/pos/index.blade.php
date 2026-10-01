@@ -11,13 +11,13 @@
 <form id="pos-scan-form" class="pos-search"><label for="scan-code">QR / barcode scanner</label><div><input id="scan-code" type="text" class="form-control" autocomplete="off" placeholder="Scan or enter a code, then press Enter"><button class="btn btn-primary" type="submit">Add</button></div></form>
 <p class="pos-help">Connected scanners work in the code field. Each scan adds one item.</p>
 <div id="camera-area" hidden><video id="pos-video" muted playsinline></video><div class="pos-camera-tools"><span>Hold the code steady, then move it away to scan again.</span><button id="camera-stop" type="button" class="btn btn-outline-primary">Stop camera</button></div></div>
-<div class="pos-search"><label for="product-search">Or search by product name or code</label><input id="product-search" type="search" class="form-control" placeholder="Start typing to find products…" autocomplete="off"></div>
+<div class="pos-search"><label for="product-search">Search by name, product code, barcode or ID</label><input id="product-search" type="search" class="form-control" placeholder="Start typing to find products…" autocomplete="off"></div>
 <div id="pos-results" class="pos-results" aria-live="polite"><p class="pos-empty">Your next sale starts with a scan.<br><small>You can also search products above.</small></p></div>
 </section>
 <section class="pos-panel pos-basket" aria-labelledby="sale-heading">
 <div class="pos-panel-heading"><h2 id="sale-heading">Current sale <span id="pos-item-count">0</span></h2><button type="button" id="clear-sale" class="pos-link">Clear sale</button></div>
 <div id="pos-lines"><p class="pos-empty">No products added yet.</p></div>
-<div class="pos-basket-footer"><label for="fulfillment">How will the customer receive it?</label><select class="form-control" id="fulfillment"><option value="pickup">Collected in store · no delivery charge</option><option value="delivery">Delivery · postal code & service</option></select>
+<div class="pos-basket-footer"><label for="fulfillment">How will the customer receive it?</label><select class="form-control" id="fulfillment"><option value="pickup">Pick up</option><option value="delivery">Delivery · postal code & service</option></select>
 <div class="pos-subtotal"><span>Product subtotal</span><strong id="pos-subtotal">$0.00</strong></div><p class="pos-help">Tax and any delivery charge appear in the checkout review. Stock is checked when you complete the sale.</p>
 <button id="review-sale" class="btn btn-primary pos-checkout" type="button" disabled>Review & Checkout <span aria-hidden="true">→</span></button>
 </div></section>
@@ -25,8 +25,9 @@
 <dialog id="pos-checkout" aria-labelledby="checkout-heading">
 <form id="complete-sale"><header class="pos-panel-heading"><div><span class="pos-eyebrow">FINAL CHECK</span><h2 id="checkout-heading">Complete this sale</h2></div><button type="button" id="close-checkout" class="pos-link">Close ×</button></header>
 <div class="pos-checkout-body"><div id="quote-lines"></div><div class="pos-totals" id="quote-totals"></div>
-<label>Find customer<input class="form-control" id="pos-customer-search" placeholder="Search name, email or phone" type="search"></label><label>Customer<select class="form-control" name="customer_id" id="pos-customer"><option value="">New customer</option>@foreach($customers as $customer)<option value="{{ $customer->id }}" data-profile="{{ json_encode($customer->only(['name','email','phone','address','city','province','postal_code','country'])) }}">{{ $customer->name }} — {{ $customer->email }} {{ $customer->phone }}</option>@endforeach</select></label>
+<label>Find customer<input class="form-control" id="pos-customer-search" placeholder="Search customer ID, name, email or phone" type="search"></label><label>Customer<select class="form-control" name="customer_id" id="pos-customer"><option value="">New customer</option>@foreach($customers as $customer)<option value="{{ $customer->id }}" data-profile="{{ json_encode($customer->only(['name','email','phone','address','city','province','postal_code','country'])) }}">#{{ $customer->id }} · {{ $customer->name }} — {{ $customer->email }} {{ $customer->phone }}</option>@endforeach</select></label>
 <label id="pos-account-type">Account type<select class="form-control" name="account_type"><option value="individual">Individual</option><option value="business">Business owner</option></select></label>
+@include('partials.business-fields',['businessDynamic'=>true])
 <p id="customer-help" class="pos-help"></p>
 <div class="pos-customer-grid"><label>First name<input class="form-control" name="first_name" maxlength="100" autocomplete="given-name"></label><label>Last name<input class="form-control" name="last_name" maxlength="100" autocomplete="family-name"></label><label>Phone<input class="form-control" name="phone" maxlength="40" type="tel" autocomplete="tel"></label><label>Email (required for new customers)<input class="form-control" name="email" required maxlength="255" type="email" autocomplete="email"></label></div>
 <div id="delivery-fields" class="pos-customer-grid" hidden><label class="pos-wide">Delivery address<input class="form-control" name="address" maxlength="255" autocomplete="street-address"></label><label>City<input class="form-control" name="city" maxlength="100" autocomplete="address-level2"></label><label>Province<input class="form-control" name="province" maxlength="100" autocomplete="address-level1"></label><label>Postal code<input class="form-control" name="postal_code" maxlength="30" autocomplete="postal-code"></label><label>Country<input class="form-control" name="country" maxlength="100" value="Canada" autocomplete="country-name"></label></div>
@@ -43,4 +44,5 @@
 </div>
 <script src="{{ asset('admin-assets/scanner-libs/zxing-browser-0.1.5.min.js') }}"></script>
 <script src="{{ asset('admin-assets/pos.js') }}?v={{ filemtime(public_path('admin-assets/pos.js')) }}"></script>
+<script src="{{ asset('assets/js/business-fields.js') }}"></script>
 @endsection

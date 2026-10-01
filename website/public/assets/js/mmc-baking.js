@@ -13,7 +13,8 @@
         const rect = section.getBoundingClientRect();
         if (rect.bottom < 0 || rect.top > innerHeight) return;
         // Same scroll speed as Our Tradition, bounded by the 180px overscan.
-        const offset = Math.max(-90, Math.min(90, (innerHeight / 2 - rect.top - rect.height / 2) * 0.35));
+        const spare = section.querySelector('.mmc-story-art') ? 20 : 90;
+        const offset = Math.max(-spare, Math.min(spare, (innerHeight / 2 - rect.top - rect.height / 2) * (spare === 20 ? 0.1 : 0.35)));
         section.style.setProperty('--baking-parallax', `${offset.toFixed(1)}px`);
     }
     function update() {

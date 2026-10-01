@@ -21,7 +21,7 @@ class BusinessPricingTest extends TestCase {
  public function test_verified_business_prices_display_cart_and_charge_match():void{
   $p=Product::create(['category_id'=>1,'slug'=>'tier-cake','premium_marketing_name'=>'Tier Cake','qr_code'=>'TC','is_active'=>true,'total_selling_price_cad'=>15,'business_selling_price_cad'=>12]);
   $this->get(route('catalogue.product',$p->slug))->assertOk()->assertSee('$15.00');
-  $u=User::factory()->create(['name'=>'Business Buyer','account_type'=>'business','phone'=>'123','is_active'=>true,'email_verified_at'=>null,'role_id'=>Role::where('name','Customer')->value('id')]);
+  $u=User::factory()->create(['name'=>'Business Buyer','account_type'=>'business','business_approved_at'=>now(),'phone'=>'123','is_active'=>true,'email_verified_at'=>null,'role_id'=>Role::where('name','Customer')->value('id')]);
   $this->actingAs($u)->get(route('catalogue.product',$p->slug))->assertSee('$15.00');
   $u->forceFill(['email_verified_at'=>now()])->save();
   $this->get(route('catalogue.product',$p->slug))->assertOk()->assertSee('$12.00')->assertDontSee('$15.00');
@@ -32,10 +32,10 @@ class BusinessPricingTest extends TestCase {
   $o=Order::firstOrFail();$this->assertSame(2400,(int)$o->subtotal_cents);$this->assertSame(1200,(int)$o->items->first()->unit_cents);
   $u->forceFill(['account_type'=>'individual'])->save();
   $this->get(route('catalogue.product',$p->slug))->assertSee('$15.00');
-  $p->update(['business_selling_price_cad'=>null]);$u->forceFill(['account_type'=>'business'])->save();$this->assertEquals(15,$p->storefront_price);
+  $p->update(['business_selling_price_cad'=>null]);$u->forceFill(['account_type'=>'business','business_approved_at'=>now()])->save();$this->assertEquals(15,$p->storefront_price);
  }
  public function test_business_sort_and_changed_quote_are_checked():void{
-  $u=User::factory()->create(['account_type'=>'business','is_active'=>true,'role_id'=>Role::where('name','Customer')->value('id')]);
+  $u=User::factory()->create(['account_type'=>'business','business_approved_at'=>now(),'is_active'=>true,'role_id'=>Role::where('name','Customer')->value('id')]);
   $a=Product::create(['category_id'=>1,'slug'=>'sort-a','premium_marketing_name'=>'Cheap Business','qr_code'=>'SA','is_active'=>true,'total_selling_price_cad'=>90,'business_selling_price_cad'=>10]);
   $b=Product::create(['category_id'=>1,'slug'=>'sort-b','premium_marketing_name'=>'Expensive Business','qr_code'=>'SB','is_active'=>true,'total_selling_price_cad'=>5,'business_selling_price_cad'=>20]);
   $this->actingAs($u)->get(route('theme.product-grid',['sort'=>'price-low']))->assertOk()->assertSeeInOrder(['Cheap Business','Expensive Business']);

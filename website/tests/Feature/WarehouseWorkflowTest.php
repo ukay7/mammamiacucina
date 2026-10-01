@@ -313,4 +313,44 @@ class WarehouseWorkflowTest extends TestCase
         $this->pack($order, 'ready', 1, '')->assertSessionHasNoErrors();
         $this->get(route('admin.orders.print', $order))->assertOk()->assertSee('MAMMA MIA CUCINA')->assertSee('Packing Slip')->assertSee('10 Example Street')->assertSee('Warehouse Cake')->assertDontSee('Subtotal');
     }
+
+    public function test_resending_shortage_preserves_completed_items_and_their_packing_audit(): void
+    {
+        [$o,$p,$admin,$worker] = $this->fixture();
+        $good = $o->items()->first();
+        $missing = $o->items()->create(['name'=>'Missing cake','quantity'=>1,'unit_cents'=>1000,'line_cents'=>1000]);
+        $this->moveStatus($o,'warehouse_pending')->assertOk();
+        $this->actingAs($worker);
+        $this->post(route('admin.orders.packing',$o),['revision'=>$o->fresh()->revision,'action'=>'return','items'=>[
+            $good->id=>['packed'=>1,'note'=>''], $missing->id=>['packed'=>0,'note'=>'Shortage reported'],
+        ]])->assertSessionHasNoErrors();
+        $packedAt=$good->fresh()->packed_at;
+        $this->actingAs($admin);
+        $this->moveStatus($o,'warehouse_pending')->assertOk();
+        $this->assertTrue((bool)$good->fresh()->packed);
+        $this->assertEquals($worker->id,$good->fresh()->packed_by);
+        $this->assertEquals($packedAt,$good->fresh()->packed_at);
+        $this->assertFalse((bool)$missing->fresh()->packed);
+        $this->actingAs($worker)->get(route('admin.orders.show',$o))->assertOk();
+        $this->post(route('admin.orders.packing',$o),['revision'=>$o->fresh()->revision,'action'=>'ready','items'=>[
+            $good->id=>['packed'=>1,'note'=>''], $missing->id=>['packed'=>0,'note'=>''],
+        ]])->assertSessionHasErrors('warehouse');
+    }
+
+    public function test_amendment_preserves_unchanged_packing_and_only_resets_changed_quantity(): void
+    {
+        [$o,$p,$admin,$worker] = $this->fixture();
+        $good=$o->items()->first();
+        $other=$o->items()->create(['name'=>'Other cake','quantity'=>1,'unit_cents'=>1000,'line_cents'=>1000,'packed'=>true,'packed_by'=>$worker->id,'packed_at'=>now()]);
+        $good->update(['packed'=>true,'packed_by'=>$worker->id,'packed_at'=>now()]);
+        $at=$good->fresh()->packed_at;
+        $this->amend($o,['items'=>[$good->id=>['quantity'=>2,'unit_price'=>'9.00'],$other->id=>['quantity'=>2,'unit_price'=>'10.00']]])->assertSessionHasNoErrors();
+        $this->moveStatus($o,'warehouse_pending')->assertOk();
+        $this->assertTrue((bool)$good->fresh()->packed);
+        $this->assertEquals($worker->id,$good->fresh()->packed_by);
+        $this->assertEquals($at,$good->fresh()->packed_at);
+        $this->assertFalse((bool)$other->fresh()->packed);
+        $this->assertNull($other->fresh()->packed_by);
+        $this->assertNull($other->fresh()->packed_at);
+    }
 }

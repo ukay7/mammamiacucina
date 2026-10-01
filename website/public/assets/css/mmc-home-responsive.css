@@ -1,0 +1,53 @@
+/* Homepage bands share a readable content width at every desktop resolution. */
+.mmc-home:not(.mmc-inner){--home-content:1400px;--home-gutter:clamp(20px,4vw,64px)}
+.mmc-home:not(.mmc-inner) :is(.mmc-hero,.mmc-tradition,.mmc-categories,.mmc-loved,.mmc-arrivals,.mmc-baking,.mmc-about-video,.ps-footer){max-width:none;width:100%;margin-inline:0}
+.mmc-home .mmc-masthead::before{content:none!important}
+.mmc-home .mmc-categories,.mmc-home .mmc-arrivals{padding:56px var(--home-gutter)}
+.mmc-home :is(.mmc-categories__grid,.mmc-arrivals__grid,.mmc-about-video__grid){width:100%;max-width:var(--home-content);margin-inline:auto}
+.mmc-home .mmc-loved{padding:64px var(--home-gutter)}
+.mmc-home .mmc-loved__panel{width:100%;max-width:1100px;margin-inline:auto;box-sizing:border-box}
+.mmc-home .mmc-about-video{padding:64px var(--home-gutter)}
+.mmc-home .ps-footer>.container{width:100%;max-width:calc(var(--home-content) + 2 * var(--home-gutter));padding-inline:var(--home-gutter)}
+/* One image per section keeps the artwork separate from the text. */
+.mmc-home :is(.mmc-tradition,.mmc-baking){display:block;height:auto;min-height:0;padding:64px var(--home-gutter);background:#faf2e5;container-type:normal}
+.mmc-home :is(.mmc-tradition,.mmc-baking)::after{content:none}
+.mmc-home .mmc-story-inner{max-width:var(--home-content);margin-inline:auto;display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:clamp(32px,4vw,72px);align-items:center}
+.mmc-home :is(.mmc-tradition__copy,.mmc-baking__copy){position:static;transform:none;width:100%;max-width:560px;padding:0;margin-inline:auto}
+.mmc-home .mmc-story-art{margin:0;min-width:0;overflow:hidden;border-radius:4px;aspect-ratio:2.2}
+.mmc-home .mmc-story-art img{display:block;width:100%;height:100%;max-width:none;object-fit:cover;object-position:right center}
+.mmc-home .mmc-tradition__copy h2,.mmc-home .mmc-baking__heading h2{font-size:clamp(30px,2.5vw,44px);line-height:1.15}
+.mmc-home .mmc-tradition__description{font-size:18px;line-height:1.7}
+.mmc-home .mmc-tradition__eyebrow,.mmc-home .mmc-baking__heading>p{font-size:14px;letter-spacing:.1em}
+.mmc-home .mmc-baking__features{gap:24px}
+.mmc-home .mmc-baking__features h3{font-size:21px}
+.mmc-home .mmc-baking__features p{font-size:17px;line-height:1.55}
+.mmc-home .mmc-baking__icon{flex-basis:52px}
+@media(min-width:1025px){
+ .mmc-home .mmc-hero{height:clamp(600px,42vw,740px);overflow:hidden}
+ .mmc-home .mmc-hero__image{object-fit:cover;object-position:center 60%}
+ .mmc-home .mmc-masthead{height:104px;padding-inline:max(var(--home-gutter),calc((100% - var(--home-content))/2));gap:18px}
+ .mmc-home .mmc-masthead .mmc-brand{width:180px;flex-basis:180px;top:12px}
+ .mmc-home .mmc-masthead .mmc-menu{gap:8px}
+ .mmc-home .mmc-masthead .mmc-menu>a,.mmc-home .mmc-masthead .mmc-products-toggle{font-size:16px;padding-inline:7px}
+ .mmc-home .mmc-hero__content{top:32%;width:min(64%,760px)}
+ .mmc-home .mmc-hero__content :is(h1,h2){font-size:clamp(48px,4vw,76px);line-height:1.06}
+ .mmc-home .mmc-hero__content p{font-size:23px;margin-bottom:28px}
+}
+@media(min-width:1025px) and (max-width:1250px){
+ .mmc-home .mmc-masthead{gap:10px;padding-inline:24px}
+ .mmc-home .mmc-masthead .mmc-brand{width:140px;flex-basis:140px}
+ .mmc-home .mmc-masthead .mmc-menu>a,.mmc-home .mmc-masthead .mmc-products-toggle{font-size:13px;padding-inline:4px}
+}
+@media(max-width:800px){
+ .mmc-home .mmc-story-inner{grid-template-columns:1fr;gap:28px}
+ .mmc-home :is(.mmc-tradition,.mmc-baking,.mmc-categories,.mmc-arrivals,.mmc-loved,.mmc-about-video){padding:40px var(--home-gutter)}
+ .mmc-home .mmc-story-art{width:100%;max-width:640px;margin-inline:auto}
+ .mmc-home .mmc-tradition__description{font-size:16px}
+}
+
+/* Small overscan keeps the complete food arrangement visible during scroll. */
+@media(min-width:1025px) and (prefers-reduced-motion:no-preference){
+ .mmc-home .mmc-story-art img{height:calc(100% + 40px);margin-top:-20px;will-change:transform}
+ .mmc-home .mmc-tradition .mmc-story-art img{transform:translateY(var(--tradition-parallax,0px))}
+ .mmc-home .mmc-baking .mmc-story-art img{transform:translateY(var(--baking-parallax,0px))}
+}

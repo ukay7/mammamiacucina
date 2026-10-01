@@ -22,6 +22,8 @@
   if(previousFulfillment==='delivery'&&pickup)lastDelivery=deliveryInput.value;
   previousFulfillment=pickup?'pickup':'delivery';
   if(pickup)deliveryInput.value='0.00';
+  form.querySelector('[data-fulfillment-charge-label]').textContent=pickup?'Pick up CAD':'Delivery charge CAD';
+  form.querySelector('[data-fulfillment-total-label]').textContent=pickup?'Pick up':'Delivery charge';
   deliveryInput.readOnly=pickup || form.dataset.matrixDelivery==='1';
   const delivery=pickup?0:cents(deliveryInput),autoTax=true;
   const taxInput=form.elements.tax;taxInput.readOnly=autoTax;
@@ -64,7 +66,7 @@
   toggle.addEventListener('click',()=>{
    const prior=document.querySelector('.order-product-popup');if(prior)prior.dispatchEvent(new Event('close-picker'));
    const popup=document.createElement('div');popup.className='order-product-popup';
-   const search=document.createElement('input');search.type='search';search.className='form-control';search.placeholder='Search products';search.setAttribute('aria-label','Search products by name, SKU or barcode');
+   const search=document.createElement('input');search.type='search';search.className='form-control';search.placeholder='Name, product code, barcode or ID';search.setAttribute('aria-label','Search products by name, code, barcode or ID');
    const list=document.createElement('div');list.className='order-product-options';list.setAttribute('role','listbox');
    popup.append(search,list);document.body.append(popup);toggle.setAttribute('aria-expanded','true');
    const rect=toggle.getBoundingClientRect();popup.style.width=Math.max(rect.width,260)+'px';popup.style.left=Math.min(rect.left,window.innerWidth-Math.max(rect.width,260)-10)+'px';

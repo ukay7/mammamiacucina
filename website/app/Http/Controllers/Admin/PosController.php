@@ -24,9 +24,7 @@ class PosController extends Controller
                 $q->where('qr_code', $term)->orWhere('product_code', $term);
             });
         } else {
-            $query->where(function ($q) use ($term) {
-                $q->where('premium_marketing_name', 'like', '%'.$term.'%')->orWhere('product_code', 'like', '%'.$term.'%')->orWhere('qr_code', 'like', '%'.$term.'%');
-            });
+            $query->searchTerm($term);
         }
         return response()->json(['products' => $query->orderBy('premium_marketing_name')->limit(20)->get()->map(function ($product) {
             return ['id' => $product->id, 'name' => $product->premium_marketing_name, 'barcode' => $product->barcode_number,
@@ -50,7 +48,7 @@ class PosController extends Controller
             'last_name' => 'nullable|string|max:100', 'email' => 'required_without:customer_id|nullable|email|max:255', 'phone' => 'nullable|string|max:40',
             'address' => 'nullable|string|max:255', 'city' => 'nullable|string|max:100', 'province' => 'nullable|string|max:100',
             'postal_code' => 'nullable|string|max:30', 'country' => 'nullable|string|max:100', 'notes' => 'nullable|string|max:2000',
-            'payment_method' => 'required|in:cash,card', 'payment_status' => 'required|in:paid,unpaid']);
+            'payment_method' => 'required|in:cash,card', 'payment_status' => 'required|in:paid,unpaid'] + \App\Services\BusinessDetails::rules(!$request->filled('customer_id') && $request->input('account_type')==='business'));
         $order = $service->complete($data['quote'], $data, $request->user()->id);
         return response()->json(['number' => $order->number, 'total' => $order->final_total_cents,
             'print_url' => route('admin.pos.receipt', $order)]);

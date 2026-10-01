@@ -15,7 +15,7 @@ class DeliveryQuote {
   $tz=DB::table('delivery_postal_zones')->where('prefix',substr($to,0,3))->value('zone');
   if(!$fz||!$tz)throw ValidationException::withMessages(['postal_code'=>'One or both postal codes are outside the delivery coverage area.']);
   $rates=DB::table('delivery_rates')->where('from_zone',$fz)->where('to_zone',$tz)->get()->keyBy('service_code');
-  return ['from_postal'=>$from,'to_postal'=>$to,'from_zone'=>(int)$fz,'to_zone'=>(int)$tz,'services'=>DB::table('delivery_services')->get()->map(fn($s)=>['code'=>$s->code,'name'=>$s->name,'description'=>explode('Packages',$s->description??'')[0],'amount_cents'=>isset($rates[$s->code])?$rates[$s->code]->amount_cents:null])->all()];
+  return ['from_postal'=>$from,'to_postal'=>$to,'from_zone'=>(int)$fz,'to_zone'=>(int)$tz,'services'=>DB::table('delivery_services')->get()->map(fn($s)=>['code'=>$s->code,'name'=>$s->name,'description'=>trim($s->description??''),'amount_cents'=>isset($rates[$s->code])?$rates[$s->code]->amount_cents:null])->all()];
  }
  public function quote(string $from,string $to,string $service):array {
   $from=self::postal($from);$to=self::postal($to);

@@ -20,7 +20,7 @@ class CatalogueController extends Controller
     public function index(Request $r)
     {
         if ($r->filled('allergy') && !$r->has('allergies')) $r->merge(['allergies'=>[$r->input('allergy')]]);
-        $input = $r->validate(['allergies'=>'nullable|array|max:100','allergies.*'=>'required|integer|distinct|exists:allergies,id','category' => 'nullable|string|max:200', 'sort' => ['nullable', Rule::in(['featured', 'name', 'price-low', 'price-high'])], 'show' => ['nullable', Rule::in([6, 12, 24])], 'view' => ['nullable', Rule::in(['grid', 'list'])], 'min' => 'nullable|numeric|min:0|max:999999999999', 'max' => 'nullable|numeric|min:0|max:999999999999', 'page' => 'nullable|integer|min:1|max:1000000']);
+        $input = $r->validate(['q'=>'nullable|string|max:200','allergies'=>'nullable|array|max:100','allergies.*'=>'required|integer|distinct|exists:allergies,id','category' => 'nullable|string|max:200', 'sort' => ['nullable', Rule::in(['featured', 'name', 'price-low', 'price-high'])], 'show' => ['nullable', Rule::in([6, 12, 24])], 'view' => ['nullable', Rule::in(['grid', 'list'])], 'min' => 'nullable|numeric|min:0|max:999999999999', 'max' => 'nullable|numeric|min:0|max:999999999999', 'page' => 'nullable|integer|min:1|max:1000000']);
         $selectedAllergies = array_map('intval', $input['allergies'] ?? []);
         $allergies = \App\Models\Allergy::orderBy('name')->get();
         $min = $input['min'] ?? null;
@@ -43,7 +43,8 @@ class CatalogueController extends Controller
         $perPage = (int) ($input['show'] ?? 12);
         $view = $input['view'] ?? 'grid';
         $allCount = $this->visible()->count();
-        $query = $this->visible();
+        $search=trim($input['q']??'');
+        $query = $this->visible()->searchTerm($search);
         if ($category) {
             $selected ? $query->whereHas('categories', fn ($q) => $q->where('categories.id', $selected->id)) : $query->whereRaw('1=0');
         }
@@ -64,7 +65,7 @@ class CatalogueController extends Controller
         $total = (clone $query)->count();
         $page = min((int) ($input['page'] ?? 1), max(1, (int) ceil($total / $perPage)));
         $products = $query->orderBy('id')->with(['media' => fn ($q) => $q->coverImage()])->paginate($perPage, ['*'], 'page', $page)->appends($r->except('page'));
-        $data = compact('allergies', 'selectedAllergies', 'products', 'categories', 'category', 'sort', 'perPage', 'view', 'min', 'max', 'total', 'page', 'allCount');
+        $data = compact('search','allergies', 'selectedAllergies', 'products', 'categories', 'category', 'sort', 'perPage', 'view', 'min', 'max', 'total', 'page', 'allCount');
         if ($r->expectsJson()) {
             return response()->json(['html' => view('partials.catalogue-grid', $data)->render(), 'total' => $total]);
         }

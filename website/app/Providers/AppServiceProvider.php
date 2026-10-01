@@ -14,7 +14,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->resolving('mail.manager', function () {
+            app(\App\Services\SmtpConfiguration::class)->apply();
+        });
     }
 
     /**
@@ -22,6 +24,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        \Illuminate\Support\Facades\Queue::before(function () {
+            app(\App\Services\SmtpConfiguration::class)->apply();
+            app('mail.manager')->forgetMailers();
+        });
         View::composer(['partials.mmc-header','partials.mmc-footer','partials.mmc-about-video','partials.mmc-product-media','pages.contact','orders.print','admin.layout'], function ($view) {
             $view->with('siteSettings', \App\Models\GeneralSetting::find(1));
         });

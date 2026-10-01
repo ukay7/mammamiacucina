@@ -10,11 +10,12 @@
 @foreach(['name'=>['Full name',100],'phone'=>['Phone',40],'address'=>['Street address',255],'city'=>['City',100],'province'=>['Province / State',100],'postal_code'=>['Postal code',30],'country'=>['Country',100]] as $field=>$details)
 <div class="col-md-6 mb-3"><label for="edit-{{ $field }}">{{ $details[0] }}</label><input class="form-control" id="edit-{{ $field }}" name="{{ $field }}" value="{{ old($field,$customer->$field) }}" maxlength="{{ $details[1] }}" @required($field==='name')></div>
 @endforeach
-</div><button class="btn btn-primary">Save Customer</button></form></div>
+</div>@if($customer->account_type==='business')@include('partials.business-fields',['businessProfile'=>$customer])@endif
+<button class="btn btn-primary">Save Customer</button></form></div>
 <div class="panel panel-content" style="max-width:1000px"><h2>Account access</h2>
 <p>Account is <strong>{{ $customer->user->is_active?'Active':'Inactive' }}</strong>.</p>
 <form class="mb-3" method="post" action="{{ route('admin.customers.active',$customer) }}" data-confirm="{{ $customer->user->is_active?'Deactivate this customer and block account access?':'Reactivate this customer account?' }}">@csrf<input type="hidden" name="is_active" value="{{ $customer->user->is_active?0:1 }}"><button class="btn btn-outline-primary">{{ $customer->user->is_active?'Deactivate Customer':'Activate Customer' }}</button></form>
-@if(!$customer->user->email_verified_at && $customer->user->is_active)<form method="post" action="{{ route('admin.customers.resend',$customer) }}">@csrf<button class="btn btn-outline-primary">Resend Verification Email</button></form>@endif
+@if(!$customer->user->email_verified_at && $customer->user->is_active)<form method="post" action="{{ route('admin.customers.resend',$customer) }}">@csrf @include('partials.verification-resend-button',['verificationUser'=>$customer->user])</form>@endif
 </div>
 <div class="panel panel-content" style="max-width:1000px"><h2>Change customer password</h2><p>Changing a password does not mark an unverified email as verified.</p>
 <form method="post" action="{{ route('admin.customers.password',$customer) }}" data-confirm="Set a new password for this customer?">@csrf

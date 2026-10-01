@@ -4,8 +4,8 @@
 .mmc-slide::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(0,0,0,.34), transparent 35%), radial-gradient(ellipse at 46% 50%, rgba(17,10,3,.26), transparent 51%); pointer-events: none; }
 .mmc-masthead { position: absolute; inset: 0 0 auto; height: 24%; z-index: 5; }
 .mmc-brand { display: block; position: absolute; left: 2.5%; top: 1.2vw; width: 14%; aspect-ratio: 154 / 112; overflow: hidden; }
-.mmc-brand::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 46%, rgba(9,7,3,.94) 0%, rgba(9,7,3,.82) 38%, rgba(9,7,3,.4) 60%, transparent 76%); pointer-events: none; }
-.mmc-brand img { display: block; position: absolute; width: 111%; max-width: none; height: auto; left: -5.5%; top: -32%; filter: drop-shadow(0 1px 1px rgba(0,0,0,.95)) drop-shadow(0 3px 5px rgba(0,0,0,.7)); }
+.mmc-brand::before { content: none; }
+.mmc-brand img { display: block; position: absolute; width: 111%; max-width: none; height: auto; left: -5.5%; top: -32%; filter: none; }
 .mmc-menu { position: absolute; left: 25%; top: 2.65vw; width: 54%; display: flex; align-items: center; justify-content: space-between; gap: 15px; }
 .mmc-menu a { position: relative; color: #fffdf8; font: 400 clamp(12px,1.28vw,22px)/1.25 Georgia, 'Times New Roman', serif; text-transform: uppercase; white-space: nowrap; text-shadow: 0 1px 5px #000; padding-bottom: .7vw; text-decoration: none; }
 .mmc-menu a:hover, .mmc-menu a:focus-visible { color: #e3b453; }
@@ -276,11 +276,11 @@
 .mmc-contact-socials{display:flex;flex-wrap:wrap;gap:8px 16px;margin:12px 0 16px}
 .mmc-contact-socials a{font-size:13px;line-height:1.7}
 
-/* Full-width homepage sections; constrain content rather than the page canvas. */
-.mmc-home :is(.mmc-hero,.mmc-tradition,.mmc-categories,.mmc-loved,.mmc-arrivals,.mmc-baking,.mmc-about-video){max-width:none;width:100%}
+/* Keep homepage sections on the same centered canvas on wide screens. */
+.mmc-home:not(.mmc-inner) :is(.mmc-hero,.mmc-tradition,.mmc-categories,.mmc-loved,.mmc-arrivals,.mmc-baking,.mmc-about-video){max-width:1920px;width:100%;margin-inline:auto;box-sizing:border-box}
 .mmc-home .mmc-categories__grid{max-width:1768px;margin-inline:auto}
 @media(min-width:1025px){
- .mmc-home .mmc-hero{aspect-ratio:auto;height:clamp(480px,42vw,900px)}
+ .mmc-home .mmc-hero{aspect-ratio:auto;height:clamp(480px,42vw,806px)}
  .mmc-home .mmc-hero__image{object-fit:cover}
  .mmc-home .mmc-masthead{height:130px;background:#191209;display:flex;align-items:center;gap:24px;padding:0 max(24px,calc((100% - 1800px)/2));box-sizing:border-box}
  .mmc-home .mmc-masthead .mmc-brand{position:relative;left:auto;top:20px;width:180px;flex:0 0 180px}
@@ -319,7 +319,7 @@
 
 /* Keep desktop links grouped centrally instead of distributing spare space. */
 @media(min-width:1025px){
- .mmc-home .mmc-masthead .mmc-menu{justify-content:center;gap:clamp(8px,1.4vw,28px)}
+ .mmc-home .mmc-masthead .mmc-menu{justify-content:center;gap:clamp(4px,.65vw,12px)}
 }
 @media(min-width:1025px) and (max-width:1250px){
  .mmc-home .mmc-masthead .mmc-menu{gap:6px}
@@ -327,7 +327,7 @@
 
 /* Tradition artwork spans the entire section, including behind the text. */
 @media(min-width:1025px){
- .mmc-home .mmc-tradition::after{left:0;right:0;width:100%;background-size:auto max(calc(100% + 180px),33.34vw);background-position:center calc(50% + var(--tradition-parallax,0px))}
+ .mmc-home .mmc-tradition::after{left:0;right:0;width:100%;background-size:auto max(calc(100% + 180px),min(33.34vw,640px));background-position:center calc(50% + var(--tradition-parallax,0px))}
  .mmc-home .mmc-tradition__copy{width:30%;max-width:560px;padding-right:0}
 }
 @media(min-width:1025px){.mmc-home .mmc-tradition{padding-inline:8.5%}}
@@ -335,7 +335,7 @@
 /* Baking artwork also belongs to the whole section, not a separate image column. */
 @media(min-width:1025px){
  .mmc-home .mmc-baking{padding-inline:5%}
- .mmc-home .mmc-baking::after{left:0;right:0;width:100%;background-size:auto max(calc(100% + 180px),33.34vw);background-position:center calc(50% + var(--baking-parallax,0px))}
+ .mmc-home .mmc-baking::after{left:0;right:0;width:100%;background-size:auto max(calc(100% + 180px),min(33.34vw,640px));background-position:center calc(50% + var(--baking-parallax,0px))}
  .mmc-home .mmc-baking__copy{width:35%;max-width:620px;padding-right:0}
 }
 
@@ -374,3 +374,10 @@
 .mmc-home .mmc-error-alert a {color:#a11624}
 .mmc-home .mmc-error-alert ul {list-style:disc;padding-left:22px;margin:8px 0 0}
 .mmc-home .mmc-error-alert a {text-decoration:underline}
+
+/* Full-width header and footer bands around the centered homepage content. */
+.mmc-home:not(.mmc-inner) .ps-footer{max-width:none;width:100%;box-sizing:border-box}
+@media(min-width:1921px){
+ .mmc-home:not(.mmc-inner) .mmc-hero{overflow:visible}
+ .mmc-home:not(.mmc-inner) .mmc-masthead::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:#191209;box-shadow:0 0 0 100vmax #191209;clip-path:inset(0 -100vmax)}
+}

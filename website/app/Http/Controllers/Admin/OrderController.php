@@ -115,7 +115,7 @@ class OrderController extends Controller
                 if (! $warehouseOnly) {
                     $row = array_merge($row, [number_format($order->subtotal_cents / 100, 2, '.', ''), $order->payment_method, $order->payment_status]);
                 }
-                $row=array_merge($row,[$order->delivery_service_name??$order->delivery_service??($order->fulfillment==='pickup'?'Pickup':'Not recorded'),$order->delivery_from_postal??'', $order->delivery_from_zone??'', $order->delivery_to_postal??$order->postal_code, $order->delivery_to_zone??'', $order->delivery_cents===null?'':number_format($order->delivery_cents/100,2,'.','')]);
+                $row=array_merge($row,[$order->delivery_service_name??$order->delivery_service??($order->fulfillment==='pickup'?'Pick up':'Not recorded'),$order->delivery_from_postal??'', $order->delivery_from_zone??'', $order->delivery_to_postal??$order->postal_code, $order->delivery_to_zone??'', $order->delivery_cents===null?'':number_format($order->delivery_cents/100,2,'.','')]);
                 yield $row;
             }
         };

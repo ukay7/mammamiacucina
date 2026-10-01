@@ -56,6 +56,7 @@ class User extends Authenticatable
             if($user->isCustomer()) $user->customer()->updateOrCreate([],['name'=>$user->name,'email'=>$user->email,'phone'=>$user->phone,'account_type'=>$user->account_type]);
         });
     }
+    public function businessApprovalPending(): bool {return $this->account_type==='business' && !$this->business_approved_at;}
     public function isCustomer(): bool { return in_array($this->account_type, ['individual','business'], true); }
     public function isSuper(): bool
     {
@@ -76,6 +77,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'business_approved_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
         ];

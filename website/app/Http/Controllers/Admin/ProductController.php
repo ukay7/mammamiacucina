@@ -28,8 +28,7 @@ class ProductController extends Controller
     {
         return Product::withCount('documents')->with(['pricingDraft', 'categories', 'inventory', 'media' => fn ($q) => $q->coverImage()])
             ->when($r->filled('q'), function ($q) use ($r) {
-                $term = '%'.mb_substr((string) $r->input('q'), 0, 200).'%';
-                $q->where(fn ($x) => $x->where('premium_marketing_name', 'like', $term)->orWhere('qr_code', 'like', $term)->orWhere('product_code', 'like', $term)->orWhere('supplier', 'like', $term));
+                $q->searchTerm((string)$r->input('q'), true);
             })
             ->when($r->filled('supplier'), fn ($q) => $q->where('supplier', 'like', '%'.mb_substr((string) $r->input('supplier'), 0, 200).'%'))
             ->when($r->filled('category'), fn ($q) => $q->whereHas('categories', fn ($c) => $c->where('categories.id', $r->integer('category'))))

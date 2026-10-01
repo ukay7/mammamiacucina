@@ -96,3 +96,9 @@ Route::fallback(fn () => response()->view('pages.404', [], 404));
 Route::post('/checkout/delivery-quote',\App\Http\Controllers\DeliveryQuoteController::class)->middleware([\App\Http\Middleware\CustomerAccess::class,'throttle:60,1'])->name('checkout.delivery-quote');
 
 Route::post('/checkout/delivery-options',[\App\Http\Controllers\DeliveryQuoteController::class,'options'])->middleware([\App\Http\Middleware\CustomerAccess::class,'throttle:60,1'])->name('checkout.delivery-options');
+
+Route::get('/app', function () {
+ $user=auth()->user();
+ $route=!$user?'admin.login':($user->isCustomer()?'customer.orders':($user->hasAdminPermission('warehouse.pack')?'admin.orders.index':'admin.dashboard'));
+ return redirect()->route($route)->header('Cache-Control','no-store, private');
+})->name('pwa.start');

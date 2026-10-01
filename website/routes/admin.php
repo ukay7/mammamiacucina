@@ -59,6 +59,7 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         Route::get('/customers/{customer}/edit', [\App\Http\Controllers\Admin\CustomerController::class,'edit'])->middleware(AdminAccess::class.':users.manage')->name('customers.edit');
         Route::put('/customers/{customer}', [\App\Http\Controllers\Admin\CustomerController::class,'update'])->middleware(AdminAccess::class.':users.manage')->name('customers.update');
         Route::post('/customers/{customer}/password', [\App\Http\Controllers\Admin\CustomerController::class,'password'])->middleware(AdminAccess::class.':users.manage')->name('customers.password');
+        Route::post('/customers/{customer}/approve-business', [\App\Http\Controllers\Admin\CustomerController::class,'approveBusiness'])->middleware(AdminAccess::class.':users.manage')->name('customers.approve-business');
         Route::post('/customers/{customer}/active', [\App\Http\Controllers\Admin\CustomerController::class,'active'])->middleware(AdminAccess::class.':users.manage')->name('customers.active');
         Route::post('/customers/{customer}/verification', [\App\Http\Controllers\Admin\CustomerController::class,'resend'])->middleware([AdminAccess::class.':users.manage','throttle:5,1'])->name('customers.resend');
         Route::get('/customers', [\App\Http\Controllers\Admin\CustomerController::class, 'index'])->middleware(AdminAccess::class.':orders.view')->name('customers.index');
@@ -77,9 +78,16 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         Route::put('/settings/about', [AboutPageController::class, 'update'])->middleware(AdminAccess::class.':about.manage')->name('about.update');
         Route::middleware(AdminAccess::class.':settings.manage')->group(function () {
             Route::get('/delivery-rates', [\App\Http\Controllers\Admin\DeliveryRateController::class, 'index'])->name('delivery.index');
+            Route::put('/delivery-services/{service}/description', [\App\Http\Controllers\Admin\DeliveryRateController::class, 'updateDescription'])->name('delivery.description');
             Route::put('/delivery-rates/{rate}', [\App\Http\Controllers\Admin\DeliveryRateController::class, 'update'])->whereNumber('rate')->name('delivery.update');
         });
         Route::post('/orders/delivery-options', [\App\Http\Controllers\DeliveryQuoteController::class, 'options'])->middleware(AdminAccess::class.':orders.manage')->name('orders.delivery-options');
+        Route::middleware(AdminAccess::class.':settings.manage')->group(function () {
+            Route::get('/settings/email/history', [\App\Http\Controllers\Admin\EmailHistoryController::class, 'index'])->name('email.history');
+            Route::get('/settings/email', [\App\Http\Controllers\Admin\SmtpSettingController::class, 'edit'])->name('email.edit');
+            Route::put('/settings/email', [\App\Http\Controllers\Admin\SmtpSettingController::class, 'update'])->name('email.update');
+            Route::post('/settings/email/test', [\App\Http\Controllers\Admin\SmtpSettingController::class, 'test'])->middleware('throttle:5,1')->name('email.test');
+        });
         Route::get('/settings/general', [GeneralSettingController::class, 'edit'])->middleware(AdminAccess::class.':settings.manage')->name('settings.general');
         Route::put('/settings/general', [GeneralSettingController::class, 'update'])->middleware(AdminAccess::class.':settings.manage')->name('settings.update');
         Route::post('/orders/{order}/packing', [OrderController::class,'packing'])->middleware(AdminAccess::class.':warehouse.pack')->name('orders.packing');

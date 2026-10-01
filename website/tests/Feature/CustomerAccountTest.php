@@ -15,16 +15,16 @@ class CustomerAccountTest extends TestCase {
  }
  public function test_registration_and_verification():void{
   $message='';Mail::shouldReceive('raw')->once()->withArgs(function($text,$callback)use(&$message){$message=$text;return true;});
-  $this->withSession(['storefront_cart'=>[12=>2]])->post(route('customer.register.store'),['name'=>'New Customer','email'=>'NEW@example.test','phone'=>'12345','account_type'=>'business','password'=>'strong-password-123','password_confirmation'=>'strong-password-123'])->assertRedirect(route('customer.verify.notice'))->assertSessionHas('storefront_cart',[12=>2]);
+  $this->withSession(['storefront_cart'=>[12=>2]])->post(route('customer.register.store'),['name'=>'New Customer','email'=>'NEW@example.test','phone'=>'12345','account_type'=>'business','business_bin'=>'BIN123','business_name'=>'Test Business','business_phone'=>'555123','business_email'=>'business@example.test','password'=>'strong-password-123','password_confirmation'=>'strong-password-123'])->assertRedirect(route('theme.index'))->assertSessionHas('storefront_cart',[12=>2]);
   $u=User::where('email','new@example.test')->firstOrFail();$this->assertTrue(Hash::check('strong-password-123',$u->password));$this->assertNull($u->email_verified_at);$this->assertFalse($u->hasAdminPermission('orders.manage'));
-  preg_match('~https?://[^\s]+~',$message,$m);$this->get($m[0])->assertRedirect('/checkout');$this->assertNotNull($u->fresh()->email_verified_at);
+  preg_match('~https?://[^\s]+~',$message,$m);$this->get($m[0])->assertRedirect(route('customer.business.pending'));$this->assertNotNull($u->fresh()->email_verified_at);
   $this->get($m[0].'x')->assertForbidden();
  }
  public function test_existing_email_login_and_staff_restriction():void{
   $u=$this->customer(['password'=>'strong-password-123']);
   $this->post(route('customer.register.store'),['name'=>'Imposter','email'=>'JANE@example.test','phone'=>'123','account_type'=>'individual','password'=>'strong-password-123','password_confirmation'=>'strong-password-123'])->assertSessionHasErrors('email');$this->assertGuest();
   $this->post(route('customer.login.store'),['email'=>$u->email,'password'=>'bad'])->assertSessionHasErrors('email');
-  $this->post(route('customer.login.store'),['email'=>'JANE@example.test','password'=>'strong-password-123'])->assertRedirect('/checkout');$this->assertAuthenticatedAs($u);
+  $this->post(route('customer.login.store'),['email'=>'JANE@example.test','password'=>'strong-password-123'])->assertRedirect(route('theme.index'));$this->assertAuthenticatedAs($u);
   $this->get('/admin/users')->assertRedirect(route('customer.orders'));
  }
  public function test_prefill_order_ownership_and_isolation():void{
@@ -83,5 +83,17 @@ $this->get(route('customer.profile'))->assertOk()->assertSee('42 Saved Street')-
   $this->put(route('customer.profile.update'),['name'=>'','phone'=>'','account_type'=>'admin'])->assertSessionHasErrors(['name','phone']);
   auth()->logout();$this->get(route('customer.profile'))->assertRedirect(route('customer.login'));
   $this->put(route('customer.profile.update'),[])->assertRedirect(route('customer.login'));
+ }
+ public function test_login_and_registration_return_to_a_nonempty_cart():void {
+  $p=Product::create(['category_id'=>1,'slug'=>'redirect-cake','premium_marketing_name'=>'Redirect cake','qr_code'=>'REDIRECT','is_active'=>true,'total_selling_price_cad'=>10]);
+  $user=$this->customer(['password'=>'strong-password-123']);
+  $this->withSession(['storefront_cart'=>[$p->id=>2]])->post(route('customer.login.store'),['email'=>$user->email,'password'=>'strong-password-123'])->assertRedirect(route('theme.cart'))->assertSessionHas('storefront_cart',[$p->id=>2]);
+  auth()->logout();Mail::fake();
+  $this->withSession(['storefront_cart'=>[$p->id=>2]])->post(route('customer.register.store'),['name'=>'Cart Buyer','email'=>'cartbuyer@example.test','phone'=>'123','account_type'=>'individual','password'=>'strong-password-123','password_confirmation'=>'strong-password-123'])->assertRedirect(route('theme.cart'));
+ }
+ public function test_verified_pending_business_notice_uses_saved_contact_details():void {
+  \App\Models\GeneralSetting::findOrFail(1)->update(['email'=>'office@example.test','phone'=>'+1 555 0100']);
+  $this->actingAs($this->customer(['account_type'=>'business']))->get(route('customer.verify.notice'))->assertRedirect(route('customer.business.pending'));
+  $this->get(route('customer.business.pending'))->assertOk()->assertSee('Your business account is under process')->assertSee('office@example.test')->assertSee('+1 555 0100');
  }
 }

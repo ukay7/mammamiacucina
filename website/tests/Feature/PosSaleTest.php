@@ -67,7 +67,7 @@ class PosSaleTest extends TestCase
         $this->sale($quote)->assertOk()->assertJsonPath('number', $response->json('number'));
         $this->assertDatabaseCount('orders', 1);
         $this->assertDatabaseCount('inventory_movements', 1);
-        $this->get($response->json('print_url'))->assertOk()->assertSee('Sales Receipt')->assertSee('Collected in store')->assertDontSee('Cash on delivery');
+        $this->get($response->json('print_url'))->assertOk()->assertSee('Sales Receipt')->assertSee('Pick up')->assertDontSee('Cash on delivery');
         $this->get('/admin/orders/completed')->assertOk()->assertSee('POS');
     }
 

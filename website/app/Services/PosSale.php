@@ -116,14 +116,16 @@ class PosSale
                 $email=strtolower(trim($customer['email']));
                 $user=\App\Models\User::whereRaw('lower(email) = ?',[$email])->first();
                 if($user)$this->fail('This email already has an account. Select the existing customer.');
+                $business=\Illuminate\Support\Facades\Validator::make($customer, BusinessDetails::rules(($customer['account_type']??'individual')==='business'))->validate();
                 $user=new \App\Models\User();
                 $user->forceFill(['name'=>trim(($customer['first_name']??'').' '.($customer['last_name']??'')) ?: $email,'email'=>$email,'phone'=>$customer['phone']??null,'account_type'=>$customer['account_type']??'individual','role_id'=>\App\Models\Role::where('name','Customer')->value('id'),'is_active'=>true,'password'=>Str::random(64)])->save();
                 $profile=$user->customerRecord();
+                $profile->update(\Illuminate\Support\Arr::only($business,BusinessDetails::FIELDS));
                 $customer['email']=$email;
                 DB::afterCommit(function()use($user){
                     $url=\Illuminate\Support\Facades\URL::temporarySignedRoute('customer.invite',now()->addDays(2),['user'=>$user->id,'hash'=>sha1($user->email)]);
                     try {
-                        \Illuminate\Support\Facades\Mail::raw("Your Mamma Mia Cucina customer account is ready. Verify your email:\n".$url."\nThen use Forgot password to set your password and view your orders.",fn($m)=>$m->to($user->email)->subject('Verify your customer account'));
+                        app(\App\Services\OutgoingEmail::class)->raw("Your Mamma Mia Cucina customer account is ready. Verify your email:\n".$url."\nThen use Forgot password to set your password and view your orders.",fn($m)=>$m->to($user->email)->subject('Verify your customer account'),'pos_invitation',$user);
                     } catch(\Throwable $e){report($e);}
                 });
             }
@@ -160,7 +162,7 @@ class PosSale
                         'created_by' => $userId, 'created_at' => now()]);
                 }
             }
-            $order->events()->create(['user_id' => $userId, 'description' => 'Quick Sale created · '.($pickup ? 'Collected in store' : 'Delivery').' · '.$customer['payment_method'].' '.$customer['payment_status'], 'created_at' => now()]);
+            $order->events()->create(['user_id' => $userId, 'description' => 'Quick Sale created · '.($pickup ? 'Pick up' : 'Delivery').' · '.$customer['payment_method'].' '.$customer['payment_status'], 'created_at' => now()]);
             return $order;
         }, 3);
     }

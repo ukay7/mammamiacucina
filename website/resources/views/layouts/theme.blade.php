@@ -3,6 +3,8 @@
 <head>
 @include('partials.head')
 @stack('styles')
+
+@include('partials.pwa')
 </head>
 <body class="@yield('body-class', 'page-init')">
 @yield('content')

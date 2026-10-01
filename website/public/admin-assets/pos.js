@@ -183,11 +183,11 @@
     };
     function fillQuote(data) {
         quote=data.quote;
-        if(data.delivery_route?.delivery_service_name && form.elements.delivery_service.selectedOptions[0])form.elements.delivery_service.selectedOptions[0].textContent=data.delivery_route.delivery_service_name+' — '+money(data.delivery);
+        if(data.delivery_route?.delivery_service_name && form.elements.delivery_service.selectedOptions[0])form.elements.delivery_service.selectedOptions[0].textContent=data.delivery_route.delivery_service_name+(form.elements.delivery_service.selectedOptions[0].dataset.description?' ('+form.elements.delivery_service.selectedOptions[0].dataset.description+')':'')+' — '+money(data.delivery);
         const lines=$('#quote-lines');lines.replaceChildren();
         data.items.forEach(line=>{const row=make('div',undefined,'pos-quote-line');row.append(make('span',line.name+' × '+line.quantity),make('strong',money(line.unit_cents*line.quantity)));lines.append(row);});
         const totals=$('#quote-totals');totals.replaceChildren();
-        [['Product subtotal',data.subtotal],['Delivery'+(data.delivery_route?.delivery_service_name?' · '+data.delivery_route.delivery_service_name:''),data.delivery],['Tax ('+data.tax_percent+'%)',data.tax],['Total (CAD)',data.total]].forEach(([label,value])=>{
+        [['Product subtotal',data.subtotal],[($('#fulfillment').value==='pickup'?'Pick up':'Delivery')+(data.delivery_route?.delivery_service_name?' · '+data.delivery_route.delivery_service_name:''),data.delivery],['Tax ('+data.tax_percent+'%)',data.tax],['Total (CAD)',data.total]].forEach(([label,value])=>{
             const row=make('div');row.append(make('span',label),make('span',money(value)));totals.append(row);
         });
         $('#complete-button').textContent='Complete sale · '+money(data.total);
@@ -216,7 +216,7 @@
             const data=await request(app.dataset.deliveryOptions,{postal_code:form.elements.postal_code.value,country:form.elements.country.value});
             if(serial!==deliverySerial)return;
             select.replaceChildren(new Option('Choose a delivery service',''));
-            data.services.forEach(s=>{const option=new Option(s.name+' — '+(s.amount_cents===null?'Unavailable':money(s.amount_cents)),s.code);option.disabled=s.amount_cents===null;select.add(option);});
+            data.services.forEach(s=>{const option=new Option(s.name+(s.description?' ('+s.description+')':'')+' — '+(s.amount_cents===null?'Unavailable':money(s.amount_cents)),s.code);option.disabled=s.amount_cents===null;option.dataset.description=s.description||'';select.add(option);});
             select.disabled=false;
             if(data.services.some(s=>s.code===selected&&s.amount_cents!==null))select.value=selected;
             message.textContent=data.from_postal+' (Zone '+data.from_zone+') → '+data.to_postal+' (Zone '+data.to_zone+')';
@@ -245,7 +245,7 @@
     $('#close-checkout').onclick=()=>{if(!submitting&&!frozenPayload)checkout.close();};
     checkout.addEventListener('cancel',event=>{if(submitting||frozenPayload)event.preventDefault();});
     function lockForm(lock){
-        form.querySelectorAll('input,select,textarea').forEach(input=>input.disabled=lock || (input.closest('#delivery-fields') && $('#fulfillment').value!=='delivery') || (input.name==='delivery_service'&&!matrixDelivery()));
+        form.querySelectorAll('input,select,textarea').forEach(input=>input.disabled=lock || !!input.closest('[data-business-fields][hidden]') || (input.closest('#delivery-fields') && $('#fulfillment').value!=='delivery') || (input.name==='delivery_service'&&!matrixDelivery()));
         $('#close-checkout').disabled=lock;
     }
     form.onsubmit=async event=>{

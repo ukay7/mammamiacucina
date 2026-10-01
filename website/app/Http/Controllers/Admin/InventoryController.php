@@ -14,7 +14,7 @@ class InventoryController extends Controller
 {
     public function index(Request $r)
     {
-        $products = Product::with(['inventory', 'categories'])->when($r->filled('q'), fn ($q) => $q->where(fn ($q) => $q->where('premium_marketing_name', 'like', '%'.mb_substr($r->string('q'), 0, 200).'%')->orWhere('qr_code', 'like', '%'.mb_substr($r->string('q'), 0, 200).'%')))->when($r->input('stock') === 'unset', fn ($q) => $q->whereHas('inventory', fn ($i) => $i->whereNull('quantity_on_hand')))->when($r->input('stock') === 'low', fn ($q) => $q->whereHas('inventory', fn ($i) => $i->whereColumn('quantity_on_hand', '<=', 'low_stock_threshold')))->orderBy('premium_marketing_name')->paginate(20)->withQueryString();
+        $products = Product::with(['inventory', 'categories'])->when($r->filled('q'), fn ($q) => $q->searchTerm((string)$r->input('q')))->when($r->input('stock') === 'unset', fn ($q) => $q->whereHas('inventory', fn ($i) => $i->whereNull('quantity_on_hand')))->when($r->input('stock') === 'low', fn ($q) => $q->whereHas('inventory', fn ($i) => $i->whereColumn('quantity_on_hand', '<=', 'low_stock_threshold')))->orderBy('premium_marketing_name')->paginate(20)->withQueryString();
 
         return view('admin.inventory.index', compact('products'));
     }

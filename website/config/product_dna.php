@@ -14,9 +14,9 @@ return [
         'storage' => ['Storage conditions', 'textarea'], 'shelf_life' => ['Shelf life', 'textarea'], 'preparation' => ['Preparation / thawing / baking', 'textarea'],
     ],
     'files' => [
-        'image_link' => ['Image file or folder URL', 'url'], 'image_present' => ['Image declared present', 'checkbox'], 'image_verification' => ['Image identity verification', 'select', ['missing' => 'Missing', 'family' => 'Family reference', 'working' => 'Working value', 'source' => 'Source record', 'exact' => 'SKU matched', 'conflict' => 'Conflicting sources', 'verified' => 'Verified']],
+        'image_link' => ['Image file or folder URL', 'url'], 'image_present' => ['Image declared present', 'checkbox'], 'image_verification' => ['Image identity verification', 'select', ['missing' => 'Missing', 'family' => 'Family reference', 'working' => 'Working value', 'source' => 'Source record', 'exact' => 'Product matched', 'conflict' => 'Conflicting sources', 'verified' => 'Verified']],
         'image_reopen' => ['Allow supplier image replacement for review', 'checkbox'],
-        'ingredients_link' => ['Ingredients file or folder URL', 'url'], 'ingredients_present' => ['Ingredients declared present', 'checkbox'], 'ingredients_verification' => ['Ingredients identity verification', 'select', ['missing' => 'Missing', 'family' => 'Family reference', 'working' => 'Working value', 'source' => 'Source record', 'exact' => 'SKU matched', 'conflict' => 'Conflicting sources', 'verified' => 'Verified']],
+        'ingredients_link' => ['Ingredients file or folder URL', 'url'], 'ingredients_present' => ['Ingredients declared present', 'checkbox'], 'ingredients_verification' => ['Ingredients identity verification', 'select', ['missing' => 'Missing', 'family' => 'Family reference', 'working' => 'Working value', 'source' => 'Source record', 'exact' => 'Product matched', 'conflict' => 'Conflicting sources', 'verified' => 'Verified']],
         'ingredients_reopen' => ['Allow supplier ingredients replacement for review', 'checkbox'], 'ingredients_text' => ['Complete ingredients — original text', 'textarea'], 'allergen_declaration' => ['Supplier allergen declaration', 'textarea'],
     ],
     'evidence' => ['supplier_notes' => ['Supplier comments', 'textarea'], 'owner_notes' => ['Private owner notes', 'textarea']],

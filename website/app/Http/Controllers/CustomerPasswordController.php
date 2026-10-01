@@ -13,7 +13,7 @@ class CustomerPasswordController extends Controller {
   if($user?->isCustomer() && $user->is_active){
    Password::sendResetLink(['email'=>$user->email],function($user,$token){
     $url=route('customer.password.reset',['token'=>$token,'email'=>$user->email]);
-    Mail::raw("Set a new password for your Mamma Mia Cucina account:\n".$url."\nThis link expires in 60 minutes.",fn($m)=>$m->to($user->email)->subject('Reset your password'));
+    app(\App\Services\OutgoingEmail::class)->raw("Set a new password for your Mamma Mia Cucina account:\n".$url."\nThis link expires in 60 minutes.",fn($m)=>$m->to($user->email)->subject('Reset your password'),'password_reset',$user);
    });
   }
   return back()->with('status','If an active customer account exists for this email, a password reset link has been sent.');

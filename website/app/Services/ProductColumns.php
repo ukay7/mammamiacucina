@@ -13,7 +13,7 @@ class ProductColumns
     public function labels(): array
     {
         return [
-            'status' => 'Status', 'image' => 'Image', 'qr_code' => 'Internal code', 'premium_marketing_name' => 'Mamma Mia name', 'supplier' => 'Supplier', 'product_code' => 'Supplier SKU',
+            'status' => 'Status', 'image' => 'Image', 'qr_code' => 'Internal code', 'premium_marketing_name' => 'Mamma Mia name', 'supplier' => 'Supplier', 'product_code' => 'Supplier product code',
             'original_description' => 'Product name on source', 'manufacturer' => 'Manufacturer', 'recipient' => 'Purchaser on document', 'delivery_to' => 'Delivery destination on source',
             'allocated_to' => 'Internal brand allocation', 'category' => 'Category', 'gluten_status' => 'Gluten-free status', 'unit_weight_g' => 'Weight per piece (g)', 'pieces_per_carton' => 'Pieces per carton',
             'net_carton_kg' => 'Net carton weight (kg)', 'sale_unit' => 'Sell as', 'minimum_sale' => 'Minimum sale', 'purchase_price' => 'Supplier quoted price', 'purchase_basis' => 'Supplier price basis',

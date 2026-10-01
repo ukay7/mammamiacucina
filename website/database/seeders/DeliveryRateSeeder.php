@@ -38,7 +38,7 @@ class DeliveryRateSeeder extends Seeder
             // Serialize imports with checkout/settings changes. Existing orders retain their charge snapshots.
             DB::table('general_settings')->where('id', 1)->lockForUpdate()->first();
             DB::table('delivery_postal_zones')->upsert($zones, ['prefix'], ['zone']);
-            DB::table('delivery_services')->upsert($services, ['code'], ['name', 'description']);
+            DB::table('delivery_services')->upsert($services, ['code'], ['name']);
             $edited = DB::table('delivery_rates')->where('revision', '>', 0)->get()->keyBy(fn($r) => $r->service_code.':'.$r->from_zone.':'.$r->to_zone);
             $rates = array_filter($rates, fn($r) => !$edited->has($r['service_code'].':'.$r['from_zone'].':'.$r['to_zone']));
             foreach (array_chunk($rates, 100) as $chunk) {

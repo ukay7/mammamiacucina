@@ -7,6 +7,7 @@ Route::post('/account/login',[Customer::class,'authenticate'])->middleware('thro
 Route::get('/account/register',[Customer::class,'register'])->name('customer.register');
 Route::post('/account/register',[Customer::class,'store'])->middleware('throttle:5,1')->name('customer.register.store');
 Route::middleware(CustomerAccess::class.':no')->group(function(){
+ Route::get('/account/business-approval',function(){return auth()->user()->businessApprovalPending() ? response()->view('customer.business-pending')->header('Cache-Control','no-store, private') : redirect()->route('customer.orders');})->name('customer.business.pending');
  Route::get('/account/verify-email',[Customer::class,'notice'])->name('customer.verify.notice');
  Route::get('/account/verify/{id}/{hash}',[Customer::class,'verify'])->middleware(['signed','throttle:10,1'])->name('customer.verify');
  Route::post('/account/resend-verification',[Customer::class,'resend'])->middleware('throttle:1,1')->name('customer.verify.resend');

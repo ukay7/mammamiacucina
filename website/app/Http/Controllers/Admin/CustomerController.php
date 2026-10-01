@@ -7,9 +7,20 @@ class CustomerController extends Controller {
  public function index(Request $request){
   $search=trim((string)$request->query('search',''));
   $customers=Customer::with('user')->withCount('orders')->withMax('orders','created_at')
-   ->when($search!=='',fn($q)=>$q->where(fn($q)=>$q->where('name','like',"%{$search}%")->orWhere('email','like',"%{$search}%")->orWhere('phone','like',"%{$search}%")->orWhere('id',$search)))
+   ->when($search!=='',fn($q)=>$q->where(fn($q)=>$q->where('name','like',"%{$search}%")->orWhere('email','like',"%{$search}%")->orWhere('phone','like',"%{$search}%")->when(ctype_digit(ltrim($search,'#')),fn($q)=>$q->orWhere('id',(int)ltrim($search,'#')))->orWhere('business_name','like',"%{$search}%")->orWhere('business_bin','like',"%{$search}%")))
    ->latest()->paginate(20)->withQueryString();
-  return view('admin.customers.index',compact('customers','search'));
+  $businessRequests=Customer::with('user')->whereHas('user',fn($q)=>$q->where('account_type','business')->whereNull('business_approved_at'))->latest()->paginate(15,['*'],'requests_page');
+  return view('admin.customers.index',compact('customers','search','businessRequests'));
+ }
+ public function approveBusiness(Customer $customer){
+  \Illuminate\Support\Facades\DB::transaction(function()use($customer){
+   $user=\App\Models\User::whereKey($customer->user_id)->lockForUpdate()->firstOrFail();
+   abort_unless($user->account_type==='business',404);
+   if(!$user->is_active)throw \Illuminate\Validation\ValidationException::withMessages(['business'=>'Activate the customer before approving the business account.']);
+   \Illuminate\Support\Facades\Validator::make($customer->fresh()->toArray(),\App\Services\BusinessDetails::rules(true))->validate();
+   if(!$user->business_approved_at)$user->forceFill(['business_approved_at'=>now(),'business_approved_by'=>auth()->id()])->save();
+  });
+  return back()->with('status','Business account approved. Business pricing and dashboard access are available after email verification.');
  }
  public function show(Customer $customer){
   $customer->load('user')->loadCount('orders');
@@ -19,10 +30,10 @@ class CustomerController extends Controller {
  }
  public function edit(Customer $customer){return view('admin.customers.edit',compact('customer'));}
  public function update(Request $r,Customer $customer){
-  $d=$r->validate(['name'=>'required|string|max:100','phone'=>'nullable|string|max:40','address'=>'nullable|string|max:255','city'=>'nullable|string|max:100','province'=>'nullable|string|max:100','postal_code'=>'nullable|string|max:30','country'=>'nullable|string|max:100']);
+  $d=$r->validate(['name'=>'required|string|max:100','phone'=>'nullable|string|max:40','address'=>'nullable|string|max:255','city'=>'nullable|string|max:100','province'=>'nullable|string|max:100','postal_code'=>'nullable|string|max:30','country'=>'nullable|string|max:100'] + \App\Services\BusinessDetails::rules($customer->account_type==='business'));
   \Illuminate\Support\Facades\DB::transaction(function()use($customer,$d){
    $customer->user->forceFill(\Illuminate\Support\Arr::only($d,['name','phone']))->save();
-   $customer->update(\Illuminate\Support\Arr::only($d,['address','city','province','postal_code','country']));
+   $customer->update(\Illuminate\Support\Arr::only($d,array_merge(['address','city','province','postal_code','country'],\App\Services\BusinessDetails::FIELDS)));
   });
   return back()->with('status','Customer details updated.');
  }
@@ -44,7 +55,7 @@ class CustomerController extends Controller {
   if(!$user->is_active)return back()->withErrors(['customer'=>'Activate this customer before sending verification.']);
   if($user->email_verified_at)return back()->with('status','This email is already verified.');
   $url=\Illuminate\Support\Facades\URL::temporarySignedRoute('customer.invite',now()->addDays(2),['user'=>$user->id,'hash'=>sha1($user->email)]);
-  \Illuminate\Support\Facades\Mail::raw("Verify your Mamma Mia Cucina customer account:\n".$url."\nAfter verification, use Forgot password to set your password and view your orders.",fn($m)=>$m->to($user->email)->subject('Verify your customer account'));
+  app(\App\Services\OutgoingEmail::class)->raw("Verify your Mamma Mia Cucina customer account:\n".$url."\nAfter verification, use Forgot password to set your password and view your orders.",fn($m)=>$m->to($user->email)->subject('Verify your customer account'),'admin_verification',$user);
   return back()->with('status','Verification email sent.');
  }
 }

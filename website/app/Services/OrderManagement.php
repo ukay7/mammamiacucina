@@ -58,7 +58,8 @@ class OrderManagement
                     $order->warehouse_round++;
                     $order->warehouse_sent_at = now();
                     $order->warehouse_note = null;
-                    $order->items()->update(['packed' => false, 'packed_at' => null, 'packed_by' => null, 'warehouse_note' => null]);
+                    // A new warehouse round retains completed packing for unchanged items.
+                    $order->items()->update(['warehouse_note' => null]);
                 }
                 if ($status === 'warehouse_issue') {
                     $order->warehouse_note = $d['reason'] ?? 'Admin recalled this order for review.';

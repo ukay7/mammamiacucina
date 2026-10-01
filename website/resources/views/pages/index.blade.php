@@ -490,12 +490,13 @@
 <link rel="stylesheet" href="{{ asset('assets/css/mmc-categories.css') }}?v={{ filemtime(public_path('assets/css/mmc-categories.css')) }}">
 <link rel="stylesheet" href="{{ asset('assets/css/mmc-tradition.css') }}?v={{ filemtime(public_path('assets/css/mmc-tradition.css')) }}">
 <link rel="stylesheet" href="{{ asset('assets/css/mmc-home.css') }}?v={{ filemtime(public_path('assets/css/mmc-home.css')) }}">
+<link rel="stylesheet" href="{{ asset('assets/css/mmc-home-responsive.css') }}?v={{ filemtime(public_path('assets/css/mmc-home-responsive.css')) }}">
 @endpush
 @push('scripts')
 @include('partials.mmc-shop-data')
+<script src="{{ asset('assets/js/mmc-tradition.js') }}?v={{ filemtime(public_path('assets/js/mmc-tradition.js')) }}"></script>
 <script src="{{ asset('assets/js/mmc-baking.js') }}?v={{ filemtime(public_path('assets/js/mmc-baking.js')) }}"></script>
 <script src="{{ asset('assets/js/mmc-new-arrivals.js') }}?v={{ filemtime(public_path('assets/js/mmc-new-arrivals.js')) }}"></script>
-<script src="{{ asset('assets/js/mmc-tradition.js') }}?v={{ filemtime(public_path('assets/js/mmc-tradition.js')) }}"></script>
 <script src="{{ asset('assets/js/mmc-menu.js') }}?v={{ filemtime(public_path('assets/js/mmc-menu.js')) }}"></script>
 <script src="{{ asset('assets/js/mmc-slider.js') }}?v={{ filemtime(public_path('assets/js/mmc-slider.js')) }}"></script>
 @endpush

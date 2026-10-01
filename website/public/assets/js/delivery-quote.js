@@ -13,13 +13,13 @@
    const data={postal_code:postal.value,country:country.value};
    const options=await post(window.deliveryOptionsUrl,data);if(run!==serial)return;
    service.replaceChildren(new Option('Choose a delivery service',''));
-   options.services.forEach(s=>{const option=new Option(s.name+' — '+(s.amount_cents===null?'Unavailable':money(s.amount_cents)),s.code);option.disabled=s.amount_cents===null;option.dataset.description=s.description;service.add(option);});
+   options.services.forEach(s=>{const option=new Option(s.name+(s.description?' ('+s.description+')':'')+' — '+(s.amount_cents===null?'Unavailable':money(s.amount_cents)),s.code);option.disabled=s.amount_cents===null;option.dataset.description=s.description;service.add(option);});
    service.disabled=false;
    if(options.services.some(s=>s.code===selected&&s.amount_cents!==null))service.value=selected;
    const route=options.from_postal+' (Zone '+options.from_zone+') → '+options.to_postal+' (Zone '+options.to_zone+')';
    if(!service.value){feedback.textContent=route+'. Select an available service to calculate your total.';return;}
    const d=await post(window.deliveryQuoteUrl,{...data,delivery_service:service.value});if(run!==serial)return;
-   service.selectedOptions[0].textContent=d.delivery_service_name+' — '+money(d.delivery_cents);
+   service.selectedOptions[0].textContent=d.delivery_service_name+(service.selectedOptions[0].dataset.description?' ('+service.selectedOptions[0].dataset.description+')':'')+' — '+money(d.delivery_cents);
    document.querySelector('#checkout-delivery-amount').textContent=money(d.delivery_cents);document.querySelector('#checkout-grand-total').textContent=money(d.total_cents);
    feedback.textContent=route+' · '+d.delivery_service_name+' · '+money(d.delivery_cents)+'. '+(service.selectedOptions[0].dataset.description||'');valid=true;button.disabled=false;
   }catch(e){if(run!==serial)return;service.disabled=true;feedback.textContent=e.message||'Unable to calculate delivery.';feedback.className='mmc-error-alert';}

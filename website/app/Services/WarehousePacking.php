@@ -45,7 +45,7 @@ class WarehousePacking
                 if ((bool) $item->packed !== $packed || ($item->warehouse_note ?? '') !== $note) {
                     $changes[] = $item->name.': '.($packed ? 'packed' : 'not packed').($note !== '' ? ' — '.$note : '');
                 }
-                $item->update(['packed' => $packed, 'warehouse_note' => $note ?: null, 'packed_by' => $packed ? $user : null, 'packed_at' => $packed ? ($item->packed_at ?? now()) : null]);
+                $item->update(['packed' => $packed, 'warehouse_note' => $note ?: null, 'packed_by' => $packed ? ($item->packed_by ?? $user) : null, 'packed_at' => $packed ? ($item->packed_at ?? now()) : null]);
             }
             $action = $data['action'];
             if ($action === 'ready' && (! $all || $items->isEmpty())) {

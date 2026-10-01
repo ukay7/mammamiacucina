@@ -45,7 +45,7 @@ class MatrixSaleTest extends TestCase {
   $quote=$this->postJson(route('admin.pos.quote'),$q)->assertOk()->assertJsonPath('delivery',0)->assertJsonPath('total',1050)->json();
   $this->postJson(route('admin.pos.store'),array_replace($customer,['quote'=>$quote['quote'],'payment_status'=>'paid']))->assertOk();
   $o=Order::firstOrFail();$this->assertNull($o->delivery_service);$this->assertNull($o->delivery_to_postal);
-  $this->get(route('admin.pos.receipt',$o))->assertOk()->assertSee('Collected in store')->assertDontSee('Zone 8');
+  $this->get(route('admin.pos.receipt',$o))->assertOk()->assertSee('Pick up')->assertDontSee('Zone 8');
  }
  public function test_admin_amendment_reprices_route_and_clears_pickup_snapshot():void {
   [$u,$p,$q,$customer]=$this->setupSale();$route=app(DeliveryQuote::class)->quote('M2N','M1P 1A1','bullet');

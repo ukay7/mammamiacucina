@@ -8,7 +8,7 @@ class Product extends Model
 {
     public static function usesBusinessPricing():bool {
         $user=auth()->user();
-        return $user && $user->isCustomer() && $user->is_active && $user->email_verified_at && $user->account_type==='business';
+        return $user && $user->isCustomer() && $user->is_active && $user->email_verified_at && $user->account_type==='business' && $user->business_approved_at;
     }
     public static function storefrontPriceSql():string {
         return static::usesBusinessPricing() ? 'COALESCE(business_selling_price_cad,total_selling_price_cad)' : 'total_selling_price_cad';
@@ -48,6 +48,18 @@ class Product extends Model
     public function documents()
     {
         return $this->hasMany(ProductDocument::class);
+    }
+
+    public function scopeSearchTerm($query, string $term, bool $supplier = false)
+    {
+        $term = trim(mb_substr($term, 0, 200));
+        if ($term === '') return $query;
+        return $query->where(function ($q) use ($term, $supplier) {
+            $q->where('premium_marketing_name', 'like', '%'.$term.'%')
+                ->orWhere('product_code', 'like', '%'.$term.'%')->orWhere('qr_code', 'like', '%'.$term.'%');
+            if (ctype_digit(ltrim($term, '#'))) $q->orWhere('products.id', (int) ltrim($term, '#'));
+            if ($supplier) $q->orWhere('supplier', 'like', '%'.$term.'%');
+        });
     }
 
     public function media()

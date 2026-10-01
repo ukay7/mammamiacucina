@@ -9,7 +9,7 @@ use Tests\TestCase;
 class AdminDeliveryRateTest extends TestCase {
  use RefreshDatabase;
  private function staff(array $permissions=['settings.manage']):User {
-  return User::factory()->create(['is_active'=>true,'role_id'=>Role::create(['name'=>'Delivery Staff','permissions'=>$permissions])->id]);
+  return User::factory()->create(['is_active'=>true,'role_id'=>Role::create(['name'=>'Delivery Staff '.Role::count(),'permissions'=>$permissions])->id]);
  }
  public function test_permissions_apply_to_browsing_and_editing():void {
   $this->get('/admin/delivery-rates')->assertRedirect('/admin/login');
@@ -46,5 +46,19 @@ class AdminDeliveryRateTest extends TestCase {
   $this->assertDatabaseHas('delivery_rates',['id'=>$rate->id,'amount_cents'=>null,'revision'=>2]);
   $this->put($url,['revision'=>2,'available'=>1,'amount'=>'0'])->assertRedirect();
   $this->assertSame(0,app(DeliveryQuote::class)->quote('M2N','M1P','bullet')['delivery_cents']);
+ }
+ public function test_service_descriptions_are_editable_authorized_and_survive_deployment_seed():void {
+  $this->seed(DeliveryRateSeeder::class);
+  $url=route('admin.delivery.description','bullet');
+  $this->put($url,['description'=>'Forbidden'])->assertRedirect('/admin/login');
+  $this->actingAs($this->staff([]))->put($url,['description'=>'Forbidden'])->assertForbidden();
+  $this->actingAs($this->staff())->put($url,['description'=>'Delivery will happen in 60 mins'])->assertRedirect();
+  $this->get(route('admin.delivery.index'))->assertOk()->assertSee('Save description')->assertSee('Delivery will happen in 60 mins');
+  $this->seed(DeliveryRateSeeder::class);
+  $options=app(DeliveryQuote::class)->options('M2N','M1P','Canada');
+  $this->assertSame('Delivery will happen in 60 mins',collect($options['services'])->firstWhere('code','bullet')['description']);
+  $this->put($url,['description'=>str_repeat('a',1001)])->assertSessionHasErrors('description');
+  $this->put($url,['description'=>''])->assertRedirect();
+  $this->assertDatabaseHas('delivery_services',['code'=>'bullet','description'=>'']);
  }
 }

@@ -35,3 +35,11 @@
     @include('partials.cart-icon')
     <span class="mmc-header-cart__count">{{ $cart['count'] }}</span>
 </a>
+
+@if(auth()->user()?->businessApprovalPending())
+<div role="status" style="padding:12px 24px;background:#fff0d6;color:#643d0b;text-align:center">Business approval pending. You cannot place an order until your account is approved. Individual prices are shown. <a href="{{ route('customer.business.pending') }}">View status / contact administration</a></div>
+@endif
+
+@if(auth()->user()?->isCustomer() && !auth()->user()->email_verified_at)
+<div role="status" style="padding:12px 24px;background:#fff0d6;color:#643d0b;text-align:center">Check your email to verify your account before ordering. <a href="{{ route('customer.verify.notice') }}">Verification status / resend email</a></div>
+@endif

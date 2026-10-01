@@ -36,6 +36,14 @@ class DeliveryRateController extends Controller
   return response()->view('admin.delivery.index',compact('services','selected','settings','rates','matrix','editing','from','to','comparison','quoteError','fromZone','toZone','search','zones'))->header('Cache-Control','no-store, private');
  }
 
+ public function updateDescription(Request $request,string $service)
+ {
+  abort_unless(DB::table('delivery_services')->where('code',$service)->exists(),404);
+  $data=$request->validate(['description'=>'nullable|string|max:1000']);
+  DB::table('delivery_services')->where('code',$service)->update(['description'=>trim($data['description']??'')]);
+  return redirect()->route('admin.delivery.index',['service'=>$service])->with('status','Service description saved. Delivery dropdowns now use this description.');
+ }
+
  public function update(Request $request,int $rate)
  {
   $data=$request->validate(['revision'=>'required|integer|min:0','available'=>'required|boolean','amount'=>['nullable','required_if:available,1','regex:/^\d{1,6}(\.\d{1,2})?$/']]);

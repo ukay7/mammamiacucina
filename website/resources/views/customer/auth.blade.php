@@ -11,6 +11,7 @@
 @if($register)
 <label for="phone">Phone number</label><input class="form-control" type="tel" id="phone" name="phone" autocomplete="tel" maxlength="40" value="{{ old('phone') }}" required>
 <label for="account_type">Account type</label><select class="form-control" id="account_type" name="account_type"><option value="individual" @selected(old('account_type')==='individual')>Individual</option><option value="business" @selected(old('account_type')==='business')>Business owner</option></select>
+@include('partials.business-fields',['businessDynamic'=>true])
 @endif
 <label for="password">Password{{ $register?' (at least 10 characters)':'' }}</label><input class="form-control" type="password" id="password" name="password" autocomplete="{{ $register?'new-password':'current-password' }}" required>
 @if($register)<label for="password_confirmation">Confirm password</label><input class="form-control" type="password" id="password_confirmation" name="password_confirmation" autocomplete="new-password" required>@endif
@@ -19,3 +20,5 @@
 <p><a href="{{ route($register?'customer.login':'customer.register') }}">{{ $register?'Already have an account? Log in':'New customer? Create an account' }}</a></p>
 </div>
 @endsection
+
+@push('scripts')<script src="{{ asset('assets/js/business-fields.js') }}"></script>@endpush

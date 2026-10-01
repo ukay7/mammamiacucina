@@ -20,6 +20,7 @@
 @endforeach
 </div>
 </section>
+@if($user->account_type==='business')@include('partials.business-fields',['businessProfile'=>$customer])@endif
 <button class="btn btn-primary" type="submit">Save Profile</button>
 <a class="btn btn-outline-primary ml-2" href="{{ route('customer.orders') }}">My Orders</a>
 </form>

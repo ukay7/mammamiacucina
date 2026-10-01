@@ -81,7 +81,12 @@ class OrderAmendment
                     continue;
                 }
                 $unit = self::cents($row['unit_price']);
-                $item->update(['quantity' => $qty, 'unit_cents' => $unit, 'line_cents' => $qty * $unit, 'packed' => false, 'packed_by' => null, 'packed_at' => null]);
+                $changes = ['quantity' => $qty, 'unit_cents' => $unit, 'line_cents' => $qty * $unit];
+                // Price/contact changes do not invalidate a physical packing check.
+                if ($difference !== 0) {
+                    $changes += ['packed' => false, 'packed_by' => null, 'packed_at' => null];
+                }
+                $item->update($changes);
             }
             foreach ($data['add_items'] ?? [] as $row) {
                 $p = $products->get($row['product_id']);
@@ -149,7 +154,7 @@ class OrderAmendment
             }
             if (in_array($order->status, ['warehouse_pending', 'packing', 'ready_to_dispatch'])) {
                 $order->status = 'warehouse_issue';
-                $order->warehouse_note = 'Order changed by admin; send back to warehouse for a fresh packing check.';
+                $order->warehouse_note = 'Order changed by admin; send back to warehouse to check changed and outstanding items.';
             }
             $order->revision++;
             $order->save();

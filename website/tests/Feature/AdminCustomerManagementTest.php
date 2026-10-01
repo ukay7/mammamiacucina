@@ -10,7 +10,7 @@ class AdminCustomerManagementTest extends TestCase {
   $admin=User::factory()->create(['role_id'=>Role::where('is_super',true)->value('id'),'is_active'=>true]);
   $u=User::factory()->create(['name'=>'Customer','email'=>'manage@example.test','account_type'=>'individual','email_verified_at'=>null,'role_id'=>Role::where('name','Customer')->value('id'),'is_active'=>true]);
   $c=$u->customerRecord();$this->actingAs($admin);
-  $this->get(route('admin.customers.edit',$c))->assertOk()->assertSee('Resend Verification Email');
+  $this->get(route('admin.customers.edit',$c))->assertOk()->assertSee('Resend verification email');
   $mail='';Mail::shouldReceive('raw')->once()->andReturnUsing(function($text,$callback)use(&$mail){$mail=$text;});
   $this->post(route('admin.customers.resend',$c))->assertSessionHas('status');$this->assertStringContainsString('/account/invitation/',$mail);
   $this->put(route('admin.customers.update',$c),['name'=>'Updated','phone'=>'123','address'=>'Address','email'=>'spoof@example.test','account_type'=>'business'])->assertSessionHas('status');

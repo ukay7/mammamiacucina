@@ -1,4 +1,5 @@
 <section class="mmc-baking" aria-labelledby="mmc-baking-title">
+    <div class="mmc-story-inner">
     <div class="mmc-baking__copy">
         <header class="mmc-baking__heading">
             <p>Authentic Recipes</p>
@@ -19,5 +20,7 @@
                 <div><h3>Frozen for Freshness</h3><p>Ready to bake and enjoy anytime while maintaining perfect freshness.</p></div>
             </li>
         </ul>
+    </div>
+    <figure class="mmc-story-art"><img src="{{ asset('assets/images/mmc/baking-background.png') }}" alt="Italian cassata cake and chocolate pastries" loading="lazy" width="1920" height="1080"></figure>
     </div>
 </section>

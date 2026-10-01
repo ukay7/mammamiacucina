@@ -263,3 +263,5 @@
 .mmc-home .confirmation-payment{background:#f2ecdf;padding:16px 20px;border-radius:8px;margin-top:24px;font-size:14px;line-height:1.8}
 @media(max-width:800px){.mmc-home .mmc-order-columns{grid-template-columns:1fr}.mmc-home .mmc-order-heading{flex-wrap:wrap;padding:22px}.mmc-home .mmc-order-columns>.mmc-panel{padding:22px}}
 @media(max-width:480px){.mmc-home .mmc-order-heading .mmc-button{width:100%;text-align:center}.mmc-home .mmc-order-columns>.mmc-panel{padding:16px}.mmc-home .mmc-order-columns .mmc-order-table td,.mmc-home .mmc-order-columns .mmc-order-table th{padding:12px 5px}}
+
+@media(min-width:1025px){.mmc-inner-header .mmc-menu{justify-content:center;gap:clamp(4px,.65vw,12px)}.mmc-inner-header .mmc-menu>a,.mmc-inner-header .mmc-products-toggle{padding-inline:7px}}
