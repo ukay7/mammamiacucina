@@ -27,3 +27,5 @@
     <script type="text/javascript" src="{{ asset('assets/js/main.js') }}"></script>
 
 <script src="{{ asset('assets/js/static-preview.js') }}"></script>
+
+<script defer src="{{ asset('assets/js/delivery-service-notes.js') }}?v={{ filemtime(public_path('assets/js/delivery-service-notes.js')) }}"></script>

@@ -13,7 +13,7 @@
    const data={postal_code:postal.value,country:country.value};
    const options=await post(window.deliveryOptionsUrl,data);if(run!==serial)return;
    service.replaceChildren(new Option('Choose a delivery service',''));
-   options.services.forEach(s=>{const option=new Option(s.name+(s.description?' ('+s.description+')':'')+' — '+(s.amount_cents===null?'Unavailable':money(s.amount_cents)),s.code);option.disabled=s.amount_cents===null;option.dataset.description=s.description;service.add(option);});
+   options.services.forEach(s=>{const option=new Option(s.name+(s.description?' ('+s.description+')':'')+' — '+(s.amount_cents===null?'Unavailable':money(s.amount_cents)),s.code);option.disabled=s.amount_cents===null;option.dataset.notes=s.notes||'';option.dataset.description=s.description;service.add(option);});
    service.disabled=false;
    if(options.services.some(s=>s.code===selected&&s.amount_cents!==null))service.value=selected;
    const route=options.from_postal+' (Zone '+options.from_zone+') → '+options.to_postal+' (Zone '+options.to_zone+')';

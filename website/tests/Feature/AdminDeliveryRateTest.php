@@ -71,6 +71,6 @@ class AdminDeliveryRateTest extends TestCase {
   try{app(DeliveryQuote::class)->quote('M2N','M1P','bullet');$this->fail('Inactive quote accepted');}catch(\Illuminate\Validation\ValidationException $e){$this->assertArrayHasKey('delivery_service',$e->errors());}
   $this->put(route('admin.delivery.description','bullet'),['description'=>'Priority delivery','is_active'=>1,'notes'=>'Call courier first'])->assertSessionHasNoErrors();
   $this->assertSame(5876,app(DeliveryQuote::class)->quote('M2N','M1P','bullet')['delivery_cents']);
-  $this->assertStringNotContainsString('Call courier first',json_encode(app(DeliveryQuote::class)->options('M2N','M1P','Canada')));
+  $this->assertStringContainsString('Call courier first',json_encode(app(DeliveryQuote::class)->options('M2N','M1P','Canada')));
  }
 }

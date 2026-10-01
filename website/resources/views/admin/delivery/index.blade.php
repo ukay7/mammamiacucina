@@ -34,7 +34,7 @@
 <label for="service-description">{{ $currentService->name }} — customer-facing description</label>
 <textarea class="form-control" id="service-description" name="description" rows="3" maxlength="1000" placeholder="For example: Delivery will happen in 60 mins">{{ old('description',$currentService->description) }}</textarea>
 <p class="dr-muted mt-2">Shown in brackets beside the service name at checkout and in sale/order delivery dropdowns. Leave blank to show only the name.</p>
-<label for="service-notes">Service notes (admin only)</label>
+<label for="service-notes">Service notes (shown beneath the selected service)</label>
 <textarea class="form-control mb-3" id="service-notes" name="notes" rows="3" maxlength="3000">{{ old('notes',$currentService->notes) }}</textarea>
 <button class="btn btn-primary" type="submit">Save service settings</button>
 </form>

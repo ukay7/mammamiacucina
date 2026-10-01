@@ -216,7 +216,7 @@
             const data=await request(app.dataset.deliveryOptions,{postal_code:form.elements.postal_code.value,country:form.elements.country.value});
             if(serial!==deliverySerial)return;
             select.replaceChildren(new Option('Choose a delivery service',''));
-            data.services.forEach(s=>{const option=new Option(s.name+(s.description?' ('+s.description+')':'')+' — '+(s.amount_cents===null?'Unavailable':money(s.amount_cents)),s.code);option.disabled=s.amount_cents===null;option.dataset.description=s.description||'';select.add(option);});
+            data.services.forEach(s=>{const option=new Option(s.name+(s.description?' ('+s.description+')':'')+' — '+(s.amount_cents===null?'Unavailable':money(s.amount_cents)),s.code);option.disabled=s.amount_cents===null;option.dataset.notes=s.notes||'';option.dataset.description=s.description||'';select.add(option);});
             select.disabled=false;
             if(data.services.some(s=>s.code===selected&&s.amount_cents!==null))select.value=selected;
             message.textContent=data.from_postal+' (Zone '+data.from_zone+') → '+data.to_postal+' (Zone '+data.to_zone+')';
