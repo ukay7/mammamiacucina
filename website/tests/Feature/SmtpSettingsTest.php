@@ -45,6 +45,7 @@ class SmtpSettingsTest extends TestCase {
   SmtpSetting::first()->update(['enabled'=>false]);app(SmtpConfiguration::class)->apply();$this->assertSame('log',config('mail.default'));
  }
  public function test_saved_settings_send_test_and_real_registration_via_selected_transport():void {
+  config(['customer_accounts.auto_verify_individuals'=>false]);
   $this->actingAs($this->admin())->put(route('admin.email.update'),$this->data())->assertSessionHasNoErrors();
   Mail::extend('smtp',fn()=>new \Illuminate\Mail\Transport\ArrayTransport());
   $this->post(route('admin.email.test'),['recipient'=>'recipient@example.test'])->assertSessionHas('status');

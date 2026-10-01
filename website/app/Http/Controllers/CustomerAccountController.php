@@ -19,12 +19,12 @@ class CustomerAccountController extends Controller {
   if(User::whereRaw('lower(email) = ?',[$d['email']])->exists())throw ValidationException::withMessages(['email'=>'An account already uses this email. Please log in to access your details.']);
   $role=Role::where('name','Customer')->firstOrFail();
   $user=\Illuminate\Support\Facades\DB::transaction(function()use($d,$role){
-   $user=new User();$user->forceFill([...\Illuminate\Support\Arr::except($d,\App\Services\BusinessDetails::FIELDS),'role_id'=>$role->id,'is_active'=>true])->save();
+   $user=new User();$user->forceFill([...\Illuminate\Support\Arr::except($d,\App\Services\BusinessDetails::FIELDS),'role_id'=>$role->id,'is_active'=>true,'email_verified_at'=>$d['account_type']==='individual' && config('customer_accounts.auto_verify_individuals') ? now() : null])->save();
    $user->customerRecord()->update(\Illuminate\Support\Arr::only($d,\App\Services\BusinessDetails::FIELDS));
    return $user;
   });
-  Auth::login($user);$r->session()->regenerate();$r->session()->forget(['url.intended','checkout_token','checkout_quote','last_order_id','last_order_token']);$this->sendVerification($user);
-  return redirect()->route($this->shoppingDestination())->with('status','Your account is created. Check your email to verify it.');
+  Auth::login($user);$r->session()->regenerate();$r->session()->forget(['url.intended','checkout_token','checkout_quote','last_order_id','last_order_token']);if(!$user->email_verified_at)$this->sendVerification($user);
+  return redirect()->route($this->shoppingDestination())->with('status',$user->email_verified_at?'Your account is ready. You can continue shopping.':'Your account is created. Check your email to verify it.');
  }
  public function authenticate(Request $r){
   $d=$r->validate(['email'=>'required|email|max:255','password'=>'required|string|max:255']);

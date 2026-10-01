@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\{Mail,Password,Hash};
 class PosCustomerAccountTest extends TestCase {
  use RefreshDatabase;
  public function test_new_pos_account_verifies_resets_and_sees_order():void {
+  config(['customer_accounts.auto_verify_individuals'=>false]);
   $messages=[];Mail::shouldReceive('raw')->andReturnUsing(function($text,$callback)use(&$messages){$messages[]=$text;});
   $admin=User::factory()->create(['role_id'=>Role::where('is_super',true)->value('id'),'is_active'=>true]);$this->actingAs($admin);
   $p=Product::create(['category_id'=>1,'slug'=>'pos-account','premium_marketing_name'=>'Cake','qr_code'=>'PC1','is_active'=>true,'total_selling_price_cad'=>10]);

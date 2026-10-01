@@ -118,11 +118,12 @@ class PosSale
                 if($user)$this->fail('This email already has an account. Select the existing customer.');
                 $business=\Illuminate\Support\Facades\Validator::make($customer, BusinessDetails::rules(($customer['account_type']??'individual')==='business'))->validate();
                 $user=new \App\Models\User();
-                $user->forceFill(['name'=>trim(($customer['first_name']??'').' '.($customer['last_name']??'')) ?: $email,'email'=>$email,'phone'=>$customer['phone']??null,'account_type'=>$customer['account_type']??'individual','role_id'=>\App\Models\Role::where('name','Customer')->value('id'),'is_active'=>true,'password'=>Str::random(64)])->save();
+                $user->forceFill(['name'=>trim(($customer['first_name']??'').' '.($customer['last_name']??'')) ?: $email,'email'=>$email,'phone'=>$customer['phone']??null,'account_type'=>$customer['account_type']??'individual','role_id'=>\App\Models\Role::where('name','Customer')->value('id'),'is_active'=>true,'password'=>Str::random(64),'email_verified_at'=>($customer['account_type']??'individual')==='individual' && config('customer_accounts.auto_verify_individuals') ? now() : null])->save();
                 $profile=$user->customerRecord();
                 $profile->update(\Illuminate\Support\Arr::only($business,BusinessDetails::FIELDS));
                 $customer['email']=$email;
                 DB::afterCommit(function()use($user){
+                    if($user->email_verified_at)return;
                     $url=\Illuminate\Support\Facades\URL::temporarySignedRoute('customer.invite',now()->addDays(2),['user'=>$user->id,'hash'=>sha1($user->email)]);
                     try {
                         app(\App\Services\OutgoingEmail::class)->raw("Your Mamma Mia Cucina customer account is ready. Verify your email:\n".$url."\nThen use Forgot password to set your password and view your orders.",fn($m)=>$m->to($user->email)->subject('Verify your customer account'),'pos_invitation',$user);
