@@ -28,6 +28,7 @@ class AppServiceProvider extends ServiceProvider
             app(\App\Services\SmtpConfiguration::class)->apply();
             app('mail.manager')->forgetMailers();
         });
+        View::composer(['partials.mmc-tradition','partials.mmc-baking'],function($view){$key=$view->name()==='partials.mmc-tradition'?'tradition':'baking';$view->with('homeSection',\App\Models\HomeSection::findOrFail($key));});
         View::composer(['partials.mmc-header','partials.mmc-footer','partials.mmc-about-video','partials.mmc-product-media','pages.contact','orders.print','admin.layout'], function ($view) {
             $view->with('siteSettings', \App\Models\GeneralSetting::find(1));
         });

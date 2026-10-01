@@ -102,3 +102,5 @@ Route::get('/app', function () {
  $route=!$user?'customer.login':$user->accountRoute();
  return redirect()->route($route)->header('Cache-Control','no-store, private');
 })->name('pwa.start');
+
+Route::get('/home-section/{section}/image',[\App\Http\Controllers\Admin\HomeSectionController::class,'image'])->name('home-section.image');

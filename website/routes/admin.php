@@ -83,6 +83,8 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         });
         Route::post('/orders/delivery-options', [\App\Http\Controllers\DeliveryQuoteController::class, 'options'])->middleware(AdminAccess::class.':orders.manage')->name('orders.delivery-options');
         Route::middleware(AdminAccess::class.':settings.manage')->group(function () {
+            Route::get('/settings/home-sections', [\App\Http\Controllers\Admin\HomeSectionController::class,'edit'])->name('home-sections.edit');
+            Route::put('/settings/home-sections/{section}', [\App\Http\Controllers\Admin\HomeSectionController::class,'update'])->name('home-sections.update');
             Route::get('/settings/email/history', [\App\Http\Controllers\Admin\EmailHistoryController::class, 'index'])->name('email.history');
             Route::get('/settings/email', [\App\Http\Controllers\Admin\SmtpSettingController::class, 'edit'])->name('email.edit');
             Route::put('/settings/email', [\App\Http\Controllers\Admin\SmtpSettingController::class, 'update'])->name('email.update');
