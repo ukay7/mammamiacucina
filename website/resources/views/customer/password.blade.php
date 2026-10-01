@@ -3,7 +3,7 @@
 <div class="mmc-panel mmc-form" style="max-width:600px;margin:auto">
 @if(session('status'))<p role="status">{{ session('status') }}</p>@endif
 @if($errors->any())<div class="mmc-error-alert" role="alert">{{ $errors->first() }}</div>@endif
-<p>{{ $reset?'Choose a new password for your customer account.':'Enter your account email and we will send you a password reset link.' }}</p>
+<p>{{ $reset?'Choose a new password for your account.':'Enter your account email and we will send you a password reset link.' }}</p>
 <form method="post" action="{{ route($reset?'customer.password.update':'customer.password.send') }}">@csrf
 @if($reset)<input type="hidden" name="token" value="{{ $token }}">@endif
 <label for="reset-email">Email address</label><input class="form-control" id="reset-email" type="email" name="email" value="{{ old('email',$email??'') }}" required autocomplete="email">

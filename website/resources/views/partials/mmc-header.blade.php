@@ -22,7 +22,7 @@
             <a href="{{ route('theme.contact') }}" @if(request()->routeIs('theme.contact')) aria-current="page" @endif>Contact Us</a>
         </nav>
         <a class="mmc-header-track" aria-label="Track order" href="{{ route('order.track-form') }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h11v11H3zM14 10h4l3 4v3h-7M3 10h5"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg><span>Track Order</span></a>
-        <a class="mmc-header-account" href="{{ route(auth()->check() ? (auth()->user()->isCustomer() ? 'customer.orders' : 'admin.dashboard') : 'customer.login') }}" aria-label="{{ auth()->check() ? 'My account' : 'Log in or register' }}" title="{{ auth()->check() ? auth()->user()->name : 'Log in / Register' }}">
+        <a class="mmc-header-account" href="{{ route(auth()->check() ? auth()->user()->accountRoute() : 'customer.login') }}" aria-label="{{ auth()->check() ? 'My account' : 'Log in or register' }}" title="{{ auth()->check() ? auth()->user()->name : 'Log in / Register' }}">
         @auth<span>{{ mb_strtoupper(mb_substr(auth()->user()->name,0,1)) }}</span>@else<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3"/></svg>@endauth
         </a>
         <details class="mmc-header-cart">

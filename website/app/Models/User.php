@@ -57,6 +57,11 @@ class User extends Authenticatable
         });
     }
     public function businessApprovalPending(): bool {return $this->account_type==='business' && !$this->business_approved_at;}
+    public function canSignIn(): bool {return $this->is_active && ($this->isCustomer() || $this->role !== null);}
+    public function accountRoute(): string {
+        if($this->isCustomer())return 'customer.orders';
+        return $this->hasAdminPermission('warehouse.pack') && !$this->hasAdminPermission('orders.manage') ? 'admin.orders.index' : 'admin.dashboard';
+    }
     public function isCustomer(): bool { return in_array($this->account_type, ['individual','business'], true); }
     public function isSuper(): bool
     {

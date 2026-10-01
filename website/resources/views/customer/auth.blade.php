@@ -1,7 +1,7 @@
-@extends('layouts.mmc-page',['pageTitle'=>$register?'Create an account':'Customer login'])
+@extends('layouts.mmc-page',['pageTitle'=>$register?'Create an account':'General Login'])
 @section('page-content')
 <div class="mmc-panel mmc-form" style="max-width:600px;margin:auto">
-<p>{{ $register?'Create your account to continue checkout.':'Log in to continue checkout or view your orders.' }}</p>
+<p>{{ $register?'Create your account to continue checkout.':'Log in as a customer, administrator or warehouse team member.' }}</p>
 @if($errors->any())<div class="mmc-error-alert" role="alert"><strong>Please check the following:</strong><ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
 @if(session('status'))<p role="status">{{ session('status') }}</p>@endif <form method="post" action="{{ route($register?'customer.register.store':'customer.login.store') }}">@csrf
 @if($register)

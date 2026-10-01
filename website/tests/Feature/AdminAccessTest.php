@@ -19,7 +19,7 @@ class AdminAccessTest extends TestCase
 
     public function test_guests_are_redirected_and_login_is_available(): void
     {
-        $this->get('/admin/login')->assertOk()->assertSee('Welcome back');
+        $this->get('/admin/login')->assertOk()->assertSee('General Login');
         $this->get('/admin/users')->assertRedirect('/admin/login');
     }
 

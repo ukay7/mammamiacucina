@@ -99,6 +99,6 @@ Route::post('/checkout/delivery-options',[\App\Http\Controllers\DeliveryQuoteCon
 
 Route::get('/app', function () {
  $user=auth()->user();
- $route=!$user?'admin.login':($user->isCustomer()?'customer.orders':($user->hasAdminPermission('warehouse.pack')?'admin.orders.index':'admin.dashboard'));
+ $route=!$user?'customer.login':$user->accountRoute();
  return redirect()->route($route)->header('Cache-Control','no-store, private');
 })->name('pwa.start');

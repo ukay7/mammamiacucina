@@ -10,8 +10,8 @@ use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rules\Password;
 class CustomerAccountController extends Controller {
- public function login(){return auth()->check() ? redirect()->route(auth()->user()->isCustomer()?'customer.orders':'admin.dashboard') : view('customer.auth',['register'=>false]);}
- public function register(){return auth()->check() ? redirect()->route(auth()->user()->isCustomer()?'customer.orders':'admin.dashboard') : view('customer.auth',['register'=>true]);}
+ public function login(){return auth()->check() ? redirect()->route(auth()->user()->accountRoute()) : view('customer.auth',['register'=>false]);}
+ public function register(){return auth()->check() ? redirect()->route(auth()->user()->accountRoute()) : view('customer.auth',['register'=>true]);}
  public function store(Request $r){
   abort_if(auth()->check(),403);
   $r->merge(['email'=>strtolower(trim((string)$r->email))]);
@@ -28,10 +28,13 @@ class CustomerAccountController extends Controller {
  }
  public function authenticate(Request $r){
   $d=$r->validate(['email'=>'required|email|max:255','password'=>'required|string|max:255']);
+  $key='general-login:'.hash('sha256',strtolower(trim($d['email'])).'|'.$r->ip());
+  if(\Illuminate\Support\Facades\RateLimiter::tooManyAttempts($key,5))throw ValidationException::withMessages(['email'=>'Too many attempts. Please try again in a minute.']);
   $user=User::whereRaw('lower(email) = ?',[strtolower(trim($d['email']))])->first();
-  if(!$user||!$user->isCustomer()||!$user->is_active||!\Illuminate\Support\Facades\Hash::check($d['password'],$user->password))throw ValidationException::withMessages(['email'=>'Email or password is incorrect.']);
+  if(!$user||!$user->canSignIn()||!\Illuminate\Support\Facades\Hash::check($d['password'],$user->password)){\Illuminate\Support\Facades\RateLimiter::hit($key,60);throw ValidationException::withMessages(['email'=>'Email or password is incorrect.']);}
+  \Illuminate\Support\Facades\RateLimiter::clear($key);
   Auth::login($user);$r->session()->regenerate();$r->session()->forget(['url.intended','checkout_token','checkout_quote','last_order_id','last_order_token']);
-  return redirect()->route($this->shoppingDestination());
+  return redirect()->route($user->isCustomer()?$this->shoppingDestination():$user->accountRoute());
  }
  private function sendVerification(User $user):void{
   $url=URL::temporarySignedRoute('customer.verify',now()->addMinutes(60),['id'=>$user->id,'hash'=>sha1($user->email)]);
