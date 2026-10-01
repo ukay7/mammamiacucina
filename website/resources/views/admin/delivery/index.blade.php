@@ -24,14 +24,19 @@
 </section>
 @endif
 <section class="dr-card" id="rate-matrix" aria-labelledby="matrix-title"><div class="dr-heading"><div><span class="dr-eyebrow">VISUAL RATE MATRIX</span><h3 id="matrix-title">{{ $services->firstWhere('code',$selected)?->name }} delivery prices</h3></div><span class="dr-chip">{{ $rates->whereNotNull('amount_cents')->count() }} available · {{ $rates->whereNull('amount_cents')->count() }} unavailable</span></div>
-<nav class="dr-tabs" aria-label="Delivery service">@foreach($services as $service)<a class="{{ $selected===$service->code?'is-active':'' }}" @if($selected===$service->code) aria-current="page" @endif href="{{ route('admin.delivery.index',['service'=>$service->code,'from'=>$from,'to'=>$to,'search'=>$search]) }}#rate-matrix">{{ $service->name }}</a>@endforeach</nav>
+<nav class="dr-tabs" aria-label="Delivery service">@foreach($services as $service)<a class="{{ $selected===$service->code?'is-active':'' }}" @if($selected===$service->code) aria-current="page" @endif href="{{ route('admin.delivery.index',['service'=>$service->code,'from'=>$from,'to'=>$to,'search'=>$search]) }}#rate-matrix">{{ $service->name }}{{ !$service->is_active?' (Inactive)':'' }}</a>@endforeach</nav>
 @php($currentService=$services->firstWhere('code',$selected))
 <form method="post" action="{{ route('admin.delivery.description',$selected) }}" class="my-3">
 @csrf @method('PUT')
+<label for="service-active">Service status</label>
+<select class="form-control mb-3" id="service-active" name="is_active"><option value="1" @selected(old('is_active',$currentService->is_active))>Active</option><option value="0" @selected(!old('is_active',$currentService->is_active))>Inactive</option></select>
+<p class="dr-muted">Inactive services cannot be selected for new delivery quotes. Existing orders retain their saved service and price.</p>
 <label for="service-description">{{ $currentService->name }} — customer-facing description</label>
 <textarea class="form-control" id="service-description" name="description" rows="3" maxlength="1000" placeholder="For example: Delivery will happen in 60 mins">{{ old('description',$currentService->description) }}</textarea>
 <p class="dr-muted mt-2">Shown in brackets beside the service name at checkout and in sale/order delivery dropdowns. Leave blank to show only the name.</p>
-<button class="btn btn-primary" type="submit">Save description</button>
+<label for="service-notes">Service notes (admin only)</label>
+<textarea class="form-control mb-3" id="service-notes" name="notes" rows="3" maxlength="3000">{{ old('notes',$currentService->notes) }}</textarea>
+<button class="btn btn-primary" type="submit">Save service settings</button>
 </form>
 <div class="dr-legend"><span>Rows = From · Columns = To. Click a price to edit.</span><span><i class="dr-swatch dr-heat-0"></i>Lower <i class="dr-swatch dr-heat-4"></i>Higher <i class="dr-swatch dr-unavailable"></i>Unavailable</span></div>
 @php($min=$rates->whereNotNull('amount_cents')->min('amount_cents')??0)

@@ -53,12 +53,24 @@ class AdminDeliveryRateTest extends TestCase {
   $this->put($url,['description'=>'Forbidden'])->assertRedirect('/admin/login');
   $this->actingAs($this->staff([]))->put($url,['description'=>'Forbidden'])->assertForbidden();
   $this->actingAs($this->staff())->put($url,['description'=>'Delivery will happen in 60 mins'])->assertRedirect();
-  $this->get(route('admin.delivery.index'))->assertOk()->assertSee('Save description')->assertSee('Delivery will happen in 60 mins');
+  $this->get(route('admin.delivery.index'))->assertOk()->assertSee('Save service settings')->assertSee('Delivery will happen in 60 mins');
   $this->seed(DeliveryRateSeeder::class);
   $options=app(DeliveryQuote::class)->options('M2N','M1P','Canada');
   $this->assertSame('Delivery will happen in 60 mins',collect($options['services'])->firstWhere('code','bullet')['description']);
   $this->put($url,['description'=>str_repeat('a',1001)])->assertSessionHasErrors('description');
   $this->put($url,['description'=>''])->assertRedirect();
   $this->assertDatabaseHas('delivery_services',['code'=>'bullet','description'=>'']);
+ }
+ public function test_inactive_services_are_hidden_rejected_and_settings_survive_seed():void {
+  $this->seed(DeliveryRateSeeder::class);$this->actingAs($this->staff());
+  $this->put(route('admin.delivery.description','bullet'),['description'=>'Priority delivery','is_active'=>0,'notes'=>'Call courier first'])->assertSessionHasNoErrors();
+  $this->seed(DeliveryRateSeeder::class);
+  $this->assertDatabaseHas('delivery_services',['code'=>'bullet','is_active'=>0,'notes'=>'Call courier first']);
+  $options=app(DeliveryQuote::class)->options('M2N','M1P','Canada');
+  $this->assertNotContains('bullet',array_column($options['services'],'code'));
+  try{app(DeliveryQuote::class)->quote('M2N','M1P','bullet');$this->fail('Inactive quote accepted');}catch(\Illuminate\Validation\ValidationException $e){$this->assertArrayHasKey('delivery_service',$e->errors());}
+  $this->put(route('admin.delivery.description','bullet'),['description'=>'Priority delivery','is_active'=>1,'notes'=>'Call courier first'])->assertSessionHasNoErrors();
+  $this->assertSame(5876,app(DeliveryQuote::class)->quote('M2N','M1P','bullet')['delivery_cents']);
+  $this->assertStringNotContainsString('Call courier first',json_encode(app(DeliveryQuote::class)->options('M2N','M1P','Canada')));
  }
 }

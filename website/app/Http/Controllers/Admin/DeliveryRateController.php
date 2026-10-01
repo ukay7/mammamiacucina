@@ -39,9 +39,15 @@ class DeliveryRateController extends Controller
  public function updateDescription(Request $request,string $service)
  {
   abort_unless(DB::table('delivery_services')->where('code',$service)->exists(),404);
-  $data=$request->validate(['description'=>'nullable|string|max:1000']);
-  DB::table('delivery_services')->where('code',$service)->update(['description'=>trim($data['description']??'')]);
-  return redirect()->route('admin.delivery.index',['service'=>$service])->with('status','Service description saved. Delivery dropdowns now use this description.');
+  $data=$request->validate(['description'=>'nullable|string|max:1000','is_active'=>'sometimes|required|boolean','notes'=>'sometimes|nullable|string|max:3000']);
+  DB::transaction(function()use($data,$service){
+   DB::table('general_settings')->where('id',1)->lockForUpdate()->first();
+   $values=['description'=>trim($data['description']??'')];
+   if(array_key_exists('is_active',$data))$values['is_active']=(bool)$data['is_active'];
+   if(array_key_exists('notes',$data))$values['notes']=trim($data['notes']??'');
+   DB::table('delivery_services')->where('code',$service)->update($values);
+  });
+  return redirect()->route('admin.delivery.index',['service'=>$service])->with('status','Delivery service settings saved.');
  }
 
  public function update(Request $request,int $rate)
