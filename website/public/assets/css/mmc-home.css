@@ -382,16 +382,10 @@
  .mmc-home:not(.mmc-inner) .mmc-masthead::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:#191209;box-shadow:0 0 0 100vmax #191209;clip-path:inset(0 -100vmax)}
 }
 
-/* Give the mobile brand its own row instead of shrinking it beside four controls. */
+/* Keep the original mobile header layout; adjust only the logo. */
 @media(max-width:600px){
- .mmc-home .mmc-masthead{height:148px;position:relative}
- .mmc-home .mmc-masthead .mmc-brand{position:absolute;left:50%;top:8px;transform:translateX(-50%);width:180px;height:68px;margin:0}
- .mmc-home .mmc-masthead .mmc-brand img{display:block;width:100%;height:100%;object-fit:contain;transform:none}
- .mmc-home .mmc-masthead .mmc-menu-toggle,.mmc-home .mmc-masthead .mmc-header-account,.mmc-home .mmc-masthead .mmc-header-track,.mmc-home .mmc-masthead .mmc-header-cart{position:absolute;top:88px;right:auto;width:44px;height:44px;margin:0;transform:none}
- .mmc-home .mmc-masthead .mmc-menu-toggle{left:calc(50% - 110px)}
- .mmc-home .mmc-masthead .mmc-header-account{left:calc(50% - 52px)}
- .mmc-home .mmc-masthead .mmc-header-track{left:calc(50% + 6px)}
- .mmc-home .mmc-masthead .mmc-header-cart{left:calc(50% + 64px)}
- .mmc-home .mmc-masthead .mmc-header-cart>summary{width:44px;height:44px}
- .mmc-home .mmc-masthead .mmc-menu{top:148px}
+ .mmc-home .mmc-masthead .mmc-brand{top:26px;left:10px;width:110px}
+}
+@media(max-width:350px){
+ .mmc-home .mmc-masthead .mmc-brand{width:88px}
 }
