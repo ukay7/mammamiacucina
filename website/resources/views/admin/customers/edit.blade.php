@@ -7,7 +7,7 @@
 <p>{{ $customer->email }} · {{ $customer->account_type==='business'?'Business owner':'Individual' }} · {{ $customer->user->email_verified_at?'Verified':'Not verified' }}</p>
 <form method="post" action="{{ route('admin.customers.update',$customer) }}">@csrf @method('PUT')
 <div class="row">
-@foreach(['name'=>['Full name',100],'phone'=>['Phone',40],'address'=>['Street address',255],'city'=>['City',100],'province'=>['Province / State',100],'postal_code'=>['Postal code',30],'country'=>['Country',100]] as $field=>$details)
+@foreach(['name'=>['Full name',100],'phone'=>['Phone',40],'address'=>['Street address',255],'city'=>['City',100],'province'=>['Province / State',100],'postal_code'=>['Postal code',30],'country'=>['Country',100],'website'=>['Website',255]] as $field=>$details)
 <div class="col-md-6 mb-3"><label for="edit-{{ $field }}">{{ $details[0] }}</label><input class="form-control" id="edit-{{ $field }}" name="{{ $field }}" value="{{ old($field,$customer->$field) }}" maxlength="{{ $details[1] }}" @required($field==='name')></div>
 @endforeach
 </div>@if($customer->account_type==='business')@include('partials.business-fields',['businessProfile'=>$customer])@endif

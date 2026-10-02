@@ -56,6 +56,12 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
                 $route->middleware(AdminAccess::class.':payments.refund');
             }
         }
+        Route::get('/customers/create', [\App\Http\Controllers\Admin\CustomerController::class,'create'])->middleware(AdminAccess::class.':users.manage')->name('customers.create');
+        Route::post('/customers', [\App\Http\Controllers\Admin\CustomerController::class,'store'])->middleware(AdminAccess::class.':users.manage')->name('customers.store');
+        Route::resource('quotations', \App\Http\Controllers\Admin\QuotationController::class)->except(['index','show'])->middleware(AdminAccess::class.':quotations.manage');
+        Route::get('/quotations', [\App\Http\Controllers\Admin\QuotationController::class,'index'])->middleware(AdminAccess::class.':quotations.view|quotations.manage')->name('quotations.index');
+        Route::get('/quotations/{quotation}/print', [\App\Http\Controllers\Admin\QuotationController::class,'print'])->middleware(AdminAccess::class.':quotations.view|quotations.manage')->name('quotations.print');
+        Route::get('/quotations/{quotation}', [\App\Http\Controllers\Admin\QuotationController::class,'show'])->middleware(AdminAccess::class.':quotations.view|quotations.manage')->name('quotations.show');
         Route::get('/customers/{customer}/edit', [\App\Http\Controllers\Admin\CustomerController::class,'edit'])->middleware(AdminAccess::class.':users.manage')->name('customers.edit');
         Route::put('/customers/{customer}', [\App\Http\Controllers\Admin\CustomerController::class,'update'])->middleware(AdminAccess::class.':users.manage')->name('customers.update');
         Route::post('/customers/{customer}/password', [\App\Http\Controllers\Admin\CustomerController::class,'password'])->middleware(AdminAccess::class.':users.manage')->name('customers.password');

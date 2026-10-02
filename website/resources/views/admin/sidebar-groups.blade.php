@@ -36,3 +36,5 @@ $groupOpen=$visibleItems->contains(fn($item)=>request()->routeIs($item[2]));
 @if(auth()->user()->hasAdminPermission('orders.view'))
 <li class="{{ request()->routeIs('admin.customers.*')?'active':'' }}"><a href="{{ route('admin.customers.index') }}"><i class="fas fa-address-book" aria-hidden="true"></i><span>Customer Management</span></a></li>
 @endif
+
+@if(auth()->user()->hasAdminPermission('quotations.view') || auth()->user()->hasAdminPermission('quotations.manage'))<li class="{{ request()->routeIs('admin.quotations.*')?'active':'' }}"><a href="{{ route('admin.quotations.index') }}"><i class="fas fa-file-invoice"></i><span>Quotations</span></a></li>@endif

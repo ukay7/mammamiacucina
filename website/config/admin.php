@@ -1,6 +1,6 @@
 <?php
 
-return ['permissions' => ['warehouse.pack'=>'Pack assigned warehouse orders and report item issues', 'contact.manage' => 'Manage the Contact Us page and contact details', 'catalogue.manage' => 'Manage catalogue pages', 'about.manage' => 'Manage the About Us page', 'gateways.manage' => 'Configure payment gateways and credentials', 'payments.refund' => 'Refund confirmed online payments through the gateway',
+return ['permissions' => ['quotations.view'=>'View and print quotations', 'quotations.manage'=>'Create, edit and delete quotations', 'warehouse.pack'=>'Pack assigned warehouse orders and report item issues', 'contact.manage' => 'Manage the Contact Us page and contact details', 'catalogue.manage' => 'Manage catalogue pages', 'about.manage' => 'Manage the About Us page', 'gateways.manage' => 'Configure payment gateways and credentials', 'payments.refund' => 'Refund confirmed online payments through the gateway',
     'pos.manage' => 'Use Quick Sale, scan products and record payments',
     'allergies.manage' => 'Manage allergy labels and icons',
     'gallery.manage' => 'Manage gallery events and photos',

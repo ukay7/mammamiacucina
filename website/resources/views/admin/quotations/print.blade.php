@@ -1,0 +1,1 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{{ $quotation->number }} | Mamma Mia Cucina</title></head><body><div class="no-print" style="padding:20px;text-align:center"><button onclick="window.print()">Print / Save PDF</button></div>@include('admin.quotations.document')</body></html>

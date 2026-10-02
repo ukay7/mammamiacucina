@@ -4,6 +4,19 @@ use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use Illuminate\Http\Request;
 class CustomerController extends Controller {
+ public function create(){return view('admin.customers.create');}
+ public function store(Request $r){
+  $r->merge(['email'=>strtolower(trim((string)$r->input('email')))]);
+  $d=$r->validate(['name'=>'required|string|max:100','email'=>'required|email|max:255|unique:users,email|unique:customers,email','password'=>'required|string|min:10|confirmed','account_type'=>'required|in:individual,business','phone'=>'nullable|string|max:40','address'=>'nullable|string|max:255','city'=>'nullable|string|max:100','province'=>'nullable|string|max:100','postal_code'=>'nullable|string|max:30','country'=>'nullable|string|max:100','website'=>'nullable|url:http,https|max:255'] + \App\Services\BusinessDetails::rules($r->input('account_type')==='business'));
+  $customer=\Illuminate\Support\Facades\DB::transaction(function()use($d){
+   $user=new \App\Models\User;
+   $user->forceFill(\Illuminate\Support\Arr::only($d,['name','email','password','phone','account_type'])+['is_active'=>true,'email_verified_at'=>$d['account_type']==='individual' && config('customer_accounts.auto_verify_individuals')?now():null])->save();
+   $customer=$user->customerRecord();
+   $customer->update(\Illuminate\Support\Arr::only($d,array_merge(['address','city','province','postal_code','country','website'],\App\Services\BusinessDetails::FIELDS)));
+   return $customer;
+  });
+  return redirect()->route('admin.customers.show',$customer)->with('status','Customer created. Login uses the email and password you entered. Business accounts still require approval and email verification.');
+ }
  public function index(Request $request){
   $search=trim((string)$request->query('search',''));
   $customers=Customer::with('user')->withCount('orders')->withMax('orders','created_at')
@@ -30,10 +43,10 @@ class CustomerController extends Controller {
  }
  public function edit(Customer $customer){return view('admin.customers.edit',compact('customer'));}
  public function update(Request $r,Customer $customer){
-  $d=$r->validate(['name'=>'required|string|max:100','phone'=>'nullable|string|max:40','address'=>'nullable|string|max:255','city'=>'nullable|string|max:100','province'=>'nullable|string|max:100','postal_code'=>'nullable|string|max:30','country'=>'nullable|string|max:100'] + \App\Services\BusinessDetails::rules($customer->account_type==='business'));
+  $d=$r->validate(['name'=>'required|string|max:100','phone'=>'nullable|string|max:40','address'=>'nullable|string|max:255','city'=>'nullable|string|max:100','province'=>'nullable|string|max:100','postal_code'=>'nullable|string|max:30','country'=>'nullable|string|max:100','website'=>'nullable|url:http,https|max:255'] + \App\Services\BusinessDetails::rules($customer->account_type==='business'));
   \Illuminate\Support\Facades\DB::transaction(function()use($customer,$d){
    $customer->user->forceFill(\Illuminate\Support\Arr::only($d,['name','phone']))->save();
-   $customer->update(\Illuminate\Support\Arr::only($d,array_merge(['address','city','province','postal_code','country'],\App\Services\BusinessDetails::FIELDS)));
+   $customer->update(\Illuminate\Support\Arr::only($d,array_merge(['address','city','province','postal_code','country','website'],\App\Services\BusinessDetails::FIELDS)));
   });
   return back()->with('status','Customer details updated.');
  }
