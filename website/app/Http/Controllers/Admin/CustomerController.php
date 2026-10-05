@@ -10,11 +10,16 @@ class CustomerController extends Controller {
   $d=$r->validate(['name'=>'required|string|max:100','email'=>'required|email|max:255|unique:users,email|unique:customers,email','password'=>'required|string|min:10|confirmed','account_type'=>'required|in:individual,business','phone'=>'nullable|string|max:40','address'=>'nullable|string|max:255','city'=>'nullable|string|max:100','province'=>'nullable|string|max:100','postal_code'=>'nullable|string|max:30','country'=>'nullable|string|max:100','website'=>'nullable|url:http,https|max:255'] + \App\Services\BusinessDetails::rules($r->input('account_type')==='business'));
   $customer=\Illuminate\Support\Facades\DB::transaction(function()use($d){
    $user=new \App\Models\User;
-   $user->forceFill(\Illuminate\Support\Arr::only($d,['name','email','password','phone','account_type'])+['is_active'=>true,'email_verified_at'=>$d['account_type']==='individual' && config('customer_accounts.auto_verify_individuals')?now():null])->save();
+   $user->forceFill(\Illuminate\Support\Arr::only($d,['name','email','password','phone','account_type'])+['is_active'=>true,'email_verified_at'=>$d['account_type']==='individual' && \App\Models\SmtpSetting::autoVerifyIndividual()?now():null])->save();
    $customer=$user->customerRecord();
    $customer->update(\Illuminate\Support\Arr::only($d,array_merge(['address','city','province','postal_code','country','website'],\App\Services\BusinessDetails::FIELDS)));
    return $customer;
   });
+  if(!$customer->user->email_verified_at && (\App\Models\SmtpSetting::find(1)?->ready()??false)){
+   $user=$customer->user;$url=\Illuminate\Support\Facades\URL::temporarySignedRoute('customer.invite',now()->addDays(2),['user'=>$user->id,'hash'=>sha1($user->email)]);
+   try{app(\App\Services\OutgoingEmail::class)->template('admin_invitation',$user->email,['verification_url'=>$url,'expires_minutes'=>2880],$user);}
+   catch(\Throwable $e){return redirect()->route('admin.customers.edit',$customer)->withErrors(['email'=>'Customer created, but the invitation could not be sent. Resend verification or verify manually after checking the customer identity.']);}
+  }
   return redirect()->route('admin.customers.show',$customer)->with('status','Customer created. Login uses the email and password you entered. Business accounts still require approval and email verification.');
  }
  public function index(Request $request){
@@ -58,6 +63,17 @@ class CustomerController extends Controller {
   });
   return back()->with('status','Customer password updated. Email verification is still required if not already verified.');
  }
+ public function verifyEmail(Request $r,Customer $customer){
+  $d=$r->validate(['reason'=>'required|string|min:5|max:500']);
+  \Illuminate\Support\Facades\DB::transaction(function()use($r,$customer,$d){
+   $user=\App\Models\User::whereKey($customer->user_id)->lockForUpdate()->firstOrFail();
+   abort_unless($user->isCustomer() && $user->is_active,422,'Only active customers can be manually verified.');
+   if($user->email_verified_at)return;
+   $user->forceFill(['email_verified_at'=>now()])->save();
+   \Illuminate\Support\Facades\DB::table('customer_email_verifications')->insert(['user_id'=>$user->id,'verified_by'=>$r->user()->id,'reason'=>$d['reason'],'created_at'=>now()]);
+  });
+  return back()->with('status','Customer email manually verified. Business approval, if required, remains separate.');
+ }
  public function active(Request $r,Customer $customer){
   $d=$r->validate(['is_active'=>'required|boolean']);
   $customer->user->forceFill(['is_active'=>(bool)$d['is_active'],'remember_token'=>\Illuminate\Support\Str::random(60)])->save();
@@ -68,7 +84,7 @@ class CustomerController extends Controller {
   if(!$user->is_active)return back()->withErrors(['customer'=>'Activate this customer before sending verification.']);
   if($user->email_verified_at)return back()->with('status','This email is already verified.');
   $url=\Illuminate\Support\Facades\URL::temporarySignedRoute('customer.invite',now()->addDays(2),['user'=>$user->id,'hash'=>sha1($user->email)]);
-  app(\App\Services\OutgoingEmail::class)->raw("Verify your Mamma Mia Cucina customer account:\n".$url."\nAfter verification, use Forgot password to set your password and view your orders.",fn($m)=>$m->to($user->email)->subject('Verify your customer account'),'admin_verification',$user);
+  app(\App\Services\OutgoingEmail::class)->template('admin_verification',$user->email,['verification_url'=>$url,'expires_minutes'=>2880],$user);
   return back()->with('status','Verification email sent.');
  }
 }

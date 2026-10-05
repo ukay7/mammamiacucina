@@ -56,6 +56,7 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
                 $route->middleware(AdminAccess::class.':payments.refund');
             }
         }
+        Route::post('/customers/{customer}/verify-email', [\App\Http\Controllers\Admin\CustomerController::class,'verifyEmail'])->middleware(AdminAccess::class.':users.manage')->name('customers.verify-email');
         Route::get('/customers/create', [\App\Http\Controllers\Admin\CustomerController::class,'create'])->middleware(AdminAccess::class.':users.manage')->name('customers.create');
         Route::post('/customers', [\App\Http\Controllers\Admin\CustomerController::class,'store'])->middleware(AdminAccess::class.':users.manage')->name('customers.store');
         Route::resource('quotations', \App\Http\Controllers\Admin\QuotationController::class)->except(['index','show'])->middleware(AdminAccess::class.':quotations.manage');
@@ -91,6 +92,9 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         Route::middleware(AdminAccess::class.':settings.manage')->group(function () {
             Route::get('/settings/home-sections', [\App\Http\Controllers\Admin\HomeSectionController::class,'edit'])->name('home-sections.edit');
             Route::put('/settings/home-sections/{section}', [\App\Http\Controllers\Admin\HomeSectionController::class,'update'])->name('home-sections.update');
+            Route::get('/settings/email/templates', [\App\Http\Controllers\Admin\EmailTemplateController::class,'index'])->name('email.templates.index');
+            Route::get('/settings/email/templates/{key}', [\App\Http\Controllers\Admin\EmailTemplateController::class,'edit'])->name('email.templates.edit');
+            Route::put('/settings/email/templates/{key}', [\App\Http\Controllers\Admin\EmailTemplateController::class,'update'])->name('email.templates.update');
             Route::get('/settings/email/history', [\App\Http\Controllers\Admin\EmailHistoryController::class, 'index'])->name('email.history');
             Route::get('/settings/email', [\App\Http\Controllers\Admin\SmtpSettingController::class, 'edit'])->name('email.edit');
             Route::put('/settings/email', [\App\Http\Controllers\Admin\SmtpSettingController::class, 'update'])->name('email.update');

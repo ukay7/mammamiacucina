@@ -19,7 +19,7 @@ class CustomerAccountController extends Controller {
   if(User::whereRaw('lower(email) = ?',[$d['email']])->exists())throw ValidationException::withMessages(['email'=>'An account already uses this email. Please log in to access your details.']);
   $role=Role::where('name','Customer')->firstOrFail();
   $user=\Illuminate\Support\Facades\DB::transaction(function()use($d,$role){
-   $user=new User();$user->forceFill([...\Illuminate\Support\Arr::except($d,\App\Services\BusinessDetails::FIELDS),'role_id'=>$role->id,'is_active'=>true,'email_verified_at'=>$d['account_type']==='individual' && config('customer_accounts.auto_verify_individuals') ? now() : null])->save();
+   $user=new User();$user->forceFill([...\Illuminate\Support\Arr::except($d,\App\Services\BusinessDetails::FIELDS),'role_id'=>$role->id,'is_active'=>true,'email_verified_at'=>$d['account_type']==='individual' && \App\Models\SmtpSetting::autoVerifyIndividual() ? now() : null])->save();
    $user->customerRecord()->update(\Illuminate\Support\Arr::only($d,\App\Services\BusinessDetails::FIELDS));
    return $user;
   });
@@ -36,16 +36,16 @@ class CustomerAccountController extends Controller {
   Auth::login($user);$r->session()->regenerate();$r->session()->forget(['url.intended','checkout_token','checkout_quote','last_order_id','last_order_token']);
   return redirect()->route($user->isCustomer()?$this->shoppingDestination():$user->accountRoute());
  }
- private function sendVerification(User $user):void{
+ private function sendVerification(User $user,string $type='verification'):void{
   $url=URL::temporarySignedRoute('customer.verify',now()->addMinutes(60),['id'=>$user->id,'hash'=>sha1($user->email)]);
-  app(\App\Services\OutgoingEmail::class)->raw("Welcome to Mamma Mia Cucina.\n\nVerify your email to continue checkout:\n".$url."\n\nThis link expires in 60 minutes.",fn($m)=>$m->to($user->email)->subject('Verify your Mamma Mia Cucina account'),'verification',$user);
+  app(\App\Services\OutgoingEmail::class)->template($type,$user->email,['verification_url'=>$url,'expires_minutes'=>60],$user);
  }
  public function notice(){
   if(auth()->user()->email_verified_at)return redirect()->route(auth()->user()->businessApprovalPending()?'customer.business.pending':$this->shoppingDestination());
   return view('customer.verify');
  }
  private function shoppingDestination():string {return app(\App\Services\StorefrontCart::class)->snapshot()['count']>0?'theme.cart':'theme.index';}
- public function resend(Request $r){if(!$r->user()->email_verified_at)$this->sendVerification($r->user());return back()->with('status','Verification email sent.');}
+ public function resend(Request $r){if(!$r->user()->email_verified_at)$this->sendVerification($r->user(),'verification_resend');return back()->with('status','Verification email sent.');}
  public function verify(Request $r,string $id,string $hash){
   abort_unless((string)$r->user()->id===$id&&hash_equals(sha1($r->user()->email),$hash),403);
   if(!$r->user()->email_verified_at)$r->user()->forceFill(['email_verified_at'=>now()])->save();

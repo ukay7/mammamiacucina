@@ -38,3 +38,11 @@ $groupOpen=$visibleItems->contains(fn($item)=>request()->routeIs($item[2]));
 @endif
 
 @if(auth()->user()->hasAdminPermission('quotations.view') || auth()->user()->hasAdminPermission('quotations.manage'))<li class="{{ request()->routeIs('admin.quotations.*')?'active':'' }}"><a href="{{ route('admin.quotations.index') }}"><i class="fas fa-file-invoice"></i><span>Quotations</span></a></li>@endif
+
+@if(auth()->user()->hasAdminPermission('settings.manage'))
+<li><details class="mmc-admin-submenu" @if(request()->routeIs('admin.email.*')) open @endif><summary><i class="fas fa-envelope"></i><span>Manage Email</span><i class="fas fa-chevron-down mmc-submenu-arrow"></i></summary><ul>
+<li><a href="{{ route('admin.email.edit') }}">SMTP Configuration</a></li>
+<li><a href="{{ route('admin.email.templates.index') }}">Email Templates</a></li>
+<li><a href="{{ route('admin.email.history') }}">Email History</a></li>
+</ul></details></li>
+@endif

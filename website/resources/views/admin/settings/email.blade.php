@@ -6,6 +6,11 @@
 <h2>Outgoing email</h2>
 <p>Save and enable SMTP to send new verification emails, POS account invitations and password-reset emails through your provider.</p>
 <div class="alert {{ $settings->enabled?'alert-success':'alert-warning' }}" role="status">{{ $settings->enabled?'SMTP is enabled. Use the test below to confirm delivery.':'SMTP is not enabled here. Save valid credentials and enable SMTP to send email.' }}</div>
+<div class="alert {{ $settings->ready()?'alert-success':'alert-warning' }}">
+@if($settings->ready())SMTP test passed at {{ $settings->tested_at->format('d M Y H:i') }}. New customers must verify their email. SMTP acceptance does not guarantee inbox placement.
+@else SMTP has not passed a test for the current settings. New Individual customers use the temporary auto-verification fallback when enabled; Business approval remains required. Save changes and send a successful test to enable email verification.
+@endif</div>
+<p>Saving SMTP settings clears the previous test confirmation. Existing customers are not changed.</p>
 <form method="post" action="{{ route('admin.email.update') }}" autocomplete="off">@csrf @method('PUT')
 <input type="hidden" name="revision" value="{{ $settings->revision }}">
 <input type="hidden" name="enabled" value="0">

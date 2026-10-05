@@ -12,7 +12,7 @@ class EmailHistoryTest extends TestCase {
  public function test_shared_resend_cooldown_survives_refresh_and_allows_after_ten_minutes():void {
   $this->freezeTime();config(['mail.default'=>'array']);$user=$this->customer();
   $this->actingAs($user)->post(route('customer.verify.resend'))->assertSessionHasNoErrors();
-  $this->assertDatabaseHas('email_history',['recipient'=>$user->email,'type'=>'verification','status'=>'logged_only']);
+  $this->assertDatabaseHas('email_history',['recipient'=>$user->email,'type'=>'verification_resend','status'=>'logged_only']);
   $this->actingAs($user->fresh())->get(route('customer.verify.notice'))->assertOk()->assertSee('data-verification-cooldown="600"',false)->assertSee('disabled',false);
   $this->travel(2)->minutes();
   $this->actingAs($user)->post(route('customer.verify.resend'))->assertSessionHasErrors('email');

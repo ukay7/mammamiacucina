@@ -2,7 +2,7 @@
 @section('title','Add Customer')
 @section('content')
 <form method="post" action="{{ route('admin.customers.store') }}" class="panel p-4">@csrf
-<p>Customer ID is assigned automatically. Email is the login ID. No email is sent by this form.</p>
+<p>Customer ID is assigned automatically. Email is the login ID. When SMTP has passed its test, a verification invitation is sent to this email.</p>
 <div class="row">
 @foreach(['name'=>'Full name','email'=>'Login email','phone'=>'Phone','address'=>'Street address','city'=>'City','province'=>'Province / State','postal_code'=>'Postal code','country'=>'Country','website'=>'Website (optional)'] as $field=>$label)
 <div class="form-group col-md-6"><label for="{{ $field }}">{{ $label }}</label><input class="form-control" id="{{ $field }}" name="{{ $field }}" type="{{ $field==='email'?'email':($field==='website'?'url':'text') }}" value="{{ old($field,$field==='country'?'Canada':'') }}" @if(in_array($field,['name','email'])) required @endif></div>

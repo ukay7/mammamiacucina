@@ -4,12 +4,16 @@ use App\Models\{User,EmailHistory};
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 class OutgoingEmail {
+ public function template(string $type,string $recipient,array $values=[],?User $user=null,?string $mailer=null):EmailHistory {
+  $message=\App\Models\EmailTemplate::renderMessage($type,array_replace(['name'=>$user?->name??'Customer','site_name'=>'Mamma Mia Cucina'],$values));
+  return $this->raw($message['body'],fn($m)=>$m->to($recipient)->subject($message['subject']),$type,$user,$mailer);
+ }
  public static function remaining(User $user):int {
   $last=$user->verification_last_sent_at;
   return $last ? max(0,\Carbon\Carbon::parse($last)->timestamp+600-now()->timestamp) : 0;
  }
- public function raw(string $body, callable $callback,string $type,?User $user=null,?string $mailer=null):void {
-  $verification=in_array($type,['verification','pos_invitation','admin_verification'],true);
+ public function raw(string $body, callable $callback,string $type,?User $user=null,?string $mailer=null):EmailHistory {
+  $verification=in_array($type,['verification','verification_resend','pos_invitation','admin_verification','admin_invitation'],true);
   $reservedAt=now()->startOfSecond();
   if($verification && $user){
    // One atomic database update shares the cooldown across sessions and admin/customer routes.
@@ -26,6 +30,7 @@ class OutgoingEmail {
    $sent=$mailer ? Mail::mailer($mailer)->raw($body,$callback) : Mail::raw($body,$callback);
    $transport=config('mail.mailers.'.$selected.'.transport');
    $entry->update(['status'=>!$sent?'not_sent':(in_array($transport,['log','array'],true)?'logged_only':'accepted'),'sent_at'=>$sent?now():null,'message_id'=>$sent?->getMessageId()]);
+   return $entry;
   }catch(\Throwable $e){
    if($entry)$entry->update(['status'=>'failed']);
    if($verification && $user)User::whereKey($user->id)->where('verification_last_sent_at',$reservedAt)->update(['verification_last_sent_at'=>null]);
