@@ -3,7 +3,7 @@
 @section('body-class', 'mmc-home mmc-inner')
 @section('content')
 <div class="mmc-inner-header">@include('partials.mmc-header')</div>
-<section class="mmc-page-banner"><div><p>MAMMA MIA CUCINA</p><h1>{{ $pageTitle }}</h1><nav aria-label="Breadcrumb"><a href="{{ route('theme.index') }}">Home</a><span aria-hidden="true"> / </span><span>{{ $pageTitle }}</span></nav></div></section>
+<section class="mmc-page-banner" style="background-image:linear-gradient(#21160ddb,#21160de8),url('{{ $siteSettings?->pageBannerUrl() ?? asset('assets/images/mmc/italian-pastries-hero.png') }}')"><div><p>MAMMA MIA CUCINA</p><h1>{{ $pageTitle }}</h1><nav aria-label="Breadcrumb"><a href="{{ route('theme.index') }}">Home</a><span aria-hidden="true"> / </span><span>{{ $pageTitle }}</span></nav></div></section>
 <main class="mmc-page-content">@yield('page-content')</main>
 @include('partials.mmc-footer')
 <div id="back2top"><i class="fa fa-angle-up"></i></div>

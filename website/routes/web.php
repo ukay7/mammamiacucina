@@ -32,6 +32,7 @@ Route::get('/allergy-icons/{allergy}', [AllergyController::class, 'icon'])->name
 Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:5,1,contact-form')->name('contact.store');
 Route::get('/gallery/events/{event}', [GalleryController::class, 'show'])->name('gallery.event');
 Route::get('/gallery/photos/{photo}', [GalleryController::class, 'image'])->name('gallery.image');
+Route::get('/site-page-banner', [GeneralSettingController::class, 'pageBanner'])->name('site.page-banner');
 Route::get('/site-logo', [GeneralSettingController::class, 'logo'])->name('site.logo');
 Route::get('/track-order', [OrderTrackingController::class, 'form'])->name('order.track-form');
 Route::post('/track-order', [OrderTrackingController::class, 'lookup'])->middleware('throttle:6,1,order-lookup')->name('order.lookup');

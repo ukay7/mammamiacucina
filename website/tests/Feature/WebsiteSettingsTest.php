@@ -25,4 +25,24 @@ class WebsiteSettingsTest extends TestCase {
   $this->assertNull(GeneralSetting::find(1)->youtube_video_id);
   $this->assertSame($s->logo_path,GeneralSetting::find(1)->logo_path);
  }
+
+ public function test_banner_upload_replacement_validation_and_stale_cleanup():void {
+  Storage::fake('local');
+  $this->actingAs(User::factory()->create(['role_id'=>Role::where('is_super',true)->value('id'),'is_active'=>true]));
+  $data=['revision'=>0,'delivery'=>'0','tax'=>'5'];
+  $image=fn()=>UploadedFile::fake()->createWithContent('banner.png',base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j0ZkAAAAASUVORK5CYII='));
+  $this->put(route('admin.settings.update'),$data+['page_banner'=>$image()])->assertSessionHasNoErrors();
+  $old=GeneralSetting::find(1)->page_banner_path;
+  Storage::disk('local')->assertExists($old);
+  $this->get(route('site.page-banner'))->assertOk();
+  $this->get('/about')->assertOk()->assertSee('/site-page-banner');
+  $this->put(route('admin.settings.update'),$data+['page_banner'=>$image()])->assertSessionHasErrors('settings');
+  $this->assertCount(1,Storage::disk('local')->allFiles('branding'));
+  $this->put(route('admin.settings.update'),array_replace($data,['revision'=>1,'page_banner'=>$image()]))->assertSessionHasNoErrors();
+  Storage::disk('local')->assertMissing($old);
+  $saved=GeneralSetting::find(1)->page_banner_path;
+  $this->put(route('admin.settings.update'),array_replace($data,['revision'=>2]))->assertSessionHasNoErrors();
+  $this->assertSame($saved,GeneralSetting::find(1)->page_banner_path);
+  $this->put(route('admin.settings.update'),array_replace($data,['revision'=>3,'page_banner'=>UploadedFile::fake()->create('bad.svg',1,'image/svg+xml')]))->assertSessionHasErrors('page_banner');
+ }
 }

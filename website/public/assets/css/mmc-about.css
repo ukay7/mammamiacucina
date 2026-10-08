@@ -12,3 +12,13 @@
 .mmc-about-values__controls button:disabled{opacity:.3;cursor:default}
 @media(max-width:850px){.mmc-about-values__track article{flex-basis:calc((100% - 24px)/2)}}
 @media(max-width:550px){.mmc-about-values__track article{flex-basis:100%;padding:10px 8px}}
+
+.mmc-about-quote{margin:48px 0;padding:48px 32px 36px;text-align:center;background:radial-gradient(ellipse at center,#fffdf6 0%,#f7f0e4 100%)}
+.mmc-about-quote blockquote{position:relative;display:table;max-width:90%;margin:0 auto 40px;padding:0 28px;border:0;color:#a67520;font:italic 400 clamp(30px,4.4vw,64px)/1.15 Georgia,serif;white-space:pre-line;overflow-wrap:anywhere}
+.mmc-about-quote blockquote:before,.mmc-about-quote blockquote:after{position:absolute;color:#e8dab8;font:90px/1 Georgia,serif}
+.mmc-about-quote blockquote:before{content:"“";left:-18px;top:-12px}
+.mmc-about-quote blockquote:after{content:"”";right:-18px;bottom:-38px}
+.mmc-about-quote__divider{display:flex;gap:12px;align-items:center;margin:0 0 16px}
+.mmc-about-quote__divider span{height:2px;background:#bd9448;flex:1}
+.mmc-about-quote p{margin:0;color:#27251f;font:700 clamp(12px,1.3vw,17px)/1.65 Arial,sans-serif;letter-spacing:.16em;text-transform:uppercase;white-space:pre-line;overflow-wrap:anywhere}
+@media(max-width:550px){.mmc-about-quote{padding:36px 16px 28px}.mmc-about-quote blockquote{padding:0 14px;max-width:85%}.mmc-about-quote blockquote:before,.mmc-about-quote blockquote:after{font-size:64px}}

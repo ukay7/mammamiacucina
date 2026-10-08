@@ -3,7 +3,7 @@
 @section('content')
 <style>.about-editor{max-width:1200px}.about-editor-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:22px}.about-editor .panel-content{padding:24px}.about-editor label{display:block;margin:14px 0 6px}.about-edit-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:28px}.about-image-preview{width:100%;max-height:260px;object-fit:contain;background:#f3eadb;border-radius:8px}.about-item-editor{padding:18px;border:1px solid #dfcba5;border-radius:8px;margin:16px 0;background:#fffaf1}.about-item-head{display:flex;justify-content:space-between;gap:12px;align-items:center}.about-item-actions{display:flex;gap:6px}.about-help{font-size:13px;color:#746653}@media(max-width:750px){.about-edit-grid{grid-template-columns:1fr}.about-editor-head{align-items:start;flex-direction:column}.about-item-head{align-items:start;flex-wrap:wrap}}</style>
 <div class="about-editor">
-<div class="about-editor-head"><p>Edit the introduction and the highlights shown below it.</p><div><a class="btn btn-outline-primary" href="{{ route('theme.about') }}" target="_blank" rel="noopener">View page</a> <button class="btn btn-primary" type="submit" form="about-form">Save changes</button></div></div>
+<div class="about-editor-head"><p>Edit the introduction, Italian quote and numbered highlights.</p><div><a class="btn btn-outline-primary" href="{{ route('theme.about') }}" target="_blank" rel="noopener">View page</a> <button class="btn btn-primary" type="submit" form="about-form">Save changes</button></div></div>
 <form id="about-form" method="post" enctype="multipart/form-data" action="{{ route('admin.about.update') }}">@csrf @method('PUT')
 <input type="hidden" name="revision" value="{{ old('revision',$about->revision) }}">
 <div class="panel"><div class="panel-content"><h2>Introduction</h2><div class="about-edit-grid"><div>
@@ -16,6 +16,11 @@
 <input class="form-control mt-3" id="about-image" name="image" type="file" accept="image/png,image/jpeg,image/webp"><p class="about-help">PNG, JPG or WebP, up to 5 MB. Leave empty to keep the current image.</p>
 <label for="about-image-alt">Image description</label><input class="form-control" id="about-image-alt" name="image_alt" maxlength="255" value="{{ old('image_alt',$about->image_alt) }}" required>
 </div></div></div></div>
+<div class="panel"><div class="panel-content"><h2>Italian quote section</h2>
+<label for="about-quote">Quote</label><textarea class="form-control" id="about-quote" name="closing_sentence" rows="3" maxlength="2000">{{ old('closing_sentence',$about->closing_sentence) }}</textarea>
+<p class="about-help">Use a new line where you want the quote to break. Leave blank to hide this section.</p>
+<label for="about-supporting">Supporting text</label><textarea class="form-control" id="about-supporting" name="quote_supporting_text" rows="4" maxlength="2000">{{ old('quote_supporting_text',$about->quote_supporting_text) }}</textarea>
+<p class="about-help">Displayed below the gold divider. Each new line is preserved.</p></div></div>
 <div class="panel"><div class="panel-content"><div class="about-editor-head"><div><h2>Highlights</h2><p class="about-help">Three items fit across on desktop. Additional items scroll left and right. Save to publish changes.</p></div><button class="btn btn-outline-primary" type="button" data-add-about-item>Add item</button></div>
 <div data-about-items>
 @foreach(session()->hasOldInput()?old('items',[]):$about->items as $item)

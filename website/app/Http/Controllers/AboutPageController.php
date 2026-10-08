@@ -30,7 +30,7 @@ class AboutPageController extends Controller
 
     public function update(Request $request)
     {
-        $data = $request->validate(['revision' => 'required|integer|min:0', 'eyebrow' => 'nullable|string|max:100', 'heading' => 'required|string|max:255',
+        $data = $request->validate(['quote_supporting_text'=>'sometimes|nullable|string|max:2000','closing_sentence'=>'sometimes|nullable|string|max:2000','revision' => 'required|integer|min:0', 'eyebrow' => 'nullable|string|max:100', 'heading' => 'required|string|max:255',
             'description' => 'required|string|max:15000', 'image' => 'nullable|file|image|mimes:png,jpg,jpeg,webp|max:5120', 'image_alt' => 'required|string|max:255',
             'button_name' => 'required|string|max:80', 'button_page' => 'required|in:product-grid,contact,gallery', 'items' => 'sometimes|array|max:100',
             'items.*' => 'required|array:title,description', 'items.*.title' => 'required|string|max:120', 'items.*.description' => 'required|string|max:2000']);
@@ -50,7 +50,7 @@ class AboutPageController extends Controller
                 }
                 $values = collect($data)->except(['image', 'revision'])->all();
                 $values['eyebrow'] = $data['eyebrow'] ?? '';
-                $values['items'] = array_values($data['items'] ?? []);
+                if (array_key_exists('items',$data)) $values['items'] = array_values($data['items']);
                 $values['revision'] = $about->revision + 1;
                 if ($path) {
                     $old = $about->image_path;

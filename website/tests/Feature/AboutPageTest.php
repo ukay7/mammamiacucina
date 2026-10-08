@@ -22,7 +22,7 @@ class AboutPageTest extends TestCase
 
     private function data(): array
     {
-        return ['revision' => 0, 'eyebrow' => 'Our story', 'heading' => 'Fresh from Italy', 'description' => "First paragraph.\n\nSecond paragraph.", 'image_alt' => 'Our cakes', 'button_name' => 'Browse treats', 'button_page' => 'product-grid', 'items' => array_map(fn ($i) => ['title' => 'Highlight '.$i, 'description' => 'Description '.$i], range(1, 6))];
+        return ['quote_supporting_text' => "Imported with care.\nServed with love.", 'closing_sentence' => 'Made with love for every occasion.', 'revision' => 0, 'eyebrow' => 'Our story', 'heading' => 'Fresh from Italy', 'description' => "First paragraph.\n\nSecond paragraph.", 'image_alt' => 'Our cakes', 'button_name' => 'Browse treats', 'button_page' => 'product-grid', 'items' => array_map(fn ($i) => ['title' => 'Highlight '.$i, 'description' => 'Description '.$i], range(1, 6))];
     }
 
     private function photo()
@@ -48,7 +48,7 @@ class AboutPageTest extends TestCase
         $about = AboutPage::find(1);
         Storage::disk('local')->assertExists($about->image_path);
         $this->get(route('about.image'))->assertOk();
-        $this->get('/about')->assertOk()->assertSee('Fresh from Italy')->assertSee('Browse treats')->assertSeeInOrder(['Highlight 6', 'Highlight 5', 'Highlight 1']);
+        $this->get('/about')->assertOk()->assertSee('Fresh from Italy')->assertSee('Browse treats')->assertSeeInOrder(['Made with love for every occasion.','Imported with care.','Highlight 6', 'Highlight 5', 'Highlight 1']);
         $this->assertCount(6, $about->items);
         $this->put(route('admin.about.update'), array_replace($data, ['revision' => 1, 'items' => []]))->assertSessionHasNoErrors();
         $this->assertSame($about->image_path, AboutPage::find(1)->image_path);

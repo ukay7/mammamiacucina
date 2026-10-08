@@ -6,6 +6,13 @@
 <a class="mmc-button" href="{{ route('theme.'.$about->button_page) }}">{{ $about->button_name }}</a></div>
 <img class="mmc-feature-photo" src="{{ $about->imageUrl() }}" alt="{{ $about->image_alt }}">
 </section>
+@if($about->closing_sentence)
+<section class="mmc-about-quote" aria-label="Our Italian promise">
+<blockquote>{{ $about->closing_sentence }}</blockquote>
+<div class="mmc-about-quote__divider" aria-hidden="true"><span></span><svg viewBox="0 0 80 60" width="70" height="54" focusable="false"><path d="M30 49 Q7 43 6 9 Q30 17 30 49Z" fill="#236739"/><path d="M40 54 Q24 31 40 5 Q56 31 40 54Z" fill="none" stroke="#b48b43" stroke-width="2"/><path d="M50 49 Q51 20 74 9 Q73 40 50 49Z" fill="#af1020"/><path d="M13 19 L28 45 M67 19 L52 45" fill="none" stroke="#fff8ec" stroke-width="2"/></svg><span></span></div>
+@if($about->quote_supporting_text)<p>{{ $about->quote_supporting_text }}</p>@endif
+</section>
+@endif
 @if(count($about->items))
 <section class="mmc-about-values" aria-label="What makes us special" data-about-carousel>
 <div class="mmc-about-values__track" id="about-values" tabindex="0" aria-label="About us highlights. Scroll to browse.">

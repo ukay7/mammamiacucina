@@ -10,6 +10,8 @@ class GeneralSetting extends Model
 
     public function logoUrl(): string { return $this->logo_path ? route('site.logo') : asset('logo.png'); }
 
+    public function pageBannerUrl(): string { return $this->page_banner_path ? route('site.page-banner') : asset('assets/images/mmc/italian-pastries-hero.png'); }
+
     public static function youtubeId(?string $value): ?string
     {
         $value=trim($value ?? '');
