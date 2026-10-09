@@ -5,6 +5,7 @@
 @stack('styles')
 
 @include('partials.pwa')
+@include('partials.theme-colors',['themeScope'=>'website'])
 </head>
 <body class="@yield('body-class', 'page-init')">
 @yield('content')

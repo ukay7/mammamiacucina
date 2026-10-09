@@ -95,7 +95,7 @@ $this->actingAs(User::factory()->create(['email'=>'jane@example.test','account_t
         });
     }
 
-    private function checkout(string $method = 'card'): array
+    private function checkout(string $method = 'card', bool $legacy = true): array
     {
         $product = Product::create(['category_id' => 1, 'slug' => 'payment-cake', 'premium_marketing_name' => 'Payment Cake', 'qr_code' => 'PAY', 'is_active' => true, 'total_selling_price_cad' => 10]);
         $product->inventory()->create(['quantity_on_hand' => 10]);
@@ -104,7 +104,16 @@ $this->actingAs(User::factory()->create(['email'=>'jane@example.test','account_t
         $data = ['checkout_token' => session('checkout_token'), 'first_name' => 'Jane', 'last_name' => 'Doe', 'email' => 'jane@example.test',
             'phone' => '555123', 'address' => '10 Test Street', 'city' => 'Toronto', 'province' => 'ON', 'postal_code' => 'M1M1M1', 'country' => 'Canada',
             'payment_method' => $method, 'subtotal_cents' => 1, 'payment_status' => 'paid'];
-        $response = $this->post('/checkout', $data);
+        // New checkout disables gateways. Exercise historical gateway orders independently.
+        if ($legacy) {
+            $this->post('/checkout', array_replace($data, ['payment_method'=>'cash']))->assertRedirect('/order-success');
+            $order = Order::firstOrFail();
+            $order->update(['payment_method'=>$method, 'payment_status'=>'pending', 'status'=>'awaiting_payment', 'warehouse_round'=>0, 'warehouse_sent_at'=>null]);
+            $payment = app(OnlinePayments::class)->initialize($order);
+            $response = $this->post(route('payment.start', $order->fresh()->payment->reference));
+        } else {
+            $response = $this->post('/checkout', $data);
+        }
 
         return [$product, $data, $response];
     }
@@ -129,7 +138,7 @@ $this->actingAs(User::factory()->create(['email'=>'jane@example.test','account_t
         return $this->call('POST', '/payments/webhooks/stripe', [], [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_STRIPE_SIGNATURE' => 't='.$timestamp.',v1='.$signature], $body);
     }
 
-    public function test_hosted_card_checkout_is_pending_and_idempotent_without_card_storage(): void
+    public function test_legacy_hosted_card_checkout_is_pending_without_card_storage(): void
     {
         [$product,$data,$response] = $this->checkout();
         $response->assertRedirect('https://checkout.stripe.com/c/pay/cs_test_1');
@@ -139,7 +148,7 @@ $this->actingAs(User::factory()->create(['email'=>'jane@example.test','account_t
         $this->assertSame('pending', $order->payment_status);
         $this->assertSame(2000, $payment->amount_cents);
         $this->assertSame('8.000', $product->inventory()->first()->quantity_on_hand);
-        $this->post('/checkout', $data)->assertRedirect(route('payment.show', $payment->reference));
+        $this->get(route('payment.show', $payment->reference))->assertOk();
         $this->assertDatabaseCount('orders', 1);
         $this->assertDatabaseCount('payments', 1);
         $this->get('/order-success')->assertRedirect(route('payment.show', $payment->reference));
@@ -285,7 +294,7 @@ $this->actingAs(User::factory()->create(['email'=>'jane@example.test','account_t
     public function test_disabled_gateway_is_rejected_without_order_or_stock_change(): void
     {
         config(['payments.stripe.enabled' => false]);
-        [$product,,$response] = $this->checkout();
+        [$product,,$response] = $this->checkout('card', false);
         $response->assertSessionHasErrors('payment_method');
         $this->assertDatabaseCount('orders', 0);
         $this->assertSame('10.000', $product->inventory()->first()->quantity_on_hand);

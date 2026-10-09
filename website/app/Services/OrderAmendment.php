@@ -145,6 +145,7 @@ class OrderAmendment
                     }
                 }
             }
+            $order->pickup_address = $data['fulfillment'] === 'pickup' ? ($order->pickup_address ?: $settings->pickup_address) : null;
             $order->fill(collect($data)->only(['first_name', 'last_name', 'email', 'phone', 'address', 'city', 'province', 'postal_code', 'country', 'fulfillment'])->all());
             $order->subtotal_cents = $subtotal;
             $order->delivery_cents = $delivery;
@@ -173,6 +174,13 @@ class OrderAmendment
             if (($order->status === 'cancelled' && $data['direction'] !== 'refund') || ($order->payment && (! $order->payment->paid_at || $order->payment->attention))) {
                 $this->fail('Resolve the original payment first.');
             }
+            if ($order->final_total_cents === null) {
+                $this->fail('Finalize the order total before recording a payment.');
+            }
+            if ($order->payment_method === 'etransfer' && $data['direction'] === 'collect'
+                && $data['method'] === 'etransfer' && empty($data['receipt_path']) && !$order->transfer_receipt_path) {
+                $this->fail('Attach the e-transfer receipt or upload it to the order before confirming funds received.');
+            }
             $amount = self::cents($data['amount']);
             $balance = $order->balance_cents;
             if ($amount <= 0 || ($data['direction'] === 'collect' ? $balance < $amount : -$balance < $amount)) {
@@ -187,7 +195,7 @@ class OrderAmendment
                     $this->fail('Refund the original gateway payment through its provider and reconcile it here. This action only records refunds of separately collected amounts.');
                 }
             }
-            $order->settlements()->create(['amount_cents' => $data['direction'] === 'refund' ? -$amount : $amount, 'method' => $data['method'], 'reference' => $data['reference'] ?? null, 'note' => $data['note'], 'user_id' => $user]);
+            $order->settlements()->create(['receipt_path' => $data['receipt_path'] ?? null, 'amount_cents' => $data['direction'] === 'refund' ? -$amount : $amount, 'method' => $data['method'], 'reference' => $data['reference'] ?? null, 'note' => $data['note'], 'user_id' => $user]);
             $order->unsetRelation('settlements');
             if (! $order->payment && $order->balance_cents <= 0 && $order->status !== 'cancelled') {
                 $order->payment_status = 'paid';
@@ -196,6 +204,17 @@ class OrderAmendment
             $order->revision++;
             $order->save();
             $order->events()->create(['user_id' => $user, 'description' => 'External '.($data['direction'] === 'refund' ? 'refund' : 'collection').' recorded: CAD '.number_format($amount / 100, 2).' via '.$data['method'].' · '.$data['note'], 'created_at' => now()]);
+            // Use the same warehouse transition as the website receipt approval flow.
+            if ($order->payment_method === 'etransfer' && $order->status === 'transfer_pending'
+                && $order->payment_status === 'paid' && $order->balance_cents === 0) {
+                app(OrderManagement::class)->update($order, [
+                    'revision' => $order->revision, 'status' => 'warehouse_pending', 'payment_status' => 'paid',
+                    'delivery' => number_format($order->delivery_cents / 100, 2, '.', ''),
+                    'tax' => number_format($order->tax_cents / 100, 2, '.', ''),
+                    'reason' => 'Admin confirmed payments received in full through the payment ledger; sent to warehouse.',
+                ], $user);
+            }
+
         }, 3);
     }
 }

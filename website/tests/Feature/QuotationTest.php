@@ -45,11 +45,12 @@ class QuotationTest extends TestCase
         $buyer = User::factory()->create(['account_type' => 'business', 'is_active' => true, 'email_verified_at' => now(), 'business_approved_at' => now()]);
         $c = $buyer->customerRecord();
         $p = Product::create(['category_id' => 1, 'slug' => 'quote-cake', 'premium_marketing_name' => 'Quote Cake', 'is_active' => true, 'total_selling_price_cad' => 15, 'business_selling_price_cad' => 12]);
-        $d = ['customer_id' => $c->id, 'due_date' => now()->addDays(20)->format('Y-m-d'), 'pricing_tier' => 'auto', 'items' => [['product_id' => $p->id, 'quantity' => 2, 'unit_price' => '20.00', 'discount_percent' => '10.00']], 'discount_percent' => '10.00', 'charge_percent' => '10', 'tax_percent' => '13', 'notes' => 'Special offer'];
+        $d = ['customer_id' => $c->id, 'due_date' => now()->addDays(20)->format('Y-m-d'), 'pricing_tier' => 'auto', 'items' => [['product_id' => $p->id, 'quantity' => 2, 'unit_price' => '20.00', 'discount_percent' => '10.00']], 'discount_percent' => '10.00', 'charge_percent' => '10', 'tax_percent' => '13', 'payment_terms'=>'Net 15 days', 'delivery_terms'=>'Pickup, FOB Vaughan', 'notes' => 'Special offer'];
         $this->get(route('admin.quotations.create'))->assertOk();
         $this->post(route('admin.quotations.store'), $d)->assertSessionHasNoErrors();
         $q = Quotation::firstOrFail();
         $this->assertSame('business', $q->pricing_tier);
+        $this->get(route('admin.quotations.print',$q))->assertOk()->assertSee('Net 15 days')->assertSee('Pickup, FOB Vaughan');
         $this->assertEquals(4027, $q->total_cents);
         $this->assertEquals(2000, $q->items[0]['unit_cents']);
         foreach (['index', 'show', 'edit', 'print'] as $route) {
@@ -109,6 +110,7 @@ class QuotationTest extends TestCase
         $this->assertSame('0010020', $item['code']);
         $this->assertSame(6610, $q->subtotal_cents);
         $this->assertSame(5949, $q->total_cents);
+        $this->get(route('admin.quotations.print',$q))->assertOk()->assertSee('PRICE QUOTATION')->assertSee('SUGGESTED RETAIL')->assertSee('$19.8288')->assertSee('$3.3048')->assertSee('$23.7946');
         $this->assertNotSame('Forged', $item['columns']['supplier']);
         $p->update(['dna' => ['pieces_per_carton' => 12], 'premium_marketing_name' => 'Changed name']);
         $category->update(['name' => 'Changed category']);

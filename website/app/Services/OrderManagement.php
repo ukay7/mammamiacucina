@@ -30,6 +30,18 @@ class OrderManagement
             $tax = $money($d['tax']);
             $status = $d['status'];
             $payment = $d['payment_status'];
+            if ($order->payment_method === 'etransfer') {
+                if ($payment === 'paid' && $order->payment_status !== 'paid' && !$order->transfer_receipt_path) {
+                    $fail('Upload the e-transfer receipt and verify the payment before marking it paid.');
+                }
+                if ($status !== $order->status && !in_array($status, ['transfer_pending', 'cancelled'], true) && $payment !== 'paid') {
+                    $fail('Verify the e-transfer and mark payment received before sending this order to warehouse.');
+                }
+                if ($status === 'warehouse_pending' && $order->payment_status === 'paid' && $order->balance_cents !== 0) {
+                    $fail('Resolve the outstanding balance before sending this order to warehouse.');
+                }
+            }
+            if ($order->fulfillment === 'pickup' && $delivery !== 0) $fail('Pickup orders must have zero delivery charge.');
             if ($order->payment) {
                 if ($payment !== $order->payment_status || $delivery !== (int) $order->delivery_cents || $tax !== (int) $order->tax_cents) {
                     $fail('Online payment status and totals are managed by the gateway. Use Reconcile or Refund.');
@@ -52,8 +64,8 @@ class OrderManagement
                     $fail('Completed or dispatched orders require a return/refund, not cancellation.');
                 }
                 if ($status === 'warehouse_pending') {
-                    if ($order->source !== 'website') {
-                        $fail('Only website orders use warehouse packing.');
+                    if (!in_array($order->source, ['website','pos'], true)) {
+                        $fail('This order does not support warehouse packing.');
                     }
                     $order->warehouse_round++;
                     $order->warehouse_sent_at = now();

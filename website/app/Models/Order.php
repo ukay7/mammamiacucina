@@ -16,7 +16,7 @@ class Order extends Model
         });
     }
 
-    public const STATUSES = ['awaiting_payment' => 'Awaiting payment', 'payment_review' => 'Payment needs review', 'placed' => 'Placed', 'confirmed' => 'Confirmed', 'preparing' => 'Preparing', 'out_for_delivery' => 'Out for Delivery', 'delivered' => 'Delivered', 'completed' => 'Completed', 'warehouse_pending' => 'Sent to warehouse', 'packing' => 'Packing', 'warehouse_issue' => 'Warehouse issue — admin action needed', 'ready_to_dispatch' => 'Ready for dispatch', 'cancelled' => 'Cancelled'];
+    public const STATUSES = ['transfer_pending' => 'Pending e-transfer verification','awaiting_payment' => 'Awaiting payment', 'payment_review' => 'Payment needs review', 'placed' => 'Placed', 'confirmed' => 'Confirmed', 'preparing' => 'Preparing', 'out_for_delivery' => 'Out for Delivery', 'delivered' => 'Delivered', 'completed' => 'Completed', 'warehouse_pending' => 'Sent to warehouse', 'packing' => 'Packing', 'warehouse_issue' => 'Warehouse issue — admin action needed', 'ready_to_dispatch' => 'Ready for dispatch', 'cancelled' => 'Cancelled'];
 
     public function getStatusLabelAttribute(): string
     {
@@ -64,13 +64,14 @@ class Order extends Model
     public function getStatusOptionsAttribute(): array
     {
         $choices = match ($this->status) {
+            'transfer_pending' => ['warehouse_pending', 'cancelled'],
             'placed' => ['confirmed', 'warehouse_pending'],
             'confirmed' => ['preparing', 'warehouse_pending'],
             'preparing' => ['out_for_delivery', 'warehouse_pending'],
             'warehouse_pending' => ['warehouse_issue'],
             'packing' => ['warehouse_issue'],
             'warehouse_issue' => ['warehouse_pending'],
-            'ready_to_dispatch' => ['out_for_delivery', 'delivered', 'warehouse_pending'],
+            'ready_to_dispatch' => $this->fulfillment === 'pickup' ? ['completed', 'delivered', 'warehouse_pending'] : ['out_for_delivery', 'delivered', 'warehouse_pending'],
             'out_for_delivery' => ['delivered'],
             'delivered' => ['completed'],
             default => [],
@@ -85,9 +86,14 @@ class Order extends Model
     public function scopeVisibleToWarehouse($query, int $userId)
     {
         return $query->where(fn ($visible) => $visible
-            ->where(fn ($own) => $own->where('created_by', $userId)->where('status','completed'))
-            ->orWhere(fn ($parked) => $parked->where('source', 'website')
+            ->where(fn ($own) => $own->where('source','pos')->where('created_by', $userId))
+            ->orWhere(fn ($parked) => $parked->whereIn('source', ['website','pos'])
                 ->whereIn('status', ['warehouse_pending', 'packing', 'ready_to_dispatch'])));
+    }
+
+    public function getPaymentLabelAttribute(): string
+    {
+        return $this->payment_method === 'etransfer' ? 'E-transfer' : ($this->payment_method === 'cash' ? ($this->fulfillment === 'pickup' ? 'Cash on pick up' : 'Cash on delivery') : ucfirst($this->payment_method));
     }
 
     public function customer(){return $this->belongsTo(Customer::class);}

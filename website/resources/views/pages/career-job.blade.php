@@ -1,0 +1,7 @@
+@extends('layouts.mmc-page',['pageTitle'=>$job->title])
+@include('partials.content-styles')
+@section('page-content')
+<a class="mmc-text-link" href="{{ route('theme.careers') }}">← All careers</a>
+<div class="job-layout"><article class="job-panel"><span class="job-tag">{{ $job->department->title }}</span><h2>About the role</h2><p class="content-prose">{{ $job->description }}</p>@foreach(['responsibilities'=>'What you’ll do','skills'=>'What you’ll bring','benefits'=>'What we offer'] as $field=>$heading)@if($job->$field)<h2>{{ $heading }}</h2><ul>@foreach(preg_split('/\R/u',$job->$field) as $line)@if(trim($line)!=='')<li>{{ $line }}</li>@endif @endforeach</ul>@endif @endforeach</article>
+<aside class="job-panel job-apply"><h2>At a glance</h2><dl><dt>Department</dt><dd>{{ $job->department->title }}</dd><dt>Location</dt><dd>{{ $job->location }}</dd><dt>Employment</dt><dd>{{ $job->employment_type }}</dd>@if($job->salary)<dt>Compensation</dt><dd>{{ $job->salary }}</dd>@endif<dt>Applications close</dt><dd>{{ $job->closing_date?->format('F j, Y') ?? 'Open until filled' }}</dd></dl>@if($job->application_instructions)<p class="content-prose">{{ $job->application_instructions }}</p>@endif<a class="mmc-button" href="mailto:{{ $job->application_email }}?subject={{ rawurlencode('Application: '.$job->title) }}">Apply by email</a><p style="font-size:13px;margin-top:12px">{{ $job->application_email }}</p></aside></div>
+@endsection

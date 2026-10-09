@@ -9,6 +9,7 @@ class SmtpConfiguration {
   $settings=SmtpSetting::find(1);
   if(!$settings)return; // Preserve the environment mailer until an administrator saves settings.
   if(!$settings->enabled){config(['mail.default'=>'log']);return;}
+  if($settings->delivery_method==='resend'){config(['mail.default'=>'log']);return;} // API delivery is dispatched by OutgoingEmail.
   config(['mail.default'=>'configured_smtp','mail.from'=>['address'=>$settings->from_address,'name'=>$settings->from_name],
    'mail.mailers.configured_smtp'=>['transport'=>'smtp','scheme'=>$settings->encryption==='ssl'?'smtps':'smtp',
     'host'=>$settings->host,'port'=>$settings->port,'username'=>$settings->username,'password'=>$settings->password,

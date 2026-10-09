@@ -4,3 +4,10 @@
 #pos-app .btn:focus,#pos-app .btn:active:focus{box-shadow:0 0 0 3px #b28a4540!important}
 #pos-app button:focus-visible,#pos-app input:focus-visible,#pos-app select:focus-visible,#pos-app textarea:focus-visible{outline:2px solid #b28a45;outline-offset:2px}
 @media(max-width:600px){#pos-app .form-control{font-size:16px}.pos-line-actions button,.pos-line-actions input{height:40px;min-width:40px}.pos-panel-heading .pos-link{min-height:40px}}
+
+/* Customer stays above the working area; products and basket scroll independently. */
+.pos-customer-step{margin-bottom:18px}.pos-customer-body{padding:16px 20px;display:grid;grid-template-columns:minmax(180px,.7fr) minmax(240px,1fr);gap:12px}.pos-customer-body>label{margin:0;font-size:12px;font-weight:600}.pos-customer-actions,#pos-new-customer{grid-column:1/-1}.pos-customer-actions{display:flex;align-items:center;gap:16px;flex-wrap:wrap}.pos-customer-actions span{font-size:13px;color:#765b33}.pos-customer-body details{margin-top:12px}.pos-customer-body .pos-customer-grid label{display:block;font-size:12px}.pos-customer-body .pos-customer-grid input{margin-top:5px}.pos-results{max-height:42vh}.pos-result img,.pos-result .pos-image-empty{height:76px}#pos-lines{max-height:36vh}.pos-intro{margin-bottom:12px}.pos-panel-heading{padding:14px 18px}.pos-empty{padding:28px 12px}.pos-checkout-body #quote-lines{max-height:150px;overflow:auto}.pos-success-body #saved-order-link{display:inline-block}
+@media(min-width:1101px){.pos-results{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:700px){.pos-customer-body{grid-template-columns:1fr;padding:14px}.pos-customer-actions{align-items:stretch}.pos-customer-actions button{width:100%}.pos-results{max-height:350px}}
+
+@media(min-width:1101px){.pos-intro{display:none}.pos-customer-body{grid-template-columns:minmax(180px,.7fr) minmax(240px,1fr)}.pos-results{max-height:30vh}.pos-customer-step .pos-panel-heading{padding:10px 18px}.pos-customer-step .pos-panel-heading h2{font-size:21px}}

@@ -11,9 +11,11 @@ class PosCustomerAccountTest extends TestCase {
   $messages=[];Mail::shouldReceive('raw')->andReturnUsing(function($text,$callback)use(&$messages){$messages[]=$text;});
   $admin=User::factory()->create(['role_id'=>Role::where('is_super',true)->value('id'),'is_active'=>true]);$this->actingAs($admin);
   $p=Product::create(['category_id'=>1,'slug'=>'pos-account','premium_marketing_name'=>'Cake','qr_code'=>'PC1','is_active'=>true,'total_selling_price_cad'=>10]);
-  $quote=$this->postJson(route('admin.pos.quote'),['items'=>[['id'=>$p->id,'quantity'=>1]],'fulfillment'=>'pickup'])->assertOk()->json('quote');
-  $data=['quote'=>$quote,'first_name'=>'New','last_name'=>'Customer','email'=>'new@example.test','payment_method'=>'cash','payment_status'=>'paid'];
-  $this->postJson(route('admin.pos.store'),array_diff_key($data,['email'=>1]))->assertUnprocessable();
+  $customerData=['first_name'=>'New','last_name'=>'Customer','email'=>'new@example.test','phone'=>'555123','account_type'=>'individual'];
+  $this->postJson(route('admin.pos.customer'),array_diff_key($customerData,['email'=>1]))->assertUnprocessable();
+  $id=$this->postJson(route('admin.pos.customer'),$customerData)->assertOk()->json('customer.id');
+  $quote=$this->postJson(route('admin.pos.quote'),['customer_id'=>$id,'items'=>[['id'=>$p->id,'quantity'=>1]],'fulfillment'=>'pickup'])->assertOk()->json('quote');
+  $data=['quote'=>$quote,'customer_id'=>$id,'payment_method'=>'cash','payment_status'=>'paid'];
   $this->postJson(route('admin.pos.store'),$data)->assertOk();
   $u=User::where('email','new@example.test')->firstOrFail();$o=Order::firstOrFail();
   $this->assertEquals($u->customerRecord()->id,$o->customer_id);$this->assertEquals($admin->id,$o->created_by);$this->assertNull($u->email_verified_at);
@@ -31,7 +33,7 @@ class PosCustomerAccountTest extends TestCase {
   $this->actingAs($u->fresh())->get(route('customer.orders'))->assertOk()->assertSee($o->number);
   $this->get(route('customer.order',$o))->assertOk();
   $this->actingAs($admin);
-  $quote=$this->postJson(route('admin.pos.quote'),['items'=>[['id'=>$p->id,'quantity'=>1]],'fulfillment'=>'pickup'])->json('quote');
+  $quote=$this->postJson(route('admin.pos.quote'),['customer_id'=>$u->customerRecord()->id,'items'=>[['id'=>$p->id,'quantity'=>1]],'fulfillment'=>'pickup'])->json('quote');
   $this->postJson(route('admin.pos.store'),['quote'=>$quote,'customer_id'=>$u->customerRecord()->id,'email'=>'spoof@example.test','payment_method'=>'cash','payment_status'=>'paid'])->assertOk();
   $this->assertSame(2,$u->customerRecord()->orders()->count());
   $this->assertSame($u->email,Order::latest('id')->first()->email);
@@ -46,13 +48,12 @@ class PosCustomerAccountTest extends TestCase {
  public function test_pos_business_customer_requires_and_persists_business_details():void {
   Mail::fake();$admin=User::factory()->create(['role_id'=>Role::where('is_super',true)->value('id'),'is_active'=>true]);$this->actingAs($admin);
   $p=Product::create(['category_id'=>1,'slug'=>'business-pos','premium_marketing_name'=>'Business Cake','qr_code'=>'BIZ-POS','is_active'=>true,'total_selling_price_cad'=>10]);
-  $quote=$this->postJson(route('admin.pos.quote'),['items'=>[['id'=>$p->id,'quantity'=>1]],'fulfillment'=>'pickup'])->assertOk()->json('quote');
-  $data=['quote'=>$quote,'first_name'=>'Business','email'=>'pos-business@example.test','account_type'=>'business','payment_method'=>'cash','payment_status'=>'paid'];
-  $this->postJson(route('admin.pos.store'),$data)->assertUnprocessable()->assertJsonValidationErrors(['business_bin','business_name','business_phone','business_email']);
-  $this->assertDatabaseCount('orders',0);
+  $data=['first_name'=>'Business','email'=>'pos-business@example.test','phone'=>'555123','account_type'=>'business'];
+  $this->postJson(route('admin.pos.customer'),$data)->assertUnprocessable()->assertJsonValidationErrors(['business_bin','business_name','business_phone','business_email']);
   $fields=['business_bin'=>'BIN-POS','business_name'=>'POS Company','business_phone'=>'555123','business_email'=>'office@example.test'];
-  $this->postJson(route('admin.pos.store'),$data+$fields)->assertOk();
+  $id=$this->postJson(route('admin.pos.customer'),$data+$fields)->assertOk()->assertJsonPath('pending',true)->json('customer.id');
   $u=User::where('email',$data['email'])->firstOrFail();$this->assertDatabaseHas('customers',$fields+['user_id'=>$u->id]);
-  $this->assertSame($u->customerRecord()->id,Order::firstOrFail()->customer_id);
+  $this->postJson(route('admin.pos.quote'),['customer_id'=>$id,'items'=>[['id'=>$p->id,'quantity'=>1]],'fulfillment'=>'pickup'])->assertUnprocessable();
+  $this->assertDatabaseCount('orders',0);
  }
 }

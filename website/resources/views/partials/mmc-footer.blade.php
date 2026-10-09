@@ -29,6 +29,8 @@
                             <li><a href="{{ route('theme.about') }}">About Us</a></li>
                             <li><a href="{{ route('theme.product-grid') }}">Products</a></li>
                             <li><a href="{{ route('theme.contact') }}">Contact Us</a></li>
+<li><a href="{{ route('theme.policies') }}">Policies</a></li>
+<li><a href="{{ route('theme.careers') }}">Careers</a></li>
                           </ul>
                     </div>
                   </div>

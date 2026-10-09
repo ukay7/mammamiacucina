@@ -1,0 +1,14 @@
+
+body.mmc-admin,.mmc-admin .page-content{background:var(--theme-background);color:var(--theme-text)}
+.mmc-admin :is(.page-sidebar,.page-logo){background:var(--theme-header)}
+.mmc-admin :is(.page-header,.panel,.panel-content,.card,.modal-content,.form-control){background:var(--theme-surface);color:var(--theme-text)}
+.mmc-admin .page-footer{background:var(--theme-footer);color:var(--theme-nav_text)}
+.mmc-admin :is(h1,h2,h3,h4,.subheader-title,.mmc-admin-heading){color:var(--theme-heading)}
+.mmc-admin .page-content a:not(.btn){color:var(--theme-link)}
+.mmc-admin :is(.page-logo-link,.mmc-sidebar-profile,.mmc-sidebar-profile span,.nav-menu li a,.mmc-admin-submenu summary){color:var(--theme-nav_text)}
+.mmc-admin :is(.nav-title,.nav-menu li a i,.mmc-admin-submenu summary i){color:var(--theme-accent)}
+.mmc-admin .btn-primary,.mmc-admin .nav-menu li.active>a{background:var(--theme-primary);border-color:var(--theme-primary);color:var(--theme-button_text)}
+.mmc-admin .btn-primary:hover,.mmc-admin .nav-menu li a:hover{background:var(--theme-hover);border-color:var(--theme-hover);color:var(--theme-button_text)}
+.mmc-admin .btn-outline-primary{color:var(--theme-primary);border-color:var(--theme-accent)}
+.mmc-admin .btn-outline-primary:hover{background:var(--theme-primary);color:var(--theme-button_text)}
+.mmc-admin :is(.panel,.form-control,.page-header,.page-footer){border-color:var(--theme-accent)}

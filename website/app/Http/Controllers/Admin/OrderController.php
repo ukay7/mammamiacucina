@@ -56,10 +56,46 @@ class OrderController extends Controller
         return back()->with('status', 'Order updated. Review the new total and any balance or refund due before sending it back to warehouse.');
     }
 
+    public function payments(Order $order)
+    {
+        $order->load(['payment', 'settlements.author']);
+        return view('admin.orders.payments', compact('order'));
+    }
+
+    public function paymentReceipt(Order $order, \App\Models\OrderSettlement $settlement)
+    {
+        abort_unless((int) $settlement->order_id === (int) $order->id && $settlement->receipt_path, 404);
+        $disk = \Illuminate\Support\Facades\Storage::disk('local');
+        abort_unless($disk->exists($settlement->receipt_path), 404);
+        return response()->file($disk->path($settlement->receipt_path), [
+            'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff',
+            'Content-Security-Policy' => "default-src 'none'; sandbox",
+        ])->setPrivate();
+    }
+
     public function settlement(Request $r, Order $order, OrderAmendment $service)
     {
-        $data = $r->validate(['revision' => 'required|integer|min:0', 'direction' => 'required|in:collect,refund', 'method' => 'required|in:cash,card,paypal', 'amount' => ['required', 'regex:/^\d{1,7}(\.\d{1,2})?$/'], 'reference' => 'nullable|required_unless:method,cash|string|max:255', 'note' => 'required|string|max:1000', 'received' => 'accepted']);
-        $service->settle($order, $data, $r->user()->id);
+        $data = $r->validate(['revision' => 'required|integer|min:0', 'direction' => 'required|in:collect,refund', 'method' => 'required|in:cash,card,paypal,etransfer', 'amount' => ['required', 'regex:/^\d{1,7}(\.\d{1,2})?$/'], 'reference' => 'nullable|required_unless:method,cash|string|max:255', 'note' => 'required|string|max:1000', 'received' => 'accepted', 'receipt' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120']);
+        $path = $r->hasFile('receipt') ? $r->file('receipt')->store('order-payment-receipts', 'local') : null;
+        if ($r->hasFile('receipt') && !$path) {
+            throw ValidationException::withMessages(['receipt'=>'Unable to save the payment receipt. Please try again.']);
+        }
+        // Keep each verified entry's evidence when the customer replaces their pending receipt.
+        if (!$path && $data['direction'] === 'collect' && $data['method'] === 'etransfer' && $order->transfer_receipt_path) {
+            $disk = \Illuminate\Support\Facades\Storage::disk('local');
+            $path = 'order-payment-receipts/'.\Illuminate\Support\Str::uuid().'.'.pathinfo($order->transfer_receipt_path, PATHINFO_EXTENSION);
+            if (!$disk->exists($order->transfer_receipt_path) || !$disk->copy($order->transfer_receipt_path, $path)) {
+                throw ValidationException::withMessages(['receipt'=>'The order receipt is unavailable. Attach a receipt to this payment entry.']);
+            }
+        }
+
+        try {
+            $data['receipt_path'] = $path;
+            $service->settle($order, $data, $r->user()->id);
+        } catch (\Throwable $e) {
+            if ($path) \Illuminate\Support\Facades\Storage::disk('local')->delete($path);
+            throw $e;
+        }
 
         return back()->with('status', 'Actual collection/refund recorded. No gateway charge was initiated.');
     }
@@ -76,7 +112,7 @@ class OrderController extends Controller
         $warehouseOnly = $this->warehouseOnly();
         $completed = $r->routeIs('admin.orders.completed') || ($r->routeIs('admin.orders.export') && $r->input('view')==='completed');
         $r->validate(['status' => 'nullable|in:'.implode(',', array_keys(Order::STATUSES))]);
-        $orders = Order::with(['payment', 'settlements', 'creator'])->where('status', $completed ? '=' : '!=', 'completed')->when($warehouseOnly, fn ($q) => $completed ? $q->where('created_by',$r->user()->id) : $q->where('source','website')->whereIn('status',['warehouse_pending','packing','ready_to_dispatch']))->when($r->filled('status'), fn ($q) => $q->where('status', $r->input('status')))->where('created_at', '>=', $from.' 00:00:00')->where('created_at', '<', Carbon::parse($to)->addDay()->startOfDay())->when($search, fn ($q) => $q->where(fn ($q) => $q->where('number', 'like', '%'.$search.'%')->orWhere('email', 'like', '%'.$search.'%')->orWhere('first_name', 'like', '%'.$search.'%')->orWhere('last_name', 'like', '%'.$search.'%')));
+        $orders = Order::with(['payment', 'settlements', 'creator'])->where('status', $completed ? '=' : '!=', 'completed')->when($warehouseOnly, fn ($q) => $completed ? $q->where('created_by',$r->user()->id) : $q->visibleToWarehouse($r->user()->id))->when($r->filled('status'), fn ($q) => $q->where('status', $r->input('status')))->where('created_at', '>=', $from.' 00:00:00')->where('created_at', '<', Carbon::parse($to)->addDay()->startOfDay())->when($search, fn ($q) => $q->where(fn ($q) => $q->where('number', 'like', '%'.$search.'%')->orWhere('email', 'like', '%'.$search.'%')->orWhere('first_name', 'like', '%'.$search.'%')->orWhere('last_name', 'like', '%'.$search.'%')));
         $r->validate(['per_page' => 'sometimes|in:10,20,50,100', 'sort' => 'sometimes|in:date,number,customer,creator,status', 'direction' => 'sometimes|in:asc,desc']);
         $sort = $r->input('sort', 'date');
         $direction = $r->input('direction', 'desc');
@@ -187,7 +223,7 @@ class OrderController extends Controller
         $this->readable($order);
         $order->load(['items.product', 'events.author', 'payment', 'settlements']);
         if ($this->warehouseOnly()) {
-            return view($order->source === 'pos' ? 'admin.orders.own-sale' : 'admin.orders.warehouse', compact('order'));
+            return view($order->source === 'pos' && !in_array($order->status,['warehouse_pending','packing','ready_to_dispatch']) ? 'admin.orders.own-sale' : 'admin.orders.warehouse', compact('order'));
         }
 
         return view('admin.orders.show', compact('order'));

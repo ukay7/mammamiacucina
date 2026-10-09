@@ -16,6 +16,11 @@ use Illuminate\Support\Facades\Route;
 
 require __DIR__.'/customer.php';
 require __DIR__.'/admin.php';
+Route::middleware('auth')->group(function () {
+    Route::get('/orders/{order}/transfer-receipt', [\App\Http\Controllers\TransferReceiptController::class, 'show'])->name('orders.transfer-receipt');
+    Route::post('/orders/{order}/transfer-receipt', [\App\Http\Controllers\TransferReceiptController::class, 'store'])->middleware('throttle:10,1')->name('orders.transfer-receipt.store');
+    Route::post('/orders/{order}/verify-transfer', [\App\Http\Controllers\TransferReceiptController::class, 'verify'])->middleware('throttle:10,1')->name('orders.transfer.verify');
+});
 Route::get('/catalogue', [\App\Http\Controllers\CatalogueBookController::class,'show'])->name('theme.catalogue');
 Route::get('/catalogue/reader', [\App\Http\Controllers\CatalogueBookController::class,'reader'])->name('catalogue.reader');
 Route::get('/catalogue/pages/{page}/image', [\App\Http\Controllers\CatalogueBookController::class,'image'])->name('catalogue.image');
@@ -105,3 +110,8 @@ Route::get('/app', function () {
 })->name('pwa.start');
 
 Route::get('/home-section/{section}/image',[\App\Http\Controllers\Admin\HomeSectionController::class,'image'])->name('home-section.image');
+
+Route::get('/policies',[\App\Http\Controllers\ContentPageController::class,'policies'])->name('theme.policies');
+Route::get('/careers',[\App\Http\Controllers\ContentPageController::class,'careers'])->name('theme.careers');
+Route::get('/careers/jobs/{id}',[\App\Http\Controllers\ContentPageController::class,'job'])->name('careers.job');
+Route::get('/career-departments/{department}/image',[\App\Http\Controllers\ContentPageController::class,'image'])->name('careers.image');

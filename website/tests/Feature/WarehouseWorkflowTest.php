@@ -208,8 +208,9 @@ class WarehouseWorkflowTest extends TestCase
         $worker->role->update(['permissions' => ['dashboard.view', 'warehouse.pack', 'pos.manage']]);
         $worker->unsetRelation('role');
         $this->actingAs($worker);
-        $quote = $this->postJson(route('admin.pos.quote'), ['items' => [['id' => $product->id, 'quantity' => 1]], 'fulfillment' => 'pickup'])->assertOk()->json('quote');
-        $this->postJson(route('admin.pos.store'), ['first_name'=>'POS Customer','email'=>'warehouse-pos@example.test','quote' => $quote, 'payment_method' => 'cash', 'payment_status' => 'paid'])->assertOk();
+        $customer=User::factory()->create(['account_type'=>'individual','is_active'=>true])->customerRecord();
+        $quote = $this->postJson(route('admin.pos.quote'), ['customer_id'=>$customer->id,'items' => [['id' => $product->id, 'quantity' => 1]], 'fulfillment' => 'pickup'])->assertOk()->json('quote');
+        $this->postJson(route('admin.pos.store'), ['customer_id'=>$customer->id,'first_name'=>'POS Customer','email'=>'warehouse-pos@example.test','quote' => $quote, 'payment_method' => 'cash', 'payment_status' => 'paid'])->assertOk();
         $own = Order::where('created_by', $worker->id)->firstOrFail();
         $other = $own->replicate(['number', 'checkout_token', 'tracking_token']);
         $other->number = 'OTHER-POS';
@@ -352,5 +353,75 @@ class WarehouseWorkflowTest extends TestCase
         $this->assertFalse((bool)$other->fresh()->packed);
         $this->assertNull($other->fresh()->packed_by);
         $this->assertNull($other->fresh()->packed_at);
+    }
+
+    public function test_payment_ledger_receipts_partial_collection_refund_and_access(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('local');
+        [$o, $p, $admin, $worker] = $this->fixture();
+        $this->get(route('admin.orders.payments', $o))->assertOk()->assertSee('No verified payments recorded');
+        $receipt = fn () => \Illuminate\Http\UploadedFile::fake()->createWithContent('receipt.png', base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1ioAAAAASUVORK5CYII='));
+        $data = ['revision'=>0,'direction'=>'collect','method'=>'card','reference'=>'TERMINAL-123','amount'=>'25','note'=>'Terminal payment received','received'=>1];
+        $this->post(route('admin.orders.settlement',$o), $data+['receipt'=>$receipt()])->assertSessionHasNoErrors();
+        $entry = $o->settlements()->firstOrFail();
+        $this->assertEquals(2500,$entry->amount_cents);
+        \Illuminate\Support\Facades\Storage::disk('local')->assertExists($entry->receipt_path);
+        $url=route('admin.orders.payment-receipt',[$o,$entry]);
+        $this->get($url)->assertOk()->assertHeader('X-Content-Type-Options','nosniff');
+        $this->get(route('admin.orders.payments',$o))->assertOk()->assertSee('TERMINAL-123')->assertSee('+$25.00');
+        $this->post(route('admin.orders.settlement',$o),$data+['receipt'=>$receipt()])->assertSessionHasErrors('order');
+        $this->assertCount(1,\Illuminate\Support\Facades\Storage::disk('local')->allFiles('order-payment-receipts'));
+        $this->amend($o)->assertSessionHasNoErrors();
+        $this->assertEquals(-1500,$o->fresh()->balance_cents);
+        $this->get(route('admin.orders.payments',$o))->assertOk()->assertSee('Refund due')->assertSee('$15.00');
+        $this->post(route('admin.orders.settlement',$o),['revision'=>$o->fresh()->revision,'direction'=>'refund','method'=>'card','reference'=>'REFUND-123','amount'=>'15','note'=>'Terminal refund completed','received'=>1,'receipt'=>$receipt()])->assertSessionHasNoErrors();
+        $this->assertEquals(0,$o->fresh()->balance_cents);
+        $this->assertEquals(1000,$o->fresh()->net_received_cents);
+        $this->get(route('admin.orders.payments',$o))->assertOk()->assertSee('−$15.00');
+        $other=$o->replicate();$other->number='OTHER-PAYMENT';$other->checkout_token=(string) \Illuminate\Support\Str::uuid();$other->tracking_token=\Illuminate\Support\Str::random(48);$other->save();
+        $this->get(route('admin.orders.payment-receipt',[$other,$entry]))->assertNotFound();
+        $this->actingAs($worker)->get($url)->assertForbidden();
+        $this->get(route('admin.orders.payments',$o))->assertForbidden();
+    }
+
+    public function test_etransfer_ledger_partial_full_collection_and_refund_after_quantity_reduction(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('local');
+        [$o,$p,$admin,$worker]=$this->fixture();
+        $o->update(['payment_method'=>'etransfer','status'=>'transfer_pending']);
+        $receipt=fn()=>\Illuminate\Http\UploadedFile::fake()->createWithContent('transfer.png',base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1ioAAAAASUVORK5CYII='));
+        $this->get(route('admin.orders.payments',$o))->assertOk()->assertSee('Record a payment')->assertSee('Partial payments remain pending');
+        $data=['revision'=>0,'direction'=>'collect','method'=>'etransfer','reference'=>'BANK-1','amount'=>'10','note'=>'Bank deposit verified','received'=>1];
+        $this->post(route('admin.orders.settlement',$o),$data)->assertSessionHasErrors('order');
+        $this->actingAs($worker)->post(route('admin.orders.settlement',$o),$data)->assertForbidden();
+        $this->actingAs($admin)->post(route('admin.orders.settlement',$o),$data+['receipt'=>$receipt()])->assertSessionHasNoErrors();
+        $this->assertEquals(1000,$o->fresh()->net_received_cents);
+        $this->assertEquals(1500,$o->fresh()->balance_cents);
+        $this->assertSame('unpaid',$o->fresh()->payment_status);
+        $this->assertSame('transfer_pending',$o->fresh()->status);
+        $this->post(route('admin.orders.settlement',$o),$data+['receipt'=>$receipt()])->assertSessionHasErrors('order');
+        $originalPath=$receipt()->store('transfer-receipts','local');
+        $o->update(['transfer_receipt_path'=>$originalPath]);
+        $data=array_replace($data,['revision'=>$o->fresh()->revision,'reference'=>'BANK-2','amount'=>'15']);
+        $this->post(route('admin.orders.settlement',$o),$data)->assertSessionHasNoErrors();
+        $savedReceipt=$o->settlements()->latest('id')->first()->receipt_path;
+        $this->assertNotEquals($originalPath,$savedReceipt);
+        $this->assertSame(\Illuminate\Support\Facades\Storage::disk('local')->get($originalPath),\Illuminate\Support\Facades\Storage::disk('local')->get($savedReceipt));
+        $this->assertEquals(2500,$o->fresh()->net_received_cents);
+        $this->assertEquals(0,$o->fresh()->balance_cents);
+        $this->assertSame('paid',$o->fresh()->payment_status);
+        $this->assertSame('warehouse_pending',$o->fresh()->status);
+        $this->assertEquals(1,$o->fresh()->warehouse_round);
+        $this->amend($o)->assertSessionHasNoErrors();
+        $this->assertEquals(-1500,$o->fresh()->balance_cents);
+        $this->get(route('admin.orders.payments',$o))->assertOk()->assertSee('Record a refund')->assertSee('Refund due');
+        $refund=array_replace($data,['revision'=>$o->fresh()->revision,'direction'=>'refund','reference'=>'BANK-REFUND','amount'=>'16']);
+        $this->post(route('admin.orders.settlement',$o),$refund)->assertSessionHasErrors('order');
+        $refund['amount']='15';
+        $this->post(route('admin.orders.settlement',$o),$refund+['receipt'=>$receipt()])->assertSessionHasNoErrors();
+        $this->assertEquals(1000,$o->fresh()->net_received_cents);
+        $this->assertEquals(0,$o->fresh()->balance_cents);
+        $this->assertEquals([1000,1500,-1500],$o->settlements()->orderBy('id')->pluck('amount_cents')->all());
+        $this->get(route('admin.orders.payments',$o))->assertOk()->assertSee('−$15.00');
     }
 }

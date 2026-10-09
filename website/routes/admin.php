@@ -24,6 +24,16 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::get('/login', [AuthController::class, 'create'])->name('login');
     Route::post('/login', [AuthController::class, 'store'])->middleware('throttle:10,1')->name('login.store');
     Route::middleware(['auth', 'auth.session', AdminAccess::class])->group(function () {
+        Route::middleware(AdminAccess::class.':settings.manage')->prefix('content/{kind}')->where(['kind'=>'policies|departments|jobs'])->name('content.')->group(function(){
+            Route::get('/',[\App\Http\Controllers\Admin\ContentController::class,'index'])->name('index');
+            Route::put('/page-settings',[\App\Http\Controllers\Admin\ContentController::class,'page'])->name('page');
+            Route::get('/create',[\App\Http\Controllers\Admin\ContentController::class,'create'])->name('create');
+            Route::post('/',[\App\Http\Controllers\Admin\ContentController::class,'store'])->name('store');
+            Route::get('/{id}/edit',[\App\Http\Controllers\Admin\ContentController::class,'edit'])->name('edit');
+            Route::put('/{id}',[\App\Http\Controllers\Admin\ContentController::class,'update'])->name('update');
+            Route::delete('/{id}',[\App\Http\Controllers\Admin\ContentController::class,'destroy'])->name('destroy');
+        });
+
 Route::middleware(AdminAccess::class.':catalogue.manage')->group(function(){
 Route::get('/catalogue/{page}/preview',[\App\Http\Controllers\CatalogueBookController::class,'preview'])->name('catalogue.preview');
 Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class)->except('show')->parameters(['catalogue'=>'page']);
@@ -39,6 +49,10 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         });
         Route::middleware(AdminAccess::class.':pos.manage')->prefix('pos')->name('pos.')->group(function () {
             Route::get('/', [PosController::class, 'index'])->name('index');
+            Route::post('/customers', [PosController::class, 'customer'])->middleware('throttle:20,1')->name('customer');
+            Route::get('/orders', [PosController::class, 'orders'])->name('orders');
+            Route::post('/orders/{order}/handover', [PosController::class, 'handover'])->name('handover');
+            Route::get('/orders/{order}', [PosController::class, 'order'])->name('order');
             Route::get('/products', [PosController::class, 'products'])->name('products');
             Route::get('/media/{product}/{media}', [ProductController::class, 'media'])->name('media');
             Route::post('/delivery-options', [\App\Http\Controllers\DeliveryQuoteController::class, 'options'])->name('delivery-options');
@@ -100,10 +114,14 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
             Route::put('/settings/email', [\App\Http\Controllers\Admin\SmtpSettingController::class, 'update'])->name('email.update');
             Route::post('/settings/email/test', [\App\Http\Controllers\Admin\SmtpSettingController::class, 'test'])->middleware('throttle:5,1')->name('email.test');
         });
+        Route::get('/settings/theme', [\App\Http\Controllers\Admin\ThemeSettingController::class,'edit'])->middleware(AdminAccess::class.':settings.manage')->name('theme.edit');
+        Route::put('/settings/theme', [\App\Http\Controllers\Admin\ThemeSettingController::class,'update'])->middleware(AdminAccess::class.':settings.manage')->name('theme.update');
         Route::get('/settings/general', [GeneralSettingController::class, 'edit'])->middleware(AdminAccess::class.':settings.manage')->name('settings.general');
         Route::put('/settings/general', [GeneralSettingController::class, 'update'])->middleware(AdminAccess::class.':settings.manage')->name('settings.update');
         Route::post('/orders/{order}/packing', [OrderController::class,'packing'])->middleware(AdminAccess::class.':warehouse.pack')->name('orders.packing');
         Route::post('/orders/{order}/amend', [OrderController::class,'amend'])->middleware(AdminAccess::class.':orders.manage')->name('orders.amend');
+        Route::get('/orders/{order}/payments', [OrderController::class,'payments'])->middleware(AdminAccess::class.':orders.view|orders.manage')->name('orders.payments');
+        Route::get('/orders/{order}/payments/{settlement}/receipt', [OrderController::class,'paymentReceipt'])->middleware(AdminAccess::class.':orders.view|orders.manage')->name('orders.payment-receipt');
         Route::post('/orders/{order}/settlement', [OrderController::class,'settlement'])->middleware(AdminAccess::class.':orders.manage')->name('orders.settlement');
         Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus'])->middleware(AdminAccess::class.':orders.manage')->name('orders.status');
         Route::patch('/orders/{order}', [OrderController::class, 'update'])->middleware(AdminAccess::class.':orders.manage')->name('orders.update');

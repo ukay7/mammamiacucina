@@ -8,7 +8,6 @@ use App\Models\InventoryMovement;
 use App\Models\Order;
 use App\Models\Product;
 use App\Services\OnlinePayments;
-use App\Services\PaymentGateway;
 use App\Services\StorefrontCart;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -35,7 +34,7 @@ class CheckoutController extends Controller
         }
         $settings = GeneralSetting::findOrFail(1);
         $charges = ['delivery' => $settings->delivery_cents, 'tax' => $settings->taxFor($cart['total']), 'rate' => $settings->tax_basis_points];
-        session(['checkout_charges' => ['delivery' => $settings->delivery_cents, 'rate' => $settings->tax_basis_points, 'matrix' => (bool) $settings->matrix_delivery_enabled]]);
+        session(['checkout_charges' => ['delivery' => $settings->delivery_cents, 'rate' => $settings->tax_basis_points, 'matrix' => (bool) $settings->matrix_delivery_enabled, 'pickup_address' => $settings->pickup_address]]);
         $token = (string) Str::uuid();
         session(['checkout_token' => $token, 'checkout_quote' => $quote]);
 
@@ -45,12 +44,13 @@ class CheckoutController extends Controller
     public function store(Request $r)
     {
 
-        $d = $r->validate(['delivery_service'=>'nullable|string|max:20','checkout_token' => 'required|uuid', 'first_name' => 'required|string|max:100', 'last_name' => 'required|string|max:100', 'email' => 'required|email|max:255', 'phone' => 'required|string|max:40', 'address' => 'required|string|max:255', 'city' => 'required|string|max:100', 'province' => 'required|string|max:100', 'postal_code' => 'required|string|max:30', 'country' => 'required|string|max:100', 'notes' => 'nullable|string|max:2000', 'payment_method' => 'sometimes|required|in:cash,card,paypal']);
+        $r->merge(['fulfillment' => $r->input('fulfillment', 'delivery')]);
+        $d = $r->validate(['fulfillment'=>'required|in:pickup,delivery','delivery_service'=>'nullable|string|max:20','checkout_token' => 'required|uuid', 'first_name' => 'required|string|max:100', 'last_name' => 'required|string|max:100', 'email' => 'required|email|max:255', 'phone' => 'required|string|max:40', 'address' => 'required_if:fulfillment,delivery|nullable|string|max:255', 'city' => 'required_if:fulfillment,delivery|nullable|string|max:100', 'province' => 'required_if:fulfillment,delivery|nullable|string|max:100', 'postal_code' => 'required_if:fulfillment,delivery|nullable|string|max:30', 'country' => 'required_if:fulfillment,delivery|nullable|string|max:100', 'notes' => 'nullable|string|max:2000', 'payment_method' => 'sometimes|required|in:cash,etransfer']);
         $d['email'] = $r->user()->email;
         $method = $d['payment_method'] ?? 'cash';
         $d['payment_method'] = $method;
-        if ($method !== 'cash' && ! app(PaymentGateway::class)->ready($method === 'card' ? 'stripe' : 'paypal')) {
-            throw ValidationException::withMessages(['payment_method' => 'This payment option is temporarily unavailable. Please select another option.']);
+        foreach (['address','city','province','postal_code','country'] as $field) {
+            $d[$field] = $d['fulfillment'] === 'pickup' ? '' : ($d[$field] ?? '');
         }
         // A successful retry returns the same order; the token must belong to this session.
         if (session('last_order_token') === $d['checkout_token']) {
@@ -75,11 +75,15 @@ class CheckoutController extends Controller
                 return $existing;
             }
 
-            if (session('checkout_charges') !== ['delivery' => $settings->delivery_cents, 'rate' => $settings->tax_basis_points, 'matrix' => (bool) $settings->matrix_delivery_enabled]) {
-                throw ValidationException::withMessages(['cart' => 'Delivery or tax has changed. Open checkout from your cart again to review the new total.']);
+            if (session('checkout_charges') !== ['delivery' => $settings->delivery_cents, 'rate' => $settings->tax_basis_points, 'matrix' => (bool) $settings->matrix_delivery_enabled, 'pickup_address' => $settings->pickup_address]) {
+                throw ValidationException::withMessages(['cart' => 'Delivery, pickup details or tax have changed. Open checkout from your cart again to review the new total.']);
+            }
+            if ($d['fulfillment'] === 'pickup') {
+                if (!trim($settings->pickup_address ?? '')) throw ValidationException::withMessages(['fulfillment'=>'Pickup is not available until the store address is configured. Please select delivery.']);
+                $d['pickup_address'] = $settings->pickup_address;
             }
             $deliverySnapshot=[];
-            if($settings->matrix_delivery_enabled){
+            if($d['fulfillment'] === 'delivery' && $settings->matrix_delivery_enabled){
                 if(!in_array(strtolower(trim($d['country'])),['canada','ca']))throw ValidationException::withMessages(['country'=>'Delivery is available only within supported Canadian postal areas.']);
                 $deliverySnapshot=app(\App\Services\DeliveryQuote::class)->quote($settings->warehouse_postal_code??'',$d['postal_code'],$d['delivery_service']??'');
                 $expected=$deliverySnapshot+['postal_code'=>\App\Services\DeliveryQuote::postal($d['postal_code'])];
@@ -109,9 +113,9 @@ class CheckoutController extends Controller
                 $lines[] = [$p, $qty, $price, $inventory];
                 $subtotal += $price * $qty;
             }
-            $order = Order::create(array_merge($d, ['customer_id' => auth()->user()->customerRecord()->id, 'created_by' => auth()->id(), 'source' => 'website', 'number' => 'MMC-'.strtoupper((string) Str::ulid()), 'subtotal_cents' => $subtotal, 'delivery_cents' => ($deliverySnapshot['delivery_cents']??$settings->delivery_cents), 'tax_cents' => $settings->taxFor($subtotal), 'tax_basis_points'=>$settings->tax_basis_points, 'payment_method' => $d['payment_method'], 'payment_status' => $d['payment_method'] === 'cash' ? 'unpaid' : 'pending', 'status' => $d['payment_method'] === 'cash' ? 'warehouse_pending' : 'awaiting_payment', 'warehouse_round' => $d['payment_method'] === 'cash' ? 1 : 0, 'warehouse_sent_at' => $d['payment_method'] === 'cash' ? now() : null]));
+            $order = Order::create(array_merge($d, ['customer_id' => auth()->user()->customerRecord()->id, 'created_by' => auth()->id(), 'source' => 'website', 'number' => 'MMC-'.strtoupper((string) Str::ulid()), 'subtotal_cents' => $subtotal, 'delivery_cents' => ($d['fulfillment'] === 'pickup' ? 0 : ($deliverySnapshot['delivery_cents']??$settings->delivery_cents)), 'tax_cents' => $settings->taxFor($subtotal), 'tax_basis_points'=>$settings->tax_basis_points, 'payment_method' => $d['payment_method'], 'payment_status' => 'unpaid', 'status' => $d['payment_method'] === 'cash' ? 'warehouse_pending' : 'transfer_pending', 'warehouse_round' => $d['payment_method'] === 'cash' ? 1 : 0, 'warehouse_sent_at' => $d['payment_method'] === 'cash' ? now() : null]));
             if($deliverySnapshot) $order->update($deliverySnapshot);
-            auth()->user()->customerRecord()->update(\Illuminate\Support\Arr::only($d,['address','city','province','postal_code','country']));
+            if ($d['fulfillment'] === 'delivery') auth()->user()->customerRecord()->update(\Illuminate\Support\Arr::only($d,['address','city','province','postal_code','country']));
             // The database-generated ID avoids collisions between simultaneous orders.
             $order->update(['number' => 'mmc-'.$order->id]);
             foreach ($lines as [$p,$qty,$price,$inventory]) {
@@ -124,7 +128,7 @@ class CheckoutController extends Controller
                 }
             }
 
-            if ($order->payment_method !== 'cash') {
+            if (in_array($order->payment_method, ['card', 'paypal'], true)) {
                 app(OnlinePayments::class)->initialize($order);
             }
 

@@ -48,7 +48,7 @@ class CustomerNumberingAndSearchTest extends TestCase {
   foreach(['CODE-AB12','00998877','#'.$p->id] as $q){
    $this->get('/admin/products?'.http_build_query(['q'=>$q]))->assertOk()->assertSee('Search Cake')->assertDontSee('Other Cake');
    $this->get('/admin/inventory?'.http_build_query(['q'=>$q]))->assertOk()->assertSee('Search Cake')->assertDontSee('Other Cake');
-   $this->getJson(route('admin.pos.products',['q'=>$q]))->assertOk()->assertJsonPath('products.0.id',$p->id)->assertJsonCount(1,'products');
+   $this->getJson(route('admin.pos.products',['customer_id'=>User::factory()->create(['account_type'=>'individual','is_active'=>true])->customerRecord()->id,'q'=>$q]))->assertOk()->assertJsonPath('products.0.id',$p->id)->assertJsonCount(1,'products');
   }
  }
 }

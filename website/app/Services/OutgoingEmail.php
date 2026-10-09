@@ -24,6 +24,13 @@ class OutgoingEmail {
   try {
    $message=new \Illuminate\Mail\Message(new \Symfony\Component\Mime\Email());$callback($message);
    $entry=EmailHistory::create(['recipient'=>implode(', ',array_map(fn($a)=>$a->getAddress(),$message->getSymfonyMessage()->getTo())), 'subject'=>$message->getSymfonyMessage()->getSubject(),'type'=>$type,'status'=>'pending']);
+   $settings=\App\Models\SmtpSetting::find(1);
+   if($settings?->enabled && $settings->delivery_method==='resend'){
+    $entry->update(['mailer'=>'resend_api']);
+    $id=app(ResendEmail::class)->send($settings,$message->getSymfonyMessage(),$body);
+    $entry->update(['status'=>'accepted','sent_at'=>now(),'message_id'=>$id]);
+    return $entry;
+   }
    $manager=Mail::getFacadeRoot();
    $selected=$mailer ?? config('mail.default');
    $entry->update(['mailer'=>$selected]);

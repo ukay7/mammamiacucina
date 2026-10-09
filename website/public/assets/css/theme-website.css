@@ -1,0 +1,23 @@
+
+body.mmc-home{background:var(--theme-background);color:var(--theme-text)}
+.mmc-home .mmc-masthead,.mmc-inner-header,.mmc-home .mmc-menu.is-open{background:var(--theme-header)!important}
+.mmc-home:not(.mmc-inner) .mmc-masthead::before{background:var(--theme-header)!important;box-shadow:0 0 0 100vmax var(--theme-header)!important}
+.mmc-home .mmc-menu a,.mmc-home .mmc-menu-toggle{color:var(--theme-nav_text);text-shadow:none}
+.mmc-home .mmc-menu-toggle{background:var(--theme-header)}
+.mmc-home .ps-footer{background:var(--theme-footer)!important;color:var(--theme-nav_text)}
+.mmc-home .ps-footer :is(p,a,li,span){color:var(--theme-nav_text)}
+.mmc-home :is(.mmc-panel,.mmc-product-card,.mmc-gallery-card,.mmc-detail-image,.mmc-shop-sidebar,.mmc-callout,.mmc-categories,.mmc-new-arrivals,.mmc-about-video){background:var(--theme-surface);color:var(--theme-text)}
+.mmc-home :is(.mmc-page-content,.mmc-about-video) :is(p,li,label){color:var(--theme-text)}
+.mmc-home :is(.mmc-page-content,.mmc-categories,.mmc-new-arrivals,.mmc-about-video) :is(h1,h2,h3,h4){color:var(--theme-heading)}
+.mmc-home .mmc-page-content a:not(.mmc-button){color:var(--theme-link)}
+.mmc-home :is(.mmc-button,.mmc-menu-cta,#back2top){background:var(--theme-primary)!important;color:var(--theme-button_text)!important;border-color:var(--theme-accent)}
+.mmc-home :is(.mmc-button,.mmc-menu-cta,#back2top):hover{background:var(--theme-hover)!important}
+.mmc-home :is(.mmc-eyebrow,.mmc-gold-rule,.mmc-heart-rule,.mmc-flourish,.mmc-price),.mmc-home .ps-footer h4{color:var(--theme-accent)!important}
+.mmc-home :is(.mmc-panel,.mmc-product-card,.mmc-gallery-card,.mmc-callout,.mmc-about-values){border-color:var(--theme-accent)}
+@media(max-width:900px){.mmc-home .mmc-menu{background:var(--theme-header)!important}}
+
+.mmc-home :is(.mmc-arrivals,.mmc-tradition,.mmc-baking){background-color:var(--theme-surface);color:var(--theme-text)}
+.mmc-home :is(.mmc-arrivals,.mmc-tradition__copy,.mmc-baking__copy) :is(h2,h3){color:var(--theme-heading)}
+.mmc-home :is(.mmc-tradition__description,.mmc-baking__features p){color:var(--theme-text)}
+.mmc-home :is(.mmc-tradition__eyebrow,.mmc-baking__heading>p,.mmc-arrivals__eyebrow){color:var(--theme-accent)}
+.mmc-home :is(.mmc-menu a:hover,.mmc-track-order,.mmc-account-link){color:var(--theme-accent)}

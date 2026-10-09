@@ -16,7 +16,7 @@ class PaymentReportController extends Controller
     private function query(Request $request): array
     {
         $data = $request->validate(['from' => 'nullable|date_format:Y-m-d', 'to' => 'nullable|date_format:Y-m-d',
-            'method' => 'nullable|in:cash,card,paypal', 'source' => 'nullable|in:website,pos',
+            'method' => 'nullable|in:cash,card,paypal,etransfer', 'source' => 'nullable|in:website,pos',
             'payment_status' => 'nullable|in:unpaid,pending,paid,partially_refunded,refunded', 'sandbox' => 'nullable|boolean']);
         $from = $data['from'] ?? now()->startOfMonth()->toDateString();
         $to = $data['to'] ?? now()->endOfMonth()->toDateString();
@@ -40,7 +40,7 @@ class PaymentReportController extends Controller
     {
         [$query,$from,$to] = $this->query($request);
         $summary = [];
-        foreach (['cash', 'card', 'paypal'] as $method) {
+        foreach (['cash', 'card', 'paypal', 'etransfer'] as $method) {
             $summary[$method] = ['count' => 0, 'gross' => 0, 'refunded' => 0, 'pending' => 0];
         }
         foreach ((clone $query)->lazyById(500) as $order) {

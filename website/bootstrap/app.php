@@ -15,5 +15,5 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectGuestsTo(fn () => route('admin.login'));
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        $exceptions->dontFlash(['credentials']); //
+        $exceptions->dontFlash(['credentials','api_key']); //
     })->create();

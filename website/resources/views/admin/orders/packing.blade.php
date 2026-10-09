@@ -1,4 +1,4 @@
-@if($order->source==='website')
+@if(in_array($order->source,['website','pos']))
 <link rel="stylesheet" href="{{ asset('admin-assets/warehouse.css') }}?v={{ filemtime(public_path('admin-assets/warehouse.css')) }}">
 @php
 $canPack=auth()->user()->hasAdminPermission('warehouse.pack') && in_array($order->status,['warehouse_pending','packing']);
@@ -29,8 +29,14 @@ $barcode=$item->qr_code?:$item->product?->qr_code;
 <p class="text-muted">Yellow rows need attention. Clear the resolved note before ticking the item as packed.</p><label for="warehouse-note">Order note for admin</label><textarea class="form-control" id="warehouse-note" name="note" rows="2" maxlength="2000">{{ old('note',$order->warehouse_note) }}</textarea>
 <div class="warehouse-actions"><button class="btn btn-outline-primary" name="action" value="save">Save Packing Progress</button><button class="btn btn-outline-danger" name="action" value="return">Return to Admin — Issue</button><button class="btn btn-primary" name="action" value="ready">All Packed — Ready for Dispatch</button></div></form>
 <script src="{{ asset('admin-assets/scanner-libs/zxing-browser-0.1.5.min.js') }}"></script><script src="{{ asset('admin-assets/warehouse.js') }}?v={{ filemtime(public_path('admin-assets/warehouse.js')) }}"></script>
+@elseif($order->payment_method === 'etransfer' && $order->payment_status !== 'paid')
+<p class="text-muted">Verify the e-transfer payment above before sending this order to warehouse.</p>
 @elseif(auth()->user()->hasAdminPermission('orders.manage') && array_key_exists('warehouse_pending',$order->status_options))
 <form method="post" action="{{ route('admin.orders.status',$order) }}">@csrf @method('PATCH')<input type="hidden" name="revision" value="{{ $order->revision }}"><input type="hidden" name="status" value="warehouse_pending"><button class="btn btn-primary">Send {{ $order->warehouse_round?'Back ':'' }}to Warehouse</button><p class="text-muted mt-2">Starts a fresh packing check. Earlier notes remain in Order History.</p></form>
 @endif
 </div></div>
+@endif
+
+@if($order->source==='pos' && $order->fulfillment==='pickup' && $order->status==='ready_to_dispatch' && $order->payment_status==='paid' && auth()->user()->hasAdminPermission('pos.manage') && ((int)$order->created_by===auth()->id() || auth()->user()->hasAdminPermission('orders.manage')))
+<form method="post" action="{{ route('admin.pos.handover',$order) }}" class="panel panel-content">@csrf<input type="hidden" name="revision" value="{{ $order->revision }}"><label><input type="checkbox" name="handed_over" value="1" required> Items handed to the customer</label><button class="btn btn-primary" type="submit">Complete pickup</button></form>
 @endif

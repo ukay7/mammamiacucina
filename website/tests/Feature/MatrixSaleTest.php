@@ -13,8 +13,9 @@ class MatrixSaleTest extends TestCase {
   GeneralSetting::findOrFail(1)->update(['warehouse_postal_code'=>'M2N','matrix_delivery_enabled'=>true,'delivery_cents'=>1,'tax_basis_points'=>500]);
   $u=User::factory()->create(['is_active'=>true,'role_id'=>Role::where('is_super',true)->value('id')]);$this->actingAs($u);
   $p=Product::create(['category_id'=>1,'slug'=>'matrix-sale','premium_marketing_name'=>'Matrix Cake','qr_code'=>'MATRIX','is_active'=>true,'total_selling_price_cad'=>10]);
-  $quote=['items'=>[['id'=>$p->id,'quantity'=>1]],'fulfillment'=>'delivery','postal_code'=>'m1p 1a1','country'=>'Canada','delivery_service'=>'bullet'];
-  $customer=['first_name'=>'Customer','last_name'=>'Test','email'=>'matrix@example.test','phone'=>'555123','address'=>'10 Test Street','city'=>'Toronto','province'=>'ON','postal_code'=>'m1p 1a1','country'=>'Canada','delivery_service'=>'bullet','payment_method'=>'cash','payment_status'=>'unpaid'];
+  $profile=User::factory()->create(['account_type'=>'individual','is_active'=>true,'phone'=>'555123'])->customerRecord();
+  $quote=['customer_id'=>$profile->id,'items'=>[['id'=>$p->id,'quantity'=>1]],'fulfillment'=>'delivery','postal_code'=>'m1p 1a1','country'=>'Canada','delivery_service'=>'bullet'];
+  $customer=['customer_id'=>$profile->id,'first_name'=>'Customer','last_name'=>'Test','email'=>'matrix@example.test','phone'=>'555123','address'=>'10 Test Street','city'=>'Toronto','province'=>'ON','postal_code'=>'m1p 1a1','country'=>'Canada','delivery_service'=>'bullet','payment_method'=>'cash','payment_status'=>'unpaid'];
   return [$u,$p,$quote,$customer];
  }
  public function test_pos_requires_postal_and_service_and_persists_exact_quote_on_every_receipt():void {
@@ -41,7 +42,7 @@ class MatrixSaleTest extends TestCase {
   $this->postJson(route('admin.pos.store'),$customer+['quote'=>$quote['quote']])->assertUnprocessable();$this->assertDatabaseCount('orders',0);
  }
  public function test_matrix_mode_pickup_remains_free():void {
-  [$u,$p,$q,$customer]=$this->setupSale();$q=['items'=>$q['items'],'fulfillment'=>'pickup'];
+  [$u,$p,$q,$customer]=$this->setupSale();$q=['customer_id'=>$q['customer_id'],'items'=>$q['items'],'fulfillment'=>'pickup'];
   $quote=$this->postJson(route('admin.pos.quote'),$q)->assertOk()->assertJsonPath('delivery',0)->assertJsonPath('total',1050)->json();
   $this->postJson(route('admin.pos.store'),array_replace($customer,['quote'=>$quote['quote'],'payment_status'=>'paid']))->assertOk();
   $o=Order::firstOrFail();$this->assertNull($o->delivery_service);$this->assertNull($o->delivery_to_postal);
