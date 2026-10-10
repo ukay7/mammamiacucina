@@ -8,9 +8,11 @@ class Payment extends Model
 {
     protected $guarded = ['id'];
 
+    protected $hidden = ['checkout_token'];
+
     protected function casts(): array
     {
-        return ['expires_at' => 'datetime', 'paid_at' => 'datetime', 'released_at' => 'datetime', 'last_checked_at' => 'datetime',
+        return ['checkout_token' => 'encrypted', 'cancel_requested_at' => 'datetime', 'expires_at' => 'datetime', 'paid_at' => 'datetime', 'released_at' => 'datetime', 'last_checked_at' => 'datetime',
             'amount_cents' => 'integer', 'refunded_cents' => 'integer'];
     }
 

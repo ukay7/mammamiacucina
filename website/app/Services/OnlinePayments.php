@@ -22,7 +22,7 @@ class OnlinePayments
         }
 
         return Payment::firstOrCreate(['order_id' => $order->id], [
-            'reference' => (string) Str::uuid(), 'provider' => $order->payment_method === 'card' ? 'stripe' : 'paypal',
+            'reference' => (string) Str::uuid(), 'provider' => $order->payment_method === 'card' ? ($this->gateway->ready('helcim') ? 'helcim' : 'stripe') : 'paypal',
             'mode' => app(GatewayConfiguration::class)->mode(), 'amount_cents' => $order->final_total_cents,
             'currency' => 'CAD', 'expires_at' => now()->addHour(),
         ]);
@@ -50,6 +50,11 @@ class OnlinePayments
 
                 return $p;
             }
+            if ($p->provider === 'helcim') {
+                $data = app(HelcimGateway::class)->create($p);
+                $p->update(['provider_order_id' => app(HelcimGateway::class)->invoiceNumber($p), 'checkout_token' => $data['checkoutToken'], 'expires_at' => now()->addHour(), 'status' => 'pending']);
+                return $p;
+            }
             $data = $this->gateway->create($p);
             $host = parse_url($data['url'], PHP_URL_HOST);
             $allowed = $p->provider === 'stripe' ? ['checkout.stripe.com'] :
@@ -66,6 +71,9 @@ class OnlinePayments
     public function sync(Payment $payment, bool $capture = false, bool $cancel = false): Payment
     {
         return $this->locked($payment, function ($p, $order) use ($capture, $cancel) {
+            if ($p->provider === 'helcim' && $p->provider_order_id) {
+                return $this->syncHelcim($p, $order, $cancel);
+            }
             if (! $p->provider_order_id) {
                 if ($p->expires_at->isPast()) {
                     $this->release($p, $order, 'Checkout expired');
@@ -135,6 +143,56 @@ class OnlinePayments
 
             return $p->fresh();
         });
+    }
+
+    private function syncHelcim(Payment $p, Order $order, bool $cancel): Payment
+    {
+        $rows = app(HelcimGateway::class)->transactions($p);
+        $p->update(['last_checked_at' => now()]);
+        $purchases = [];
+        $refunds = [];
+        foreach ($rows as $row) {
+            if (($row['status'] ?? '') === 'DECLINED') continue;
+            if (($row['status'] ?? '') !== 'APPROVED' || ($row['currency'] ?? '') !== $p->currency ||
+                ! preg_match('/^[0-9]{1,20}$/D', (string) ($row['transactionId'] ?? ''))) {
+                throw new RuntimeException('Helcim transaction requires review.');
+            }
+            if (($row['type'] ?? '') === 'purchase') $purchases[] = $row;
+            elseif (($row['type'] ?? '') === 'refund') $refunds[] = $row;
+            else throw new RuntimeException('Unexpected Helcim transaction type; review required.');
+        }
+        if (count($purchases) > 1) {
+            $p->update(['attention' => 'Multiple approved payments found for this invoice. Review in Helcim before fulfillment.']);
+            $order->update(['status' => 'payment_review']);
+            return $p->fresh();
+        }
+        if ($purchase = $purchases[0] ?? null) {
+            if ($this->gateway->cents((string) $purchase['amount']) !== $p->amount_cents) {
+                throw new RuntimeException('Helcim payment amount mismatch.');
+            }
+            $this->paid($p, $order, (string) $purchase['transactionId']);
+            foreach ($refunds as $refund) {
+                $amount = $this->gateway->cents((string) ($refund['amount'] ?? ''));
+                $key = ['payment_id' => $p->id, 'provider_refund_id' => (string) $refund['transactionId']];
+                DB::table('payment_refunds')->insertOrIgnore($key + ['amount_cents' => $amount, 'status' => 'completed', 'created_at' => now(), 'updated_at' => now()]);
+                DB::table('payment_refunds')->where($key)->update(['amount_cents' => $amount, 'status' => 'completed', 'updated_at' => now()]);
+            }
+            $total = (int) DB::table('payment_refunds')->where('payment_id', $p->id)->where('status', 'completed')->sum('amount_cents');
+            $this->refunded($p, $order, $total);
+        } elseif ($p->paid_at || $refunds) {
+            throw new RuntimeException('Previously confirmed Helcim payment is unavailable.');
+        } elseif ($p->expires_at->copy()->addMinutes(10)->isPast()) {
+            // No cancellation API exists for the modal. Wait for token expiry and a settlement grace period,
+            // then query the provider before releasing stock. Late callbacks still route to payment_review.
+            $this->release($p, $order, 'Card checkout cancelled or expired');
+        } elseif ($cancel) {
+            $p->update(['cancel_requested_at' => $p->cancel_requested_at ?? now(),
+                'attention' => 'Cancellation requested. Stock stays reserved until the card session expires and Helcim confirms no payment.']);
+        }
+        if ($p->attention === 'Automatic reconciliation failed. Check provider configuration or reconcile from Orders.') {
+            $p->update(['attention' => null]);
+        }
+        return $p->fresh();
     }
 
     private function validateStripe(Payment $p, array $data): void
@@ -226,10 +284,10 @@ class OnlinePayments
         $order->events()->create(['description' => 'Gateway confirmed refund total CAD '.number_format($amount / 100, 2).'.', 'created_at' => now()]);
     }
 
-    public function refund(Payment $payment, int $userId, ?int $expectedCents = null): void
+    public function refund(Payment $payment, int $userId, ?int $expectedCents = null, ?int $refundCents = null): void
     {
         $this->sync($payment);
-        $this->locked($payment, function ($p, $order) use ($userId, $expectedCents) {
+        $this->locked($payment, function ($p, $order) use ($userId, $expectedCents, $refundCents) {
             if ($p->status === 'refunded') {
                 return;
             }
@@ -239,14 +297,18 @@ class OnlinePayments
             if ($expectedCents !== null && $expectedCents !== $p->amount_cents - $p->refunded_cents) {
                 throw new RuntimeException('Refund amount changed. Reload the order.');
             }
-            $result = $this->gateway->refund($p);
+            if ($refundCents !== null && ($p->provider !== 'helcim' || $refundCents < 1 || $refundCents > $p->amount_cents - $p->refunded_cents)) {
+                throw new RuntimeException('Invalid refund amount.');
+            }
+            $requested = $refundCents ?? ($p->amount_cents - $p->refunded_cents);
+            $result = $p->provider === 'helcim' ? app(HelcimGateway::class)->refund($p, $requested) : $this->gateway->refund($p);
             DB::table('payment_refunds')->updateOrInsert(['payment_id' => $p->id, 'provider_refund_id' => $result['id']],
                 ['amount_cents' => $result['amount'], 'status' => $result['status'], 'created_at' => now(), 'updated_at' => now()]);
             if (in_array($result['status'], ['succeeded', 'completed'], true)) {
-                if ($result['amount'] !== $p->amount_cents - $p->refunded_cents) {
+                if ($result['amount'] !== $requested) {
                     throw new RuntimeException('Unexpected refund amount; reconcile with provider.');
                 }
-                $this->refunded($p, $order, $p->amount_cents);
+                $this->refunded($p, $order, $p->refunded_cents + $result['amount']);
             } else {
                 $p->update(['attention' => 'Refund '.$result['status'].'. Reconcile with provider before retrying or fulfilling.']);
             }

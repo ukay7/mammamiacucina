@@ -59,7 +59,9 @@ class OrderController extends Controller
     public function payments(Order $order)
     {
         $order->load(['payment', 'settlements.author']);
-        return view('admin.orders.payments', compact('order'));
+        $gatewayRefunds = $order->payment?->provider === 'helcim'
+            ? \Illuminate\Support\Facades\DB::table('payment_refunds')->where('payment_id', $order->payment->id)->where('status', 'completed')->orderBy('id')->get() : collect();
+        return view('admin.orders.payments', compact('order', 'gatewayRefunds'));
     }
 
     public function paymentReceipt(Order $order, \App\Models\OrderSettlement $settlement)

@@ -12,6 +12,6 @@ class GatewaySetting extends Model
 
     protected function casts(): array
     {
-        return ['credentials' => 'encrypted:array', 'stripe_enabled' => 'boolean', 'paypal_enabled' => 'boolean', 'revision' => 'integer'];
+        return ['credentials' => 'encrypted:array', 'helcim_enabled' => 'boolean', 'stripe_enabled' => 'boolean', 'paypal_enabled' => 'boolean', 'revision' => 'integer'];
     }
 }

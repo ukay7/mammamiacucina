@@ -11,17 +11,17 @@
 <div class="gateway-toolbar"><p>Manage online payments, credentials and checkout availability.</p><button class="btn btn-primary" type="submit">Save gateway settings</button></div>
 <section class="gateway-box">
 <div class="gateway-heading"><h2>Payment environment</h2><span class="gateway-pill">Currently {{ $mode==='live'?'Production':'UAT' }}</span></div>
-<p class="gateway-note">The selected environment applies to new Stripe and PayPal checkouts. Each environment keeps its own credentials.</p>
+<p class="gateway-note">The selected environment applies to new online checkouts. Each environment keeps its own credentials.</p>
 <div class="gateway-envs">
-<label class="gateway-env"><input type="radio" name="mode" value="sandbox" @checked(old('mode',$mode)==='sandbox')><span><strong>UAT / Sandbox</strong><small>Test payments. No real money is collected.</small></span></label>
+<label class="gateway-env"><input type="radio" name="mode" value="sandbox" @checked(old('mode',$mode)==='sandbox')><span><strong>UAT / Sandbox</strong><small>Use test credentials only. Helcim requires a separate developer test account; selecting UAT does not convert a live token into a test token.</small></span></label>
 <label class="gateway-env"><input type="radio" name="mode" value="live" @checked(old('mode',$mode)==='live')><span><strong>Production</strong><small>Accept real payments from customers.</small></span></label>
 </div>
 </section>
 <div class="gateway-grid">
 @foreach(\App\Services\GatewayConfiguration::FIELDS as $provider=>$fields)
 <section class="gateway-box">
-<div class="gateway-heading"><h2>{{ $provider==='stripe'?'Stripe':'PayPal' }}</h2><label class="gateway-switch"><input type="hidden" name="{{ $provider }}_enabled" value="0"><input type="checkbox" name="{{ $provider }}_enabled" value="1" role="switch" @checked(old($provider.'_enabled',$enabled[$provider])) aria-label="Enable {{ ucfirst($provider) }}"><span>Enabled</span></label></div>
-<p class="gateway-note">{{ $provider==='stripe'?'Card payments through Stripe’s hosted checkout.':'One-time payments through PayPal’s hosted checkout.' }}</p>
+<div class="gateway-heading"><h2>{{ ['helcim'=>'Helcim','stripe'=>'Stripe','paypal'=>'PayPal'][$provider] }}</h2><label class="gateway-switch"><input type="hidden" name="{{ $provider }}_enabled" value="0"><input type="checkbox" name="{{ $provider }}_enabled" value="1" role="switch" @checked(old($provider.'_enabled',$enabled[$provider])) aria-label="Enable {{ ucfirst($provider) }}"><span>Enabled</span></label></div>
+<p class="gateway-note">{{ $provider==='helcim'?'Website card payments through Helcim’s secure payment window. Enable this provider to offer Pay by Card.':($provider==='stripe'?'Legacy Stripe payments remain available for reconciliation and refunds.':'Legacy PayPal payments remain available for reconciliation and refunds.') }}</p>
 @foreach(['sandbox'=>'UAT / Sandbox','live'=>'Production'] as $environment=>$title)
 <details class="gateway-profile" @if($environment===old('mode',$mode)) open @endif>
 <summary>{{ $title }} credentials</summary>
@@ -31,8 +31,12 @@
 <small>{{ $saved[$environment][$provider][$field]?'Saved securely. Enter a value only to replace it.':'Required to enable this provider in this environment.' }}</small></label>
 @endforeach
 <p class="gateway-note">Webhook endpoint for {{ $title }}:</p>
-<code class="gateway-url">{{ url('/payments/webhooks/'.$provider) }}?mode={{ $environment }}</code>
+<code class="gateway-url">{{ url($provider==='helcim'?'/payments/card-events':'/payments/webhooks/'.$provider) }}?mode={{ $environment }}</code>
 <button class="btn btn-outline-primary gateway-test" type="submit" form="test-{{ $provider }}-{{ $environment }}">Test saved credentials</button>
+@if($provider==='helcim')
+<p class="gateway-note">Helcim setup: enable checkout integration on your API token and allow your website domain. Transaction Processing must support purchases and refunds; grant transaction read access for reconciliation. The connection test checks authentication and transaction access without charging.</p>
+<p class="gateway-note">Enable the Card Transaction webhook in Helcim, use the HTTPS endpoint above, and paste its verifier token in this profile. Local testing needs a public HTTPS forwarding URL for webhooks; browser confirmation and scheduled reconciliation also verify payments.</p>
+@endif
 <p class="gateway-note">Save changes before testing. This checks API access without charging a customer.</p>
 </details>
 @endforeach
@@ -41,7 +45,7 @@
 </div>
 <div class="gateway-box gateway-foot"><h3>Existing orders stay connected</h3><p class="gateway-note">Disabling a gateway stops new checkouts. Existing payments, refunds and notifications continue using their original environment. Cash remains available.</p><p class="gateway-note">Keep credentials for both environments. When replacing credentials, use keys for the same merchant account so previous orders can still be reconciled. Webhooks and the server scheduler must also be configured.</p><button class="btn btn-primary" type="submit">Save gateway settings</button>@if($updatedAt)<small class="ml-3">Last saved {{ $updatedAt->format('d M Y H:i') }}</small>@endif</div>
 </form>
-@foreach(['stripe','paypal'] as $provider)@foreach(['sandbox','live'] as $environment)
+@foreach(array_keys(\App\Services\GatewayConfiguration::FIELDS) as $provider)@foreach(['sandbox','live'] as $environment)
 <form id="test-{{ $provider }}-{{ $environment }}" action="{{ route('admin.gateways.test',[$provider,$environment]) }}" method="post">@csrf</form>
 @endforeach @endforeach
 </div>

@@ -45,7 +45,7 @@ class CheckoutController extends Controller
     {
 
         $r->merge(['fulfillment' => $r->input('fulfillment', 'delivery')]);
-        $d = $r->validate(['fulfillment'=>'required|in:pickup,delivery','delivery_service'=>'nullable|string|max:20','checkout_token' => 'required|uuid', 'first_name' => 'required|string|max:100', 'last_name' => 'required|string|max:100', 'email' => 'required|email|max:255', 'phone' => 'required|string|max:40', 'address' => 'required_if:fulfillment,delivery|nullable|string|max:255', 'city' => 'required_if:fulfillment,delivery|nullable|string|max:100', 'province' => 'required_if:fulfillment,delivery|nullable|string|max:100', 'postal_code' => 'required_if:fulfillment,delivery|nullable|string|max:30', 'country' => 'required_if:fulfillment,delivery|nullable|string|max:100', 'notes' => 'nullable|string|max:2000', 'payment_method' => 'sometimes|required|in:cash,etransfer']);
+        $d = $r->validate(['fulfillment'=>'required|in:pickup,delivery','delivery_service'=>'nullable|string|max:20','checkout_token' => 'required|uuid', 'first_name' => 'required|string|max:100', 'last_name' => 'required|string|max:100', 'email' => 'required|email|max:255', 'phone' => 'required|string|max:40', 'address' => 'required_if:fulfillment,delivery|nullable|string|max:255', 'city' => 'required_if:fulfillment,delivery|nullable|string|max:100', 'province' => 'required_if:fulfillment,delivery|nullable|string|max:100', 'postal_code' => 'required_if:fulfillment,delivery|nullable|string|max:30', 'country' => 'required_if:fulfillment,delivery|nullable|string|max:100', 'notes' => 'nullable|string|max:2000', 'payment_method' => 'sometimes|required|in:cash,etransfer,card']);
         $d['email'] = $r->user()->email;
         $method = $d['payment_method'] ?? 'cash';
         $d['payment_method'] = $method;
@@ -63,6 +63,9 @@ class CheckoutController extends Controller
         }
         if (! session('checkout_token') || ! hash_equals(session('checkout_token'), $d['checkout_token'])) {
             throw ValidationException::withMessages(['cart' => 'Checkout expired. Open checkout again from your cart.']);
+        }
+        if ($method === 'card' && ! app(\App\Services\PaymentGateway::class)->ready('helcim')) {
+            throw ValidationException::withMessages(['payment_method' => 'Card payment is currently unavailable. Please select another payment method.']);
         }
         $quantities = session('storefront_cart', []);
         $quote = session('checkout_quote', []);
@@ -113,7 +116,7 @@ class CheckoutController extends Controller
                 $lines[] = [$p, $qty, $price, $inventory];
                 $subtotal += $price * $qty;
             }
-            $order = Order::create(array_merge($d, ['customer_id' => auth()->user()->customerRecord()->id, 'created_by' => auth()->id(), 'source' => 'website', 'number' => 'MMC-'.strtoupper((string) Str::ulid()), 'subtotal_cents' => $subtotal, 'delivery_cents' => ($d['fulfillment'] === 'pickup' ? 0 : ($deliverySnapshot['delivery_cents']??$settings->delivery_cents)), 'tax_cents' => $settings->taxFor($subtotal), 'tax_basis_points'=>$settings->tax_basis_points, 'payment_method' => $d['payment_method'], 'payment_status' => 'unpaid', 'status' => $d['payment_method'] === 'cash' ? 'warehouse_pending' : 'transfer_pending', 'warehouse_round' => $d['payment_method'] === 'cash' ? 1 : 0, 'warehouse_sent_at' => $d['payment_method'] === 'cash' ? now() : null]));
+            $order = Order::create(array_merge($d, ['customer_id' => auth()->user()->customerRecord()->id, 'created_by' => auth()->id(), 'source' => 'website', 'number' => 'MMC-'.strtoupper((string) Str::ulid()), 'subtotal_cents' => $subtotal, 'delivery_cents' => ($d['fulfillment'] === 'pickup' ? 0 : ($deliverySnapshot['delivery_cents']??$settings->delivery_cents)), 'tax_cents' => $settings->taxFor($subtotal), 'tax_basis_points'=>$settings->tax_basis_points, 'payment_method' => $d['payment_method'], 'payment_status' => $d['payment_method'] === 'card' ? 'pending' : 'unpaid', 'status' => $d['payment_method'] === 'cash' ? 'warehouse_pending' : ($d['payment_method'] === 'card' ? 'awaiting_payment' : 'transfer_pending'), 'warehouse_round' => $d['payment_method'] === 'cash' ? 1 : 0, 'warehouse_sent_at' => $d['payment_method'] === 'cash' ? now() : null]));
             if($deliverySnapshot) $order->update($deliverySnapshot);
             if ($d['fulfillment'] === 'delivery') auth()->user()->customerRecord()->update(\Illuminate\Support\Arr::only($d,['address','city','province','postal_code','country']));
             // The database-generated ID avoids collisions between simultaneous orders.

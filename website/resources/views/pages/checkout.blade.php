@@ -21,7 +21,8 @@
 <div class="mmc-checkout-total"><div><strong>Total amount</strong><small>CAD · Includes delivery and tax</small></div><strong id="checkout-grand-total">{{ $settings->matrix_delivery_enabled?'Awaiting delivery quote':'$'.number_format(($cart['total']+$charges['delivery']+$charges['tax'])/100,2) }}</strong></div>
 <div class="mmc-payment-options"><label for="checkout-payment">How would you like to pay?</label>
 <select id="checkout-payment" class="form-control" name="payment_method" required>
-<option value="card" disabled>Pay by card — temporarily unavailable</option>
+@php($cardReady = app(\App\Services\PaymentGateway::class)->ready('helcim'))
+<option value="card" @disabled(!$cardReady) @selected(old('payment_method')==='card')>Pay by card{{ $cardReady ? ' · Helcim' : ' — temporarily unavailable' }}</option>
 <option value="paypal" disabled>Pay with PayPal — temporarily unavailable</option>
 <option value="cash" @selected(old('payment_method','cash')==='cash')>Cash on delivery</option>
 <option value="etransfer" @selected(old('payment_method')==='etransfer')>E-transfer</option>

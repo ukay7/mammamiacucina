@@ -50,7 +50,9 @@ class PaymentGateway
         if (! $this->configuration->configured($provider, $mode)) {
             throw new RuntimeException('Complete saved credentials first.');
         }
-        if ($provider === 'stripe') {
+        if ($provider === 'helcim') {
+            app(HelcimGateway::class)->testConnection($mode);
+        } elseif ($provider === 'stripe') {
             $this->json($this->stripe($mode)->get('/balance'));
         } else {
             $this->paypal($mode);

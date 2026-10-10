@@ -7,7 +7,7 @@
 @if($errors->any())<div role="alert">@foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach</div>@endif
 <p><strong>Total: CAD {{ number_format($payment->amount_cents/100,2) }}</strong></p>
 @include('partials.order-delivery',['order'=>$payment->order])
-<p>Payment method: {{ $payment->provider==='stripe'?'Card · Stripe':'PayPal' }} · {{ ucfirst(str_replace('_',' ',$payment->order->payment_status)) }}</p>
+<p>Payment method: {{ $payment->provider==='helcim'?'Card · Helcim':($payment->provider==='stripe'?'Card · Stripe':'PayPal') }} · {{ ucfirst(str_replace('_',' ',$payment->order->payment_status)) }}</p>
 @if($payment->order->status==='payment_review')
 <p>Your payment was received after the stock reservation ended. Please contact us with your order number so we can resolve this. Do not pay again.</p>
 @elseif($payment->released_at && !$payment->paid_at)
@@ -15,6 +15,8 @@
 <a class="mmc-button" href="{{ route('theme.product-grid') }}">Continue shopping</a>
 @elseif($payment->status==='refunded' || $payment->status==='partially_refunded')
 <p>Refund confirmed: CAD {{ number_format($payment->refunded_cents/100,2) }}. Please contact us for any questions.</p>
+@elseif($payment->provider==='helcim')
+@include('partials.helcim-checkout')
 @else
 <p>You will complete a one-time payment on {{ $payment->provider==='stripe'?'Stripe':'PayPal' }}. We do not store your card details.</p>
 <p>Stock is reserved while you complete checkout. If you have already paid, check payment status before trying again.</p>

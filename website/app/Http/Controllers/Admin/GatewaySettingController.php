@@ -25,16 +25,16 @@ class GatewaySettingController extends Controller
         }
 
         return response()->view('admin.settings.gateways', ['mode' => $config->mode(), 'revision' => $record?->revision ?? 0,
-            'enabled' => ['stripe' => $config->enabled('stripe'), 'paypal' => $config->enabled('paypal')], 'saved' => $saved,
+            'enabled' => ['helcim' => $config->enabled('helcim'), 'stripe' => $config->enabled('stripe'), 'paypal' => $config->enabled('paypal')], 'saved' => $saved,
             'updatedAt' => $record?->updated_at])->header('Cache-Control', 'no-store, private');
     }
 
     public function update(Request $request, GatewayConfiguration $config)
     {
         $rules = ['revision' => 'required|integer|min:0', 'mode' => 'required|in:sandbox,live', 'stripe_enabled' => 'required|boolean', 'paypal_enabled' => 'required|boolean',
-            'credentials' => 'nullable|array:sandbox,live'];
+            'helcim_enabled' => 'sometimes|boolean', 'credentials' => 'nullable|array:sandbox,live'];
         foreach (['sandbox', 'live'] as $mode) {
-            $rules["credentials.$mode"] = 'sometimes|array:stripe,paypal';
+            $rules["credentials.$mode"] = 'sometimes|array:helcim,stripe,paypal';
             foreach (GatewayConfiguration::FIELDS as $provider => $fields) {
                 $rules["credentials.$mode.$provider"] = 'sometimes|array:'.implode(',', array_keys($fields));
                 foreach ($fields as $key => $label) {
@@ -70,7 +70,7 @@ class GatewaySettingController extends Controller
                 }
             }
             foreach (GatewayConfiguration::FIELDS as $provider => $fields) {
-                if ($data[$provider.'_enabled']) {
+                if ($data[$provider.'_enabled'] ?? false) {
                     foreach ($fields as $key => $label) {
                         if (empty($values[$data['mode']][$provider][$key])) {
                             throw ValidationException::withMessages(['settings' => 'Complete all '.ucfirst($provider).' credentials for the selected environment before enabling it.']);
@@ -80,7 +80,7 @@ class GatewaySettingController extends Controller
             }
             $settings ??= new GatewaySetting;
             $settings->id = 1;
-            $settings->fill(['mode' => $data['mode'], 'stripe_enabled' => $data['stripe_enabled'], 'paypal_enabled' => $data['paypal_enabled'], 'credentials' => $values,
+            $settings->fill(['mode' => $data['mode'], 'helcim_enabled' => $data['helcim_enabled'] ?? false, 'stripe_enabled' => $data['stripe_enabled'], 'paypal_enabled' => $data['paypal_enabled'], 'credentials' => $values,
                 'revision' => ($settings->revision ?? 0) + 1, 'updated_by' => $request->user()->id])->save();
         }, 3);
 

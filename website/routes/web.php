@@ -27,6 +27,8 @@ Route::get('/catalogue/pages/{page}/image', [\App\Http\Controllers\CatalogueBook
 Route::get('/contact-image', [\App\Http\Controllers\ContactPageController::class,'image'])->name('contact.image');
 Route::get('/about-image', [AboutPageController::class, 'image'])->name('about.image');
 Route::post('/payments/webhooks/{provider}', [PaymentController::class, 'webhook'])->whereIn('provider', ['stripe', 'paypal'])->name('payment.webhook');
+Route::post('/payments/card-events', [\App\Http\Controllers\HelcimController::class, 'webhook'])->name('payment.card-events');
+Route::post('/payments/{payment:reference}/card-confirm', [\App\Http\Controllers\HelcimController::class, 'confirm'])->middleware('throttle:30,1')->block(10, 10)->name('payment.card-confirm');
 Route::get('/payments/{payment:reference}', [PaymentController::class, 'show'])->name('payment.show');
 Route::get('/payments/{payment:reference}/return', [PaymentController::class, 'returned'])->name('payment.return');
 Route::get('/payments/{payment:reference}/cancel-return', [PaymentController::class, 'cancelled'])->name('payment.cancel-return');

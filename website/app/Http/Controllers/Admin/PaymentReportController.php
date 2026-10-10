@@ -118,9 +118,9 @@ class PaymentReportController extends Controller
 
     public function refund(Request $request, Payment $payment, OnlinePayments $payments)
     {
-        $data = $request->validate(['confirm' => 'required|in:REFUND', 'expected_cents' => 'required|integer|min:1']);
+        $data = $request->validate(['confirm' => 'required|in:REFUND', 'expected_cents' => 'required|integer|min:1', 'amount' => ['nullable', 'regex:/^\d{1,7}(?:\.\d{1,2})?$/D']]);
         try {
-            $payments->refund($payment, $request->user()->id, (int) $data['expected_cents']);
+            $payments->refund($payment, $request->user()->id, (int) $data['expected_cents'], isset($data['amount']) ? app(\App\Services\PaymentGateway::class)->cents($data['amount']) : null);
         } catch (\Throwable $e) {
             return back()->withErrors(['payment' => 'Refund not yet confirmed. Reconcile this payment and check the provider dashboard before retrying.']);
         }

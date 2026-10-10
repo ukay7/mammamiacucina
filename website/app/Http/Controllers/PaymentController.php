@@ -13,13 +13,14 @@ class PaymentController extends Controller
 {
     private function owned(Payment $payment): void
     {
-        abort_unless((int) session('last_order_id') === $payment->order_id, 404);
+        abort_unless((int) session('last_order_id') === $payment->order_id || (auth()->check() && (int) $payment->order->created_by === auth()->id()), 404);
     }
 
     public function show(Payment $payment)
     {
         $this->owned($payment);
         if ($payment->order->payment_status === 'paid' && $payment->order->status !== 'payment_review') {
+            session(['last_order_id' => $payment->order_id, 'last_order_token' => $payment->order->checkout_token]);
             return redirect()->route('theme.order-success');
         }
 
@@ -31,6 +32,9 @@ class PaymentController extends Controller
         $this->owned($payment);
         try {
             $payment = $payments->start($payment);
+            if ($payment->provider === 'helcim') {
+                return redirect()->route('payment.show', $payment->reference);
+            }
             if ($payment->checkout_url && ! $payment->paid_at && ! $payment->released_at && ! $payment->expires_at->isPast()) {
                 return redirect()->away($payment->checkout_url);
             }

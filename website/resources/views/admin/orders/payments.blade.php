@@ -11,17 +11,21 @@
 <p>Positive entries are money received; negative entries are money refunded. Changing an order total changes the balance, without recording a refund until money is actually returned.</p>
 <div class="panel panel-content table-responsive"><h2>Payment history</h2><table class="table"><thead><tr><th>Date</th><th>Entry / Method</th><th>Reference / Notes</th><th>Recorded by</th><th>Amount (CAD)</th><th>Receipt</th></tr></thead><tbody>
 @if($order->collected_cents>0)
-<tr><td>{{ $order->paid_at ?? $order->created_at }}</td><td>Original payment · {{ $order->payment_label }}</td><td>Original recorded collection</td><td>Order payment</td><td class="payment-positive">+${{ number_format($order->collected_cents/100,2) }}</td><td>@if($order->transfer_receipt_path)<a href="{{ route('orders.transfer-receipt',$order) }}" target="_blank" rel="noopener">View receipt</a>@else — @endif</td></tr>
+<tr><td>{{ $order->paid_at ?? $order->created_at }}</td><td>Original payment · {{ $order->payment_label }}</td><td>{{ $order->payment?->transaction_id ?: 'Original recorded collection' }}</td><td>Order payment</td><td class="payment-positive">+${{ number_format($order->collected_cents/100,2) }}</td><td>@if($order->transfer_receipt_path)<a href="{{ route('orders.transfer-receipt',$order) }}" target="_blank" rel="noopener">View receipt</a>@elseif($order->payment)<a href="{{ route('admin.orders.print',$order) }}" target="_blank" rel="noopener">Invoice / receipt</a>@else — @endif</td></tr>
 @endif
 @php($originalRefund=$order->payment ? (int)$order->payment->refunded_cents : ($order->manual_refunded_cents ?? ($order->payment_status==='refunded'?$order->collected_cents:0)))
-@if($originalRefund>0)<tr><td>—</td><td>Original payment refund · {{ $order->payment_label }}</td><td>Previously recorded refund</td><td>Order payment</td><td class="payment-negative">−${{ number_format($originalRefund/100,2) }}</td><td>—</td></tr>@endif
+@foreach($gatewayRefunds as $refund)
+<tr><td>{{ $refund->created_at }}</td><td>Gateway refund · Helcim</td><td>{{ $refund->provider_refund_id }}</td><td>Verified with Helcim</td><td class="payment-negative">−${{ number_format($refund->amount_cents/100,2) }}</td><td><a href="{{ route('admin.orders.print',$order) }}" target="_blank" rel="noopener">Invoice / receipt</a></td></tr>
+@endforeach
+@if($originalRefund>0 && $gatewayRefunds->isEmpty())<tr><td>—</td><td>Original payment refund · {{ $order->payment_label }}</td><td>Previously recorded refund</td><td>Order payment</td><td class="payment-negative">−${{ number_format($originalRefund/100,2) }}</td><td>—</td></tr>@endif
 @foreach($order->settlements->sortBy('id') as $entry)
-<tr><td>{{ $entry->created_at->format('d M Y H:i') }}</td><td>{{ $entry->amount_cents<0?'Refund':'Payment received' }} · {{ ucfirst($entry->method) }}</td><td>{{ $entry->reference }}<small class="d-block">{{ $entry->note }}</small></td><td>{{ $entry->author?->name ?? 'Former user' }}</td><td class="{{ $entry->amount_cents<0?'payment-negative':'payment-positive' }}">{{ $entry->amount_cents<0?'−':'+' }}${{ number_format(abs($entry->amount_cents)/100,2) }}</td><td>@if($entry->receipt_path)<a href="{{ route('admin.orders.payment-receipt',[$order,$entry]) }}" target="_blank" rel="noopener">View receipt</a>@else — @endif</td></tr>
+<tr><td>{{ $entry->created_at->format('d M Y H:i') }}</td><td>{{ $entry->amount_cents<0?'Refund':'Payment received' }} · {{ ucfirst($entry->method) }}</td><td>{{ $entry->reference }}<small class="d-block">{{ $entry->note }}</small></td><td>{{ $entry->author?->name ?? 'Former user' }}</td><td class="{{ $entry->amount_cents<0?'payment-negative':'payment-positive' }}">{{ $entry->amount_cents<0?'−':'+' }}${{ number_format(abs($entry->amount_cents)/100,2) }}</td><td>@if($entry->receipt_path)<a href="{{ route('admin.orders.payment-receipt',[$order,$entry]) }}" target="_blank" rel="noopener">View receipt</a>@elseif($order->payment)<a href="{{ route('admin.orders.print',$order) }}" target="_blank" rel="noopener">Invoice / receipt</a>@else — @endif</td></tr>
 @endforeach
 @if(!$order->collected_cents && !$order->settlements->count())<tr><td colspan="6">No verified payments recorded.</td></tr>@endif
 </tbody></table></div>
+@include('admin.orders.payment')
 @include('partials.transfer-receipt')
-@if(auth()->user()->hasAdminPermission('orders.manage') && $order->balance_cents!==0 && $order->final_total_cents!==null)
+@if(auth()->user()->hasAdminPermission('orders.manage') && $order->balance_cents!==0 && $order->final_total_cents!==null && (!$order->payment || ($order->payment->paid_at && $order->balance_cents>0)))
 <form method="post" enctype="multipart/form-data" action="{{ route('admin.orders.settlement',$order) }}" class="payment-entry">@csrf
 <h2>Record {{ $order->balance_cents<0?'a refund':'a payment' }}</h2>
 @if($order->payment_method==='etransfer')

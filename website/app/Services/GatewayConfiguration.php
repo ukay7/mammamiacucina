@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 
 class GatewayConfiguration
 {
-    public const FIELDS = ['stripe' => ['secret' => 'Secret key', 'webhook_secret' => 'Webhook signing secret'], 'paypal' => ['client_id' => 'Client ID', 'secret' => 'Client secret', 'webhook_id' => 'Webhook ID']];
+    public const FIELDS = ['helcim' => ['api_token' => 'API token', 'webhook_secret' => 'Webhook verifier token'], 'stripe' => ['secret' => 'Secret key', 'webhook_secret' => 'Webhook signing secret'], 'paypal' => ['client_id' => 'Client ID', 'secret' => 'Client secret', 'webhook_id' => 'Webhook ID']];
 
     public function record(): ?GatewaySetting
     {
