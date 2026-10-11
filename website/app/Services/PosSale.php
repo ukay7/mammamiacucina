@@ -150,6 +150,7 @@ class PosSale
                 }
             }
             $order->events()->create(['user_id' => $userId, 'description' => 'Quick Sale created Â· '.($pickup ? 'Pick up' : 'Delivery').' Â· '.$customer['payment_method'].' '.$customer['payment_status'], 'created_at' => now()]);
+            app(CustomerEmails::class)->order($order, 'order_confirmation', 'order-created:'.$order->id);
             return $order;
         }, 3);
     }

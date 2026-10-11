@@ -62,6 +62,13 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         });
         Route::get('/product-labels', [PosController::class, 'labels'])->middleware(AdminAccess::class.':products.view')->name('products.labels');
         Route::resource('allergies', AllergyController::class)->except('show')->middleware(AdminAccess::class.':allergies.manage');
+        Route::middleware(AdminAccess::class.':orders.view')->group(function () {
+            Route::get('/reports', [\App\Http\Controllers\Admin\BusinessReportController::class,'index'])->name('reports.index');
+            Route::get('/reports/view/{kind}', [\App\Http\Controllers\Admin\BusinessReportController::class,'show'])->name('reports.business');
+            Route::get('/reports/export/{kind}', [\App\Http\Controllers\Admin\BusinessReportController::class,'export'])->name('reports.business.export');
+            Route::get('/reports/order/{order}', [\App\Http\Controllers\Admin\BusinessReportController::class,'detail'])->name('reports.order');
+            Route::post('/reports/order/{order}/schedule', [\App\Http\Controllers\Admin\BusinessReportController::class,'schedule'])->name('reports.schedule');
+        });
         Route::get('/reports/payments', [PaymentReportController::class, 'index'])->middleware(AdminAccess::class.':orders.view')->name('reports.payments');
         Route::get('/reports/payments/export', [PaymentReportController::class, 'export'])->middleware(AdminAccess::class.':orders.view')->name('reports.payments.export');
         foreach (['reconcile', 'cancel', 'refund'] as $action) {

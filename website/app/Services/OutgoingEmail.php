@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 class OutgoingEmail {
  public function template(string $type,string $recipient,array $values=[],?User $user=null,?string $mailer=null):EmailHistory {
+  if($user?->account_type==='business' && in_array($type,['verification','admin_invitation','pos_invitation'],true)) $type='business_verification';
   $message=\App\Models\EmailTemplate::renderMessage($type,array_replace(['name'=>$user?->name??'Customer','site_name'=>'Mamma Mia Cucina'],$values));
   return $this->raw($message['body'],fn($m)=>$m->to($recipient)->subject($message['subject']),$type,$user,$mailer);
  }
@@ -13,7 +14,7 @@ class OutgoingEmail {
   return $last ? max(0,\Carbon\Carbon::parse($last)->timestamp+600-now()->timestamp) : 0;
  }
  public function raw(string $body, callable $callback,string $type,?User $user=null,?string $mailer=null):EmailHistory {
-  $verification=in_array($type,['verification','verification_resend','pos_invitation','admin_verification','admin_invitation'],true);
+  $verification=in_array($type,['business_verification','verification','verification_resend','pos_invitation','admin_verification','admin_invitation'],true);
   $reservedAt=now()->startOfSecond();
   if($verification && $user){
    // One atomic database update shares the cooldown across sessions and admin/customer routes.

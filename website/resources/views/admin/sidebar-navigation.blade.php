@@ -11,11 +11,13 @@ $sections = [
         $group('Order Management', 'shopping-cart', [
             $link('orders.view|warehouse.pack', 'admin.orders.index', 'admin.orders.*', 'Pending Orders', 'shopping-cart'),
             $link('orders.view|warehouse.pack', 'admin.orders.completed', 'admin.orders.completed', 'Completed Orders', 'check-circle'),
-            $link('orders.view', 'admin.reports.payments', 'admin.reports.payments*', 'Payment Report', 'chart-bar'),
         ]),
         $link('orders.view', 'admin.customers.index', 'admin.customers.*', 'Customers', 'address-book'),
         $link('quotations.view|quotations.manage', 'admin.quotations.index', 'admin.quotations.*', 'Quotations', 'file-invoice'),
         $link('enquiries.manage', 'admin.enquiries.index', 'admin.enquiries.*', 'Customer Enquiries', 'envelope'),
+    ],
+    'Reports' => [
+        $link('orders.view', 'admin.reports.index', 'admin.reports.*', 'Reporting Centre', 'chart-bar'),
     ],
     'Products & Stock' => [
         $group('Product Management', 'box-open', [
@@ -57,7 +59,7 @@ $sections = [
         ]),
     ],
 ];
-$allowed = static fn($item) => $item['permission'] === '' || collect(explode('|', $item['permission']))->contains(fn($ability) => auth()->user()->hasAdminPermission($ability));
+$allowed = static fn($item) => !($item['route'] === 'admin.reports.index' && auth()->user()->hasAdminPermission('warehouse.pack') && !auth()->user()->hasAdminPermission('orders.manage')) && ($item['permission'] === '' || collect(explode('|', $item['permission']))->contains(fn($ability) => auth()->user()->hasAdminPermission($ability)));
 $active = static fn($item) => str_starts_with($item['match'], 'path:')
     ? request()->is(substr($item['match'], 5))
     : request()->routeIs($item['match']) && !($item['route'] === 'admin.orders.index' && request()->routeIs('admin.orders.completed'));

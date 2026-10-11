@@ -195,7 +195,7 @@ class OrderAmendment
                     $this->fail('Refund the original gateway payment through its provider and reconcile it here. This action only records refunds of separately collected amounts.');
                 }
             }
-            $order->settlements()->create(['receipt_path' => $data['receipt_path'] ?? null, 'amount_cents' => $data['direction'] === 'refund' ? -$amount : $amount, 'method' => $data['method'], 'reference' => $data['reference'] ?? null, 'note' => $data['note'], 'user_id' => $user]);
+            $settlement = $order->settlements()->create(['receipt_path' => $data['receipt_path'] ?? null, 'amount_cents' => $data['direction'] === 'refund' ? -$amount : $amount, 'method' => $data['method'], 'reference' => $data['reference'] ?? null, 'note' => $data['note'], 'user_id' => $user]);
             $order->unsetRelation('settlements');
             if (! $order->payment && $order->balance_cents <= 0 && $order->status !== 'cancelled') {
                 $order->payment_status = 'paid';
@@ -203,6 +203,7 @@ class OrderAmendment
             }
             $order->revision++;
             $order->save();
+            if ($data['direction'] === 'collect') app(CustomerEmails::class)->order($order, 'payment_received', 'settlement:'.$settlement->id, $amount);
             $order->events()->create(['user_id' => $user, 'description' => 'External '.($data['direction'] === 'refund' ? 'refund' : 'collection').' recorded: CAD '.number_format($amount / 100, 2).' via '.$data['method'].' · '.$data['note'], 'created_at' => now()]);
             // Use the same warehouse transition as the website receipt approval flow.
             if ($order->payment_method === 'etransfer' && $order->status === 'transfer_pending'

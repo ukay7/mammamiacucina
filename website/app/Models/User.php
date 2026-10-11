@@ -52,6 +52,9 @@ class User extends Authenticatable
         return $this->customer()->firstOrCreate([],['name'=>$this->name,'email'=>$this->email,'phone'=>$this->phone,'account_type'=>$this->account_type]);
     }
     protected static function booted(): void {
+        static::updated(function(User $user){
+            if($user->wasChanged(['business_approved_at','email_verified_at'])) app(\App\Services\CustomerEmails::class)->business($user);
+        });
         static::saved(function(User $user){
             if($user->isCustomer()) $user->customer()->updateOrCreate([],['name'=>$user->name,'email'=>$user->email,'phone'=>$user->phone,'account_type'=>$user->account_type]);
         });

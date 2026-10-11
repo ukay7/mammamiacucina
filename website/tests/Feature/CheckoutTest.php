@@ -84,7 +84,7 @@ class CheckoutTest extends TestCase
     {
         GeneralSetting::findOrFail(1)->update(['delivery_cents' => 550, 'tax_basis_points' => 1000]);
         [$p,$d] = $this->prepareOrder();
-        $this->get('/checkout')->assertOk()->assertSee('$5.50')->assertSee('10%')->assertSee('$2.14')->assertSee('$29.04');
+        $this->get('/checkout')->assertOk()->assertSee('$5.50')->assertSee('10.00%')->assertSee('$2.14')->assertSee('$29.04');
         $d['checkout_token'] = session('checkout_token');
         $d['delivery_cents'] = 0;
         $d['tax_cents'] = 0;

@@ -11,6 +11,7 @@ class Order extends Model
 
     protected static function booted(): void
     {
+        static::updated(fn ($order) => app(\App\Services\CustomerEmails::class)->changed($order));
         static::creating(function ($order) {
             $order->tracking_token ??= Str::random(48);
         });

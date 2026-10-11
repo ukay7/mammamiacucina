@@ -135,6 +135,7 @@ class CheckoutController extends Controller
                 app(OnlinePayments::class)->initialize($order);
             }
 
+            app(\App\Services\CustomerEmails::class)->order($order, 'order_confirmation', 'order-created:'.$order->id);
             return $order;
         }, 3);
         session(['last_order_id' => $order->id, 'last_order_token' => $order->checkout_token]);
