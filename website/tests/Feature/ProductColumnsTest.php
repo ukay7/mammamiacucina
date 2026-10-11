@@ -25,7 +25,7 @@ class ProductColumnsTest extends TestCase
     {
         $this->setupProduct();
         $this->get('/admin/products?columns=premium_marketing_name,published_price')->assertOk()->assertSee('Choose columns')->assertSee('Missing data')->assertSee('Name and price')->assertSee('data-product-column="manufacturer"  hidden', false);
-        $this->get('/admin/products/export?format=print&columns=premium_marketing_name,published_price')->assertOk()->assertSee('Column Cake')->assertSee('29.50000000')->assertDontSee('Special Supplier')->assertDontSee('Test Factory');
+        $this->get('/admin/products/export?format=print&columns=premium_marketing_name,published_price')->assertOk()->assertSee('Column Cake')->assertSee('29.50')->assertDontSee('29.50000000')->assertDontSee('Special Supplier')->assertDontSee('Test Factory');
         $this->get('/admin/products/export?format=pdf&columns=manufacturer')->assertOk()->assertSee('Test Factory')->assertDontSee('Column Cake');
         $this->get('/admin/products/export?format=print&columns=manufacturer&supplier=absent')->assertOk()->assertDontSee('Test Factory');
     }

@@ -117,3 +117,5 @@ Route::get('/policies',[\App\Http\Controllers\ContentPageController::class,'poli
 Route::get('/careers',[\App\Http\Controllers\ContentPageController::class,'careers'])->name('theme.careers');
 Route::get('/careers/jobs/{id}',[\App\Http\Controllers\ContentPageController::class,'job'])->name('careers.job');
 Route::get('/career-departments/{department}/image',[\App\Http\Controllers\ContentPageController::class,'image'])->name('careers.image');
+
+Route::get('/contact-link-icon/{id}', [\App\Http\Controllers\ContactPageController::class, 'linkIcon'])->name('contact.link-icon');

@@ -151,11 +151,19 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         Route::get('/imports/{import}', [ProductImportController::class, 'show'])->middleware(AdminAccess::class.':imports.view')->name('imports.show');
         Route::get('/imports/{import}/download', [ProductImportController::class, 'download'])->middleware(AdminAccess::class.':imports.view')->name('imports.download');
         Route::post('/imports/{import}/commit', [ProductImportController::class, 'commit'])->middleware(AdminAccess::class.':imports.manage')->name('imports.commit');
+        Route::post('/imports/{import}/cancel', [ProductImportController::class, 'cancel'])->middleware(AdminAccess::class.':imports.manage')->name('imports.cancel');
         Route::get('/inventory', [InventoryController::class, 'index'])->middleware(AdminAccess::class.':inventory.view')->name('inventory.index');
         Route::get('/inventory/{product}', [InventoryController::class, 'show'])->middleware(AdminAccess::class.':inventory.view')->name('inventory.show');
         Route::post('/inventory/{product}', [InventoryController::class, 'adjust'])->middleware(AdminAccess::class.':inventory.manage')->name('inventory.adjust');
         Route::post('/logout', [AuthController::class, 'destroy'])->name('logout');
-        Route::get('/', fn () => view('admin.dashboard'))->name('dashboard');
+        Route::get('/', fn () => redirect()->route('admin.notes.index'))->name('home');
+        Route::get('/dashboard/balances', [\App\Http\Controllers\Admin\DashboardController::class,'balances'])->middleware(AdminAccess::class.':dashboard.view')->name('dashboard.balances');
+        Route::get('/dashboard', \App\Http\Controllers\Admin\DashboardController::class)->middleware(AdminAccess::class.':dashboard.view')->name('dashboard');
+        Route::get('/notes',[\App\Http\Controllers\Admin\NoteController::class,'index'])->name('notes.index');
+        Route::post('/notes',[\App\Http\Controllers\Admin\NoteController::class,'store'])->name('notes.store');
+        Route::put('/notes/{note}',[\App\Http\Controllers\Admin\NoteController::class,'update'])->name('notes.update');
+        Route::patch('/notes/{note}/complete',[\App\Http\Controllers\Admin\NoteController::class,'complete'])->name('notes.complete');
+        Route::delete('/notes/{note}',[\App\Http\Controllers\Admin\NoteController::class,'destroy'])->name('notes.destroy');
         Route::middleware(AdminAccess::class.':users.view')->group(function () {
             Route::get('/users', [UserController::class, 'index'])->name('users.index');
         });

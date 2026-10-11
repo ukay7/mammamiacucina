@@ -9,7 +9,7 @@
 @elseif($definition[1]==='textarea')
 <textarea class="form-control" rows="3" name="dna[{{ $dnaKey }}]" id="dna-{{ $dnaKey }}">{{ $value }}</textarea>
 @else
-<input class="form-control" type="{{ in_array($definition[1],['number','integer'])?'number':$definition[1] }}" step="{{ $definition[1]==='integer'?'1':'any' }}" min="{{ $definition[1]==='integer'?'1':'0' }}" name="dna[{{ $dnaKey }}]" id="dna-{{ $dnaKey }}" value="{{ $value }}">
+<input @if(in_array($definition[1],['number','integer'])) data-number-display="quantity" @endif class="form-control" type="{{ in_array($definition[1],['number','integer'])?'number':$definition[1] }}" step="{{ $definition[1]==='integer'?'1':'any' }}" min="{{ $definition[1]==='integer'?'1':'0' }}" name="dna[{{ $dnaKey }}]" id="dna-{{ $dnaKey }}" value="{{ $value }}">
 @endif
 </div>
 @endforeach

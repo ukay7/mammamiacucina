@@ -27,7 +27,7 @@ $defaults=['purchase_price'=>$product->supplier_unit_price_eur,'purchase_basis'=
 @foreach($pricingFields as $key=>[$label,$type,$options])
 <label>{{ $label }}
 @if($type==='select')<select class="form-control" data-price-input="{{ $key }}">@foreach($options as $value=>$text)<option value="{{ $value }}" @selected(($settings?->inputs[$key]??$defaults[$key]??'')===$value)>{{ $text }}</option>@endforeach</select>
-@else<input class="form-control" data-price-input="{{ $key }}" type="{{ $type }}" step="any" min="0" value="{{ $settings?->inputs[$key]??$defaults[$key]??'' }}">@endif
+@else<input data-number-display="{{ \App\Support\NumberDisplay::mode($key) ?? 'decimal' }}" class="form-control" data-price-input="{{ $key }}" type="{{ $type }}" step="any" min="0" value="{{ $settings?->inputs[$key]??$defaults[$key]??'' }}">@endif
 </label>
 @endforeach
 </div>

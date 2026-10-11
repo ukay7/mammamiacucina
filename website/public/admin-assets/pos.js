@@ -129,7 +129,7 @@
             feedback('Quantity must be between 1 and 9,999. Use Remove to delete an item.',true);return;
         }
         if (line.stock !== null && quantity > Number(line.stock)) {
-            feedback('Available stock for '+line.name+': '+line.stock,true);return;
+            feedback('Available stock for '+line.name+': '+MMCNumber.decimal(line.stock,'quantity'),true);return;
         }
         line.quantity=quantity;quote=null;renderCart();
     }
@@ -141,7 +141,7 @@
         if (!cart.has(product.id) && cart.size >= 100) {feedback('A sale can contain up to 100 different products.',true);return;}
         const quantity=(cart.get(product.id)?.quantity || 0)+1;
         if (quantity > 9999 || (product.stock !== null && quantity > Number(product.stock))) {
-            feedback('Not enough stock for '+product.name+'. Available: '+(product.stock ?? '9,999 per sale'),true);return;
+            feedback('Not enough stock for '+product.name+'. Available: '+(product.stock === null ? '9,999 per sale' : MMCNumber.decimal(product.stock,'quantity')),true);return;
         }
         cart.set(product.id,{...product,quantity});quote=null;renderCart();
         feedback('Added '+product.name+' · quantity '+quantity);
@@ -154,7 +154,7 @@
             if(product.image){const img=document.createElement('img');img.src=product.image;img.alt=product.name;img.loading='lazy';card.append(img);}
             else card.append(make('span','No image','pos-image-empty'));
             card.append(make('h3',product.name),make('small',product.barcode),
-                make('small',product.stock === null ? 'Stock not tracked' : 'Available: '+product.stock+(product.uom ? ' '+product.uom : '')),
+                make('small',product.stock === null ? 'Stock not tracked' : 'Available: '+MMCNumber.decimal(product.stock,'quantity')+(product.uom ? ' '+product.uom : '')),
                 make('span',product.unit_cents === null ? 'Price on request' : money(product.unit_cents),'pos-result-price'));
             const button=make('button','Add to sale','btn btn-outline-primary');button.type='button';
             if(!product.active || product.unit_cents === null || product.unit_cents < 0 || (product.stock !== null && Number(product.stock)<1)){
@@ -223,7 +223,7 @@
         const lines=$('#quote-lines');lines.replaceChildren();
         data.items.forEach(line=>{const row=make('div',undefined,'pos-quote-line');row.append(make('span',line.name+' × '+line.quantity),make('strong',money(line.unit_cents*line.quantity)));lines.append(row);});
         const totals=$('#quote-totals');totals.replaceChildren();
-        [['Product subtotal',data.subtotal],[($('#fulfillment').value==='pickup'?'Pick up':'Delivery')+(data.delivery_route?.delivery_service_name?' · '+data.delivery_route.delivery_service_name:''),data.delivery],['Tax ('+data.tax_percent+'%)',data.tax],['Total (CAD)',data.total]].forEach(([label,value])=>{
+        [['Product subtotal',data.subtotal],[($('#fulfillment').value==='pickup'?'Pick up':'Delivery')+(data.delivery_route?.delivery_service_name?' · '+data.delivery_route.delivery_service_name:''),data.delivery],['Tax ('+MMCNumber.decimal(data.tax_percent)+'%)',data.tax],['Total (CAD)',data.total]].forEach(([label,value])=>{
             const row=make('div');row.append(make('span',label),make('span',money(value)));totals.append(row);
         });
         $('#complete-button').textContent='Place order · '+money(data.total);

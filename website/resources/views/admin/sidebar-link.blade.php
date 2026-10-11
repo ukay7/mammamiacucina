@@ -1,0 +1,1 @@
+<li class="{{ $isActive ? 'active' : '' }}"><a href="{{ route($entry['route'], $entry['params']) }}" @if($isActive) aria-current="page" @endif><i class="fas fa-{{ $entry['icon'] }}" aria-hidden="true"></i><span>{{ $entry['label'] }}</span></a></li>

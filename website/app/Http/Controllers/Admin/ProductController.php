@@ -62,14 +62,24 @@ class ProductController extends Controller
             return view('admin.products.print', ['headers' => $headers, 'rows' => $rows(), 'pdf' => $r->input('format') === 'pdf']);
         }
 
-        return response()->streamDownload(function () use ($headers, $rows) {
+        return response()->streamDownload(function () use ($headers, $rows, $selected) {
             $path = tempnam(sys_get_temp_dir(), 'mmc-products');
             $writer = new Writer;
             try {
                 $writer->openToFile($path);
                 $writer->addRow(Row::fromValues($headers));
                 foreach ($rows() as $row) {
-                    $writer->addRow(new Row(array_map(fn ($value) => is_string($value) ? new StringCell($value, null) : Cell::fromValue($value), $row)));
+                    $cells = [];
+                    foreach ($row as $index => $value) {
+                        $mode = \App\Support\NumberDisplay::mode($selected[$index]);
+                        if ($mode && is_numeric($value)) {
+                            $style = (new \OpenSpout\Common\Entity\Style\Style)->setFormat($mode === 'quantity' ? '0.###' : '0.00');
+                            $cells[] = Cell::fromValue((float) $value, $style);
+                        } else {
+                            $cells[] = is_string($value) ? new StringCell($value, null) : Cell::fromValue($value);
+                        }
+                    }
+                    $writer->addRow(new Row($cells));
                 }$writer->close();
                 readfile($path);
             } finally {

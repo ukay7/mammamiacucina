@@ -8,6 +8,32 @@ class GeneralSetting extends Model
 {
     protected $guarded = ['id'];
 
+    public static function defaultContactIcon(array $link): string
+    {
+        $host = strtolower(parse_url($link['url'] ?? '', PHP_URL_HOST) ?? '');
+        $label = strtolower(trim($link['label'] ?? ''));
+        foreach (['whatsapp' => ['wa.me', 'whatsapp.com'], 'instagram' => ['instagram.com'], 'facebook' => ['facebook.com', 'fb.com']] as $icon => $domains) {
+            if ($label === $icon) return asset('assets/images/social/'.$icon.'.svg');
+            foreach ($domains as $domain) {
+                if ($host === $domain || str_ends_with($host, '.'.$domain)) return asset('assets/images/social/'.$icon.'.svg');
+            }
+        }
+        return asset('assets/images/social/website.svg');
+    }
+
+    public function contactLinks(bool $activeOnly = false): array
+    {
+        $links = $this->contact_links;
+        if ($links === null) {
+            $links = [];
+            foreach (['whatsapp_number' => 'WhatsApp', 'instagram_url' => 'Instagram', 'facebook_url' => 'Facebook', 'website_url' => 'Website', 'twitter_url' => 'Twitter / X'] as $field => $label) {
+                if (!$this->$field) continue;
+                $links[] = ['id' => $field, 'label' => $label, 'url' => $field === 'whatsapp_number' ? 'https://wa.me/'.preg_replace('/\D/', '', $this->$field) : $this->$field, 'active' => true, 'sort' => count($links), 'icon' => null];
+            }
+        }
+        return collect($links)->filter(fn ($link) => !$activeOnly || $link['active'])->sortBy('sort')->values()->all();
+    }
+
     public function logoUrl(): string { return $this->logo_path ? route('site.logo') : asset('logo.png'); }
 
     public function pageBannerUrl(): string { return $this->page_banner_path ? route('site.page-banner') : asset('assets/images/mmc/italian-pastries-hero.png'); }
@@ -34,6 +60,6 @@ class GeneralSetting extends Model
 
     protected function casts(): array
     {
-        return ['opening_hours' => 'array', 'delivery_cents' => 'integer', 'tax_basis_points' => 'integer', 'revision' => 'integer'];
+        return ['contact_links' => 'array', 'show_email' => 'boolean', 'show_phone' => 'boolean', 'opening_hours' => 'array', 'delivery_cents' => 'integer', 'tax_basis_points' => 'integer', 'revision' => 'integer'];
     }
 }

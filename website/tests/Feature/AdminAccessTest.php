@@ -26,7 +26,7 @@ class AdminAccessTest extends TestCase
     public function test_active_user_can_login_and_logout(): void
     {
         $user = $this->account('Staff', ['password' => 'TestingPassword123']);
-        $this->post('/admin/login', ['email' => $user->email, 'password' => 'TestingPassword123'])->assertRedirect('/admin');
+        $this->post('/admin/login', ['email' => $user->email, 'password' => 'TestingPassword123'])->assertRedirect('/admin/notes');
         $this->assertAuthenticatedAs($user);
         $this->post('/admin/logout')->assertRedirect('/admin/login');
         $this->assertGuest();
@@ -37,10 +37,10 @@ class AdminAccessTest extends TestCase
         $user = $this->account('Warehouse User', ['password' => 'TestingPassword123']);
         $this->get('/admin/users')->assertRedirect('/admin/login');
         $this->post('/admin/login', ['email' => $user->email, 'password' => 'TestingPassword123'])
-            ->assertRedirect('/admin/orders')->assertSessionMissing('url.intended');
+            ->assertRedirect('/admin/notes')->assertSessionMissing('url.intended');
         $this->assertAuthenticatedAs($user);
         $this->get('/admin/orders')->assertOk();
-        $this->get('/admin/login')->assertRedirect('/admin/orders');
+        $this->get('/admin/login')->assertRedirect('/admin/notes');
         $this->get('/admin/users')->assertForbidden();
     }
 
@@ -49,8 +49,8 @@ class AdminAccessTest extends TestCase
         $user = $this->account('Staff', ['password' => 'TestingPassword123']);
         $this->withSession(['url.intended' => url('/admin/users')])
             ->post('/admin/login', ['email' => $user->email, 'password' => 'TestingPassword123'])
-            ->assertRedirect('/admin')->assertSessionMissing('url.intended');
-        $this->get('/admin')->assertOk();
+            ->assertRedirect('/admin/notes')->assertSessionMissing('url.intended');
+        $this->get('/admin/notes')->assertOk();
         $this->get('/admin/users')->assertForbidden();
     }
 
@@ -64,7 +64,7 @@ class AdminAccessTest extends TestCase
     public function test_staff_cannot_bypass_hidden_sidebar_links(): void
     {
         $this->actingAs($this->account('Staff'));
-        $this->get('/admin')->assertOk()->assertDontSee('User Management')->assertDontSee('User Types &amp; Permissions', false);
+        $this->get('/admin/notes')->assertOk()->assertDontSee('User Management')->assertDontSee('User Types &amp; Permissions', false);
         $this->get('/admin/users')->assertForbidden();
         $this->post('/admin/users', [])->assertForbidden();
         $this->get('/admin/user-types')->assertForbidden();
@@ -95,7 +95,7 @@ class AdminAccessTest extends TestCase
         $this->actingAs($actor)->post('/admin/user-types', ['name' => 'Read only team', 'permissions' => ['users.view']])->assertRedirect('/admin/user-types');
         $role = Role::where('name', 'Read only team')->firstOrFail();
         $user = $this->account('Staff', ['role_id' => $role->id]);
-        $this->actingAs($user)->get('/admin')->assertOk()->assertSee('User Management');
+        $this->actingAs($user)->get('/admin/notes')->assertOk()->assertSee('User Management');
         $this->get('/admin/users')->assertOk();
         $this->get('/admin/users/create')->assertForbidden();
     }

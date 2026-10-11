@@ -110,7 +110,7 @@ class QuotationTest extends TestCase
         $this->assertSame('0010020', $item['code']);
         $this->assertSame(6610, $q->subtotal_cents);
         $this->assertSame(5949, $q->total_cents);
-        $this->get(route('admin.quotations.print',$q))->assertOk()->assertSee('PRICE QUOTATION')->assertSee('SUGGESTED RETAIL')->assertSee('$19.8288')->assertSee('$3.3048')->assertSee('$23.7946');
+        $this->get(route('admin.quotations.print',$q))->assertOk()->assertSee('PRICE QUOTATION')->assertSee('SUGGESTED RETAIL')->assertSee('$19.83')->assertSee('$3.30')->assertSee('$23.79');
         $this->assertNotSame('Forged', $item['columns']['supplier']);
         $p->update(['dna' => ['pieces_per_carton' => 12], 'premium_marketing_name' => 'Changed name']);
         $category->update(['name' => 'Changed category']);
@@ -121,7 +121,7 @@ class QuotationTest extends TestCase
         $this->assertSame('5.02056667', $q->items[0]['sale_unit_price']);
         $this->assertSame(6025, $q->total_cents);
         $this->assertSame('Dessert category', $q->items[0]['category']);
-        $this->get(route('admin.quotations.print', $q))->assertOk()->assertSee('Dessert category')->assertSee('Six piece cake')->assertSee('30.1234')->assertSee('Quote / Sale Unit');
+        $this->get(route('admin.quotations.print', $q))->assertOk()->assertSee('Dessert category')->assertSee('Six piece cake')->assertSee('30.12')->assertSee('Quote / Sale Unit');
         $this->assertEquals(25, (float) $p->fresh()->total_selling_price_cad);
         $this->assertDatabaseCount('orders', 0);
     }

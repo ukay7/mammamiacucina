@@ -16,7 +16,7 @@
 <section><h3>Price range <span>CAD</span></h3><form method="get" action="{{ route('theme.product-grid') }}" class="mmc-price-filter">
 @foreach($selectedAllergies as $id)<input type="hidden" name="allergies[]" value="{{ $id }}">@endforeach
 @foreach(['q'=>$search,'category'=>$category,'sort'=>$sort,'show'=>$perPage,'view'=>$view] as $key=>$value)<input type="hidden" name="{{ $key }}" value="{{ $value }}">@endforeach
-<div class="mmc-price-fields"><label>Min ($)<input type="number" name="min" min="0" step="0.01" placeholder="0" value="{{ $min }}"></label><span aria-hidden="true">–</span><label>Max ($)<input type="number" name="max" min="0" step="0.01" placeholder="Any" value="{{ $max }}"></label></div>
+<div class="mmc-price-fields"><label>Min ($)<input type="number" data-number-display="decimal" name="min" min="0" step="0.01" placeholder="0" value="{{ $min }}"></label><span aria-hidden="true">–</span><label>Max ($)<input type="number" data-number-display="decimal" name="max" min="0" step="0.01" placeholder="Any" value="{{ $max }}"></label></div>
 <button class="mmc-button" type="submit">Apply price</button>
 <p class="mmc-filter-hint">Products without a price are excluded when a price filter is set.</p>
 </form></section>

@@ -7,7 +7,7 @@ use App\Models\{User,Role};
 class GeneralLoginTest extends TestCase {
  use RefreshDatabase;
  public function test_general_login_routes_staff_by_permissions():void {
-  foreach(['Super Admin'=>'admin.dashboard','Warehouse User'=>'admin.orders.index'] as $role=>$route){
+  foreach(['Super Admin'=>'admin.notes.index','Warehouse User'=>'admin.notes.index'] as $role=>$route){
    $user=User::factory()->create(['role_id'=>Role::where('name',$role)->value('id'),'is_active'=>true,'password'=>'strong-password-123']);
    $this->post(route('customer.login.store'),['email'=>$user->email,'password'=>'strong-password-123'])->assertRedirect(route($route));
    $this->assertAuthenticatedAs($user);auth()->logout();

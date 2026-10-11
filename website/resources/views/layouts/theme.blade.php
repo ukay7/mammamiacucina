@@ -6,6 +6,7 @@
 
 @include('partials.pwa')
 @include('partials.theme-colors',['themeScope'=>'website'])
+<script src="{{ asset('assets/js/number-display.js') }}?v={{ filemtime(public_path('assets/js/number-display.js')) }}"></script>
 </head>
 <body class="@yield('body-class', 'page-init')">
 @yield('content')

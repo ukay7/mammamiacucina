@@ -20,7 +20,7 @@ root.querySelector('[data-use-source-discount]').addEventListener('click',()=>{
  if(!/^\d+(\.\d+)?(\+\d+(\.\d+)?)*$/.test(source)){tell('Enter a source discount such as 35+3 first.',true);return;}
  root.querySelector('[data-price-input="discount"]').value=source;changed();tell('Supplier discount copied. Calculate Preview to see the result.');
 });
-function payload(){return {revision,editor_revision:Number(productForm.querySelector('[name="editor_revision"]').value),choice:choice.value,inputs:Object.fromEntries([...root.querySelectorAll('[data-price-input]')].map(i=>[i.dataset.priceInput,i.value]))};}
+function payload(){return {revision,editor_revision:Number(productForm.querySelector('[name="editor_revision"]').value),choice:choice.value,inputs:Object.fromEntries([...root.querySelectorAll('[data-price-input]')].map(i=>[i.dataset.priceInput,MMCNumber.raw(i)]))};}
 async function send(action,data){
  const response=await fetch(root.dataset[action],{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-TOKEN':productForm.querySelector('input[name="_token"]').value},body:JSON.stringify(data)});
  let json;try{json=await response.json();}catch{throw new Error('Unable to save. Refresh the page and check your connection.');}
@@ -30,7 +30,7 @@ async function send(action,data){
 function render(result){
  const results=root.querySelector('[data-price-results]');results.replaceChildren();
  const labels={unit_eur:'Quoted EUR / piece',net_eur:'Discounted EUR / piece',cost_cad:'Purchase CAD / piece',freight_unit:'Freight CAD / piece',landed_cad:'Landed CAD / piece',unit_cents:'Selling CAD / piece (Individual)',carton_cents:'Selling CAD / carton (Individual)',business_unit_cents:'Selling CAD / piece (Business)',business_carton_cents:'Selling CAD / carton (Business)',discount_percent:'Effective supplier discount %',margin_percent:'Actual margin %'};
- Object.entries(labels).forEach(([key,label])=>{const div=document.createElement('div'),strong=document.createElement('strong');div.textContent=label;strong.textContent=result[key]===null?'—':key.endsWith('cents')?money(result[key]):Number(result[key]).toFixed(4);div.append(strong);results.append(div);});
+ Object.entries(labels).forEach(([key,label])=>{const div=document.createElement('div'),strong=document.createElement('strong');div.textContent=label;strong.textContent=result[key]===null?'—':key.endsWith('cents')?money(result[key]):MMCNumber.decimal(result[key]);div.append(strong);results.append(div);});
  const old=choice.value;choice.replaceChildren(new Option('Choose the price to save',''),new Option('1 piece — Individual '+money(result.unit_cents)+' / Business '+money(result.business_unit_cents),'unit'),new Option('1 carton — Individual '+money(result.carton_cents)+' / Business '+money(result.business_carton_cents),'carton'));choice.value=old;
 }
 root.querySelectorAll('[data-pricing-action]').forEach(button=>button.addEventListener('click',async()=>{

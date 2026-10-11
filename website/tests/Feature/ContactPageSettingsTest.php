@@ -34,7 +34,7 @@ class ContactPageSettingsTest extends TestCase
     {
         $this->login();
         $before = GeneralSetting::find(1);
-        $this->get(route('admin.contact.edit'))->assertOk()->assertSeeInOrder(['<span>About Us</span>', '<span>Contact Us</span>', '<span>General Settings</span>'], false);
+        $this->get(route('admin.contact.edit'))->assertOk()->assertSeeInOrder(['<span>About Us</span>', '<span>Contact &amp; Social Links</span>', '<span>General Settings</span>'], false);
         $this->put(route('admin.contact.update'), $this->data())->assertSessionHasNoErrors();
         $s = GeneralSetting::find(1);
         $this->assertSame('+14165550123', $s->whatsapp_number);
@@ -83,5 +83,46 @@ class ContactPageSettingsTest extends TestCase
         $this->login();
         $this->put(route('admin.contact.update'), array_replace($this->data(), ['website_url' => 'javascript:alert(1)', 'instagram_url' => 'javascript:alert(1)', 'facebook_url' => 'javascript:alert(1)', 'whatsapp_number' => '123', 'email' => 'bad']))->assertSessionHasErrors(['website_url', 'instagram_url', 'facebook_url', 'email']);
         $this->put(route('admin.contact.update'), array_replace($this->data(),['whatsapp_number' => '123']))->assertSessionHasErrors('whatsapp_number');
+    }
+
+    public function test_dynamic_links_visibility_icons_and_removal_preserve_legacy_data(): void
+    {
+        Storage::fake('local');
+        $this->login();
+        $before = GeneralSetting::findOrFail(1);
+        $legacy = $before->facebook_url;
+        $data = array_replace($this->data(), ['links_present'=>1, 'show_email'=>0, 'show_phone'=>0, 'links'=>[
+            ['label'=>'LinkedIn Test', 'url'=>'https://linkedin.com/company/example', 'active'=>1, 'sort'=>2, 'icon'=>$this->photo()],
+            ['label'=>'Hidden Maps', 'url'=>'https://maps.google.com/', 'active'=>0, 'sort'=>1],
+        ]]);
+        unset($data['facebook_url']);
+        $this->put(route('admin.contact.update'), $data)->assertSessionHasNoErrors();
+        $settings = GeneralSetting::findOrFail(1);
+        $this->assertSame($legacy, $settings->facebook_url);
+        $this->assertCount(2, $settings->contactLinks());
+        $link = collect($settings->contactLinks())->firstWhere('label', 'LinkedIn Test');
+        Storage::disk('local')->assertExists($link['icon']);
+        $this->get(route('contact.link-icon', $link['id']))->assertOk();
+        foreach (['/', '/contact', '/admin/notes'] as $url) {
+            $this->get($url)->assertOk()->assertSee('LinkedIn Test')->assertDontSee('Hidden Maps')->assertDontSee('mailto:hello@example.com', false)->assertDontSee('tel:+14165559999', false);
+        }
+        $this->put(route('admin.contact.update'), array_replace($data, ['revision'=>0]))->assertSessionHasErrors('settings');
+        $this->assertCount(1, Storage::disk('local')->allFiles('contact-icons'));
+        unset($data['links']);
+        $this->put(route('admin.contact.update'), array_replace($data, ['revision'=>1]))->assertSessionHasNoErrors();
+        $this->assertSame([], GeneralSetting::findOrFail(1)->contactLinks());
+        Storage::disk('local')->assertMissing($link['icon']);
+        $this->get('/contact')->assertDontSee('LinkedIn Test');
+    }
+
+    public function test_dynamic_links_reject_unsafe_urls_and_foreign_ids(): void
+    {
+        $this->login();
+        $data = $this->data() + ['links_present'=>1, 'links'=>[['label'=>'Bad', 'url'=>'javascript:alert(1)', 'active'=>1, 'sort'=>0]]];
+        $this->put(route('admin.contact.update'), $data)->assertSessionHasErrors('links.0.url');
+        $data['links'][0]['url'] = 'https://example.com';
+        $data['links'][0]['id'] = 'unknown-link';
+        $this->put(route('admin.contact.update'), $data)->assertSessionHasErrors('links.0.id');
+        $this->assertNull(GeneralSetting::findOrFail(1)->contact_links);
     }
 }

@@ -55,6 +55,19 @@ class CatalogueAdminTest extends TestCase
         return $path;
     }
 
+    private function dnaWorkbook(): string
+    {
+        $path = tempnam(sys_get_temp_dir(), 'dna').'.xlsx';
+        $this->files[] = $path;
+        $w = new Writer;
+        $w->openToFile($path);
+        $w->addRow(Row::fromValues(config('product_import.headers')));
+        $w->addRow(Row::fromValues(array_values(ProductDnaImportTest::sample(['Internal code' => '00100020']))));
+        $w->close();
+
+        return $path;
+    }
+
     private function preview(array $rows): ProductImport
     {
         return app(CatalogueImporter::class)->preview($this->workbook($rows), 'test.xlsx', null, Category::where('slug', 'general')->value('id'));
@@ -124,7 +137,7 @@ class CatalogueAdminTest extends TestCase
         Storage::fake('local');
         $this->product();
         $this->actingAs($this->actor());
-        $path = $this->workbook([$this->data()]);
+        $path = $this->dnaWorkbook();
         $response = $this->post('/admin/imports', ['category_id' => 1, 'file' => new UploadedFile($path, 'catalogue.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true)]);
         $import = ProductImport::firstOrFail();
         $response->assertRedirect('/admin/imports/'.$import->id);
@@ -137,7 +150,7 @@ class CatalogueAdminTest extends TestCase
         }
         $this->get('/admin/imports/'.$import->id.'/download')->assertDownload('catalogue.xlsx');
         $response = $this->get('/admin/imports/template')->assertDownload('product-import-template.xlsx');
-        $this->assertStringStartsWith('PK', $response->streamedContent());
+        $this->assertStringStartsWith('PK', file_get_contents(resource_path('templates/product-import-template.xlsx')));
     }
 
     public function test_stock_set_remove_stale_and_negative_checks_and_history(): void
@@ -302,7 +315,7 @@ class CatalogueAdminTest extends TestCase
         $other = Category::create(['name' => 'Other category', 'slug' => 'other-category']);
         $this->get('/admin/imports')->assertOk()->assertSee('Insert new products / update matches')->assertDontSee('name="category_id"', false);
         foreach ([[], ['category_id' => $other->id]] as $extra) {
-            $path = $this->workbook([$this->data()]);
+            $path = $this->dnaWorkbook();
             $this->post('/admin/imports', [...$extra, 'file' => new UploadedFile($path, 'catalogue.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true)])->assertRedirect();
             $import = ProductImport::latest('id')->firstOrFail();
             $this->assertSame(Category::where('slug', 'general')->value('id'), $import->category_id);

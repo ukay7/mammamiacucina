@@ -6,7 +6,7 @@
 REFERENCE &nbsp;|&nbsp; {{ $quotation->number }}</p></div></section>
 @php
 $quoteGroups=collect($quotation->items)->groupBy(fn($item)=>$item['category']??'Uncategorized')->sortKeys();
-$quoteMoney=fn($value)=>'$'.(round($value,2)==round($value,4)?number_format($value,2,'.',''):rtrim(number_format($value,4,'.',''),'0'));
+$quoteMoney=fn($value)=>'$'.\App\Support\NumberDisplay::decimal($value);
 @endphp
 <table class="quote-lines"><colgroup><col style="width:8%"><col style="width:27%"><col style="width:11%"><col style="width:10%"><col style="width:14%"><col style="width:14%"><col style="width:16%"></colgroup><thead><tr><th>CODE</th><th>PRODUCT</th><th>CARTON<br>PACK</th><th>DISCOUNT</th><th aria-label="Quote / Sale Unit">QUOTE /<br>SALE UNIT</th><th>QUOTE /<br>CARTON</th><th>SUGGESTED RETAIL<br>/ CARTON (+20%)</th></tr></thead><tbody>
 @foreach($quoteGroups as $category=>$items)
@@ -19,7 +19,7 @@ $netCarton=$carton*$factor;
 $pack=$item['pieces_per_carton']??null;
 $unit=$pack?$netCarton/$pack:(isset($item['sale_unit_price'])?(float)$item['sale_unit_price']*$factor:null);
 @endphp
-<tr><td class="quote-code">{{ $item['code'] }}</td><td>{{ $item['name'] }}@if($item['quantity']>1)<small> · {{ $item['quantity'] }} cartons</small>@endif</td><td>{{ $pack?$pack.' '.($pack===1?'pc':'pcs'):'—' }}</td><td>{{ rtrim(rtrim(number_format((1-$factor)*100,2,'.',''),'0'),'.') }}%</td><td>{{ $unit!==null?$quoteMoney($unit):'—' }}</td><td>{{ $quoteMoney($netCarton) }}</td><td>{{ $quoteMoney($netCarton*1.2) }}</td></tr>
+<tr><td class="quote-code">{{ $item['code'] }}</td><td>{{ $item['name'] }}@if($item['quantity']>1)<small> · {{ $item['quantity'] }} cartons</small>@endif</td><td>{{ $pack?$pack.' '.($pack===1?'pc':'pcs'):'—' }}</td><td>{{ \App\Support\NumberDisplay::decimal((1-$factor)*100) }}%</td><td>{{ $unit!==null?$quoteMoney($unit):'—' }}</td><td>{{ $quoteMoney($netCarton) }}</td><td>{{ $quoteMoney($netCarton*1.2) }}</td></tr>
 @endforeach
 @endforeach
 </tbody></table>
