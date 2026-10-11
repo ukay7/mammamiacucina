@@ -67,6 +67,10 @@ $active = static fn($item) => str_starts_with($item['match'], 'path:')
 @if(auth()->user()->isCustomer())
 <li><a href="{{ route('customer.orders') }}"><i class="fas fa-home" aria-hidden="true"></i><span>My Orders</span></a></li>
 <li class="{{ request()->routeIs('customer.profile*') ? 'active' : '' }}"><a href="{{ route('customer.profile') }}"><i class="fas fa-user" aria-hidden="true"></i><span>My Profile</span></a></li>
+@elseif(auth()->user()->isWarehouseOnly())
+@foreach($sections['Sales & Orders'][1]['children'] as $entry)
+@include('admin.sidebar-link', ['entry' => $entry, 'isActive' => $active($entry)])
+@endforeach
 @else
 @foreach($sections as $heading => $items)
 @php
@@ -94,7 +98,7 @@ $visible = collect($items)->map(function($item) use ($allowed) {
 @endif
 @endforeach
 @endif
-@if(count($siteSettings?->contactLinks(true) ?? []))
+@if(!auth()->user()->isWarehouseOnly() && count($siteSettings?->contactLinks(true) ?? []))
 <li class="nav-title">Quick Links</li>
 <li><details class="mmc-admin-submenu"><summary><i class="fas fa-external-link-alt" aria-hidden="true"></i><span>Website & Social</span><i class="fas fa-chevron-down mmc-submenu-arrow" aria-hidden="true"></i></summary><ul>@include('admin.sidebar-social')</ul></details></li>
 
