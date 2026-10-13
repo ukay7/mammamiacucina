@@ -2,7 +2,7 @@
 body.mmc-home{background:var(--theme-background);color:var(--theme-text)}
 .mmc-home .mmc-masthead,.mmc-inner-header,.mmc-home .mmc-menu.is-open{background:var(--theme-header)!important}
 .mmc-home:not(.mmc-inner) .mmc-masthead::before{background:var(--theme-header)!important;box-shadow:0 0 0 100vmax var(--theme-header)!important}
-.mmc-home .mmc-menu a,.mmc-home .mmc-menu-toggle{color:var(--theme-nav_text);text-shadow:none}
+.mmc-home .mmc-menu > a,.mmc-home .mmc-menu-toggle{color:var(--theme-nav_text);text-shadow:none}
 .mmc-home .mmc-menu-toggle{background:var(--theme-header)}
 .mmc-home .ps-footer{background:var(--theme-footer)!important;color:var(--theme-nav_text)}
 .mmc-home .ps-footer :is(p,a,li,span){color:var(--theme-nav_text)}
@@ -20,4 +20,10 @@ body.mmc-home{background:var(--theme-background);color:var(--theme-text)}
 .mmc-home :is(.mmc-arrivals,.mmc-tradition__copy,.mmc-baking__copy) :is(h2,h3){color:var(--theme-heading)}
 .mmc-home :is(.mmc-tradition__description,.mmc-baking__features p){color:var(--theme-text)}
 .mmc-home :is(.mmc-tradition__eyebrow,.mmc-baking__heading>p,.mmc-arrivals__eyebrow){color:var(--theme-accent)}
-.mmc-home :is(.mmc-menu a:hover,.mmc-track-order,.mmc-account-link){color:var(--theme-accent)}
+.mmc-home :is(.mmc-menu > a:hover,.mmc-track-order,.mmc-account-link){color:var(--theme-accent)}
+/* The light product dropdown needs its own contrast, separate from the dark header. */
+.mmc-home .mmc-menu .mmc-products-submenu a{color:#302519;text-shadow:none}
+.mmc-home .mmc-menu .mmc-products-submenu a:hover,
+.mmc-home .mmc-menu .mmc-products-submenu a:focus-visible,
+.mmc-home .mmc-menu .mmc-products-submenu a[aria-current='page']{color:#8e0718;background:#f4ecde}
+.mmc-home .mmc-menu .mmc-products-submenu a:focus-visible{outline:2px solid #8e0718;outline-offset:-2px}
