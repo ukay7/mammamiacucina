@@ -117,6 +117,8 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
             Route::get('/settings/email/templates/{key}', [\App\Http\Controllers\Admin\EmailTemplateController::class,'edit'])->name('email.templates.edit');
             Route::put('/settings/email/templates/{key}', [\App\Http\Controllers\Admin\EmailTemplateController::class,'update'])->name('email.templates.update');
             Route::get('/settings/email/history', [\App\Http\Controllers\Admin\EmailHistoryController::class, 'index'])->name('email.history');
+            Route::get('/settings/email/history/{email}', [\App\Http\Controllers\Admin\EmailHistoryController::class, 'show'])->whereNumber('email')->name('email.history.show');
+            Route::get('/settings/email/history/{email}/attachment', [\App\Http\Controllers\Admin\EmailHistoryController::class, 'attachment'])->whereNumber('email')->name('email.history.attachment');
             Route::get('/settings/email', [\App\Http\Controllers\Admin\SmtpSettingController::class, 'edit'])->name('email.edit');
             Route::put('/settings/email', [\App\Http\Controllers\Admin\SmtpSettingController::class, 'update'])->name('email.update');
             Route::post('/settings/email/test', [\App\Http\Controllers\Admin\SmtpSettingController::class, 'test'])->middleware('throttle:5,1')->name('email.test');

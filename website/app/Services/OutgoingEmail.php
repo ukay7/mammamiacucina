@@ -26,6 +26,7 @@ class OutgoingEmail {
    $message=new \Illuminate\Mail\Message(new \Symfony\Component\Mime\Email());$callback($message);
    $entry=EmailHistory::create(['recipient'=>implode(', ',array_map(fn($a)=>$a->getAddress(),$message->getSymfonyMessage()->getTo())), 'subject'=>$message->getSymfonyMessage()->getSubject(),'type'=>$type,'status'=>'pending']);
    $settings=\App\Models\SmtpSetting::find(1);
+   $entry->update(['archive'=>EmailArchive::snapshot($type,$body),'archived_at'=>now()]);
    if($settings?->enabled && $settings->delivery_method==='resend'){
     $entry->update(['mailer'=>'resend_api']);
     $id=app(ResendEmail::class)->send($settings,$message->getSymfonyMessage(),$body);

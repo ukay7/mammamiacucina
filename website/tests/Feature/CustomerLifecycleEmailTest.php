@@ -87,6 +87,11 @@ class CustomerLifecycleEmailTest extends TestCase
         $this->assertSame($requests[0][0]->data(), $requests[1][0]->data());
         $this->assertStringStartsWith('%PDF-', base64_decode($requests[0][0]['attachments'][0]['content']));
         $this->assertNull($entry->fresh()->payload);
+        $archive = $entry->fresh()->archive;
+        $this->assertSame($requests[0][0]['text'], $archive['body']);
+        $this->assertSame($requests[0][0]['attachments'][0]['content'], $archive['attachment']);
+        $this->assertNotNull($entry->fresh()->archived_at);
+        $this->assertStringNotContainsString('Buyer', DB::table('email_history')->where('id',$entry->id)->value('archive'));
     }
 
     public function test_status_changes_only_and_verified_collections_not_receipt_uploads(): void

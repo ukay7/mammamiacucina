@@ -25,6 +25,8 @@ Event keys and locked claims prevent duplicate dispatch from repeated saves/call
 
 ## Live smoke test
 
+Email History now offers **View Email** for new delivery attempts, with the saved plain-text message and the exact PDF attachment where present. Copies are encrypted in the database and excluded from model JSON and history list queries. Verification/password-reset links are redacted in the copy only. The separate original outbox payload still clears after acceptance; retries use that original payload and the same idempotency key. Viewing/downloading requires `settings.manage`, uses no-store responses, and never sends another email. Failed or logged-only attempts may have a saved copy but are clearly labelled, not claimed as sent. Older accepted emails cannot be reconstructed. The archive migration does not backfill or send emails. Customer cleanup deletes these archives with their email-history rows. Retained PDF copies increase database and backup size over time.
+
 1. Register an individual using a mailbox you control. Verify the link and confirm shopping access; test password reset.
 2. Register a business. Confirm the review/verification message; verify the email and check that purchasing still needs approval. Approve in admin and confirm one active email. Also test approval before verification with a separate account.
 3. Place a cash or e-transfer order. Confirm one order email with an unpaid PDF and correct items/totals/address. Reopening success must not create another confirmation.

@@ -57,6 +57,10 @@ class EmailOutbox
                 $payload['attachment'] = base64_encode($pdf->output());
                 unset($payload['document']);
             }
+            if (! $entry->archived_at) {
+                $entry->archive = EmailArchive::snapshot($entry->type, $payload['body'], $payload['attachment'] ?? null);
+                $entry->archived_at = now();
+            }
             $entry->update(['payload' => $payload, 'status' => 'sending', 'started_at' => now(), 'attempts' => $entry->attempts + 1,
                 'mailer' => $settings->delivery_method === 'resend' ? 'resend_api' : 'configured_smtp']);
 
