@@ -12,6 +12,7 @@ class WarehousePacking
     {
         return DB::transaction(function () use ($order, $data, $user) {
             $order = Order::lockForUpdate()->findOrFail($order->id);
+            $order->assertEditable();
             $fail = fn ($m) => throw ValidationException::withMessages(['warehouse' => $m]);
             if ((int) $order->revision !== (int) $data['revision']) {
                 $fail('This order changed. Reload before packing.');

@@ -17,6 +17,12 @@ use OpenSpout\Writer\XLSX\Writer;
 
 class OrderController extends Controller
 {
+    public function archive(Request $request, Order $order, \App\Services\OrderArchive $service)
+    {
+        $data=$request->validate(['revision'=>'required|integer|min:0','confirm'=>'accepted']);
+        $service->archive($order,(int)$data['revision'],$request->user()->id);
+        return redirect()->route('admin.orders.archived')->with('status',$order->number.' archived. This order is now read-only.');
+    }
     private function warehouseOnly(): bool
     {
         return auth()->user()->hasAdminPermission('warehouse.pack') && ! auth()->user()->hasAdminPermission('orders.manage');
@@ -58,6 +64,7 @@ class OrderController extends Controller
 
     public function payments(Order $order)
     {
+
         $order->load(['payment', 'settlements.author']);
         $gatewayRefunds = $order->payment?->provider === 'helcim'
             ? \Illuminate\Support\Facades\DB::table('payment_refunds')->where('payment_id', $order->payment->id)->where('status', 'completed')->orderBy('id')->get() : collect();
@@ -104,17 +111,20 @@ class OrderController extends Controller
 
     private function listing(Request $r)
     {
+        $archived = $r->routeIs('admin.orders.archived') || ($r->routeIs('admin.orders.export') && $r->input('view')==='archived');
         $search = mb_substr((string) $r->input('q', ''), 0, 200);
         $dates = $r->validate(['from' => 'sometimes|required|date_format:Y-m-d', 'to' => 'sometimes|required|date_format:Y-m-d']);
-        $from = $dates['from'] ?? now()->startOfMonth()->toDateString();
+        $from = $dates['from'] ?? ($archived ? substr((string)(Order::whereNotNull('archived_at')->min('created_at') ?? now()->startOfMonth()->toDateString()),0,10) : now()->startOfMonth()->toDateString());
         $to = $dates['to'] ?? now()->endOfMonth()->toDateString();
         if ($to < $from) {
             throw ValidationException::withMessages(['to' => 'The To date must be on or after the From date.']);
         }
         $warehouseOnly = $this->warehouseOnly();
+        $archived = $r->routeIs('admin.orders.archived') || ($r->routeIs('admin.orders.export') && $r->input('view')==='archived');
+        abort_if($archived && $warehouseOnly,403);
         $completed = $r->routeIs('admin.orders.completed') || ($r->routeIs('admin.orders.export') && $r->input('view')==='completed');
         $r->validate(['status' => 'nullable|in:'.implode(',', array_keys(Order::STATUSES))]);
-        $orders = Order::with(['payment', 'settlements', 'creator'])->where('status', $completed ? '=' : '!=', 'completed')->when($warehouseOnly, fn ($q) => $completed ? $q->where('created_by',$r->user()->id) : $q->visibleToWarehouse($r->user()->id))->when($r->filled('status'), fn ($q) => $q->where('status', $r->input('status')))->where('created_at', '>=', $from.' 00:00:00')->where('created_at', '<', Carbon::parse($to)->addDay()->startOfDay())->when($search, fn ($q) => $q->where(fn ($q) => $q->where('number', 'like', '%'.$search.'%')->orWhere('email', 'like', '%'.$search.'%')->orWhere('first_name', 'like', '%'.$search.'%')->orWhere('last_name', 'like', '%'.$search.'%')));
+        $orders = Order::with(['payment', 'settlements', 'creator'])->when($archived, fn ($q)=>$q->whereNotNull('archived_at'), fn ($q)=>$q->whereNull('archived_at')->where('status', $completed ? '=' : '!=', 'completed'))->when($warehouseOnly, fn ($q) => $completed ? $q->where('created_by',$r->user()->id) : $q->visibleToWarehouse($r->user()->id))->when($r->filled('status'), fn ($q) => $q->where('status', $r->input('status')))->where('created_at', '>=', $from.' 00:00:00')->where('created_at', '<', Carbon::parse($to)->addDay()->startOfDay())->when($search, fn ($q) => $q->where(fn ($q) => $q->where('number', 'like', '%'.$search.'%')->orWhere('email', 'like', '%'.$search.'%')->orWhere('first_name', 'like', '%'.$search.'%')->orWhere('last_name', 'like', '%'.$search.'%')));
         $r->validate(['per_page' => 'sometimes|in:10,20,50,100', 'sort' => 'sometimes|in:date,number,customer,creator,status', 'direction' => 'sometimes|in:asc,desc']);
         $sort = $r->input('sort', 'date');
         $direction = $r->input('direction', 'desc');
@@ -134,8 +144,9 @@ class OrderController extends Controller
         $orders = $query->paginate((int) $r->input('per_page', 20))->withQueryString();
 
         $completed = $r->routeIs('admin.orders.completed');
-        $listRoute = $completed ? 'admin.orders.completed' : 'admin.orders.index';
-        return view('admin.orders.index', compact('orders', 'search', 'from', 'to', 'warehouseOnly','completed','listRoute'));
+        $archived = $r->routeIs('admin.orders.archived');
+        $listRoute = $archived ? 'admin.orders.archived' : ($completed ? 'admin.orders.completed' : 'admin.orders.index');
+        return view('admin.orders.index', compact('orders', 'search', 'from', 'to', 'warehouseOnly','completed','archived','listRoute'));
     }
 
     public function export(Request $r)
@@ -224,6 +235,7 @@ class OrderController extends Controller
     {
         $this->readable($order);
         $order->load(['items.product', 'events.author', 'payment', 'settlements']);
+        if ($order->archived_at) return view('admin.orders.archived-show',compact('order'));
         if ($this->warehouseOnly()) {
             return view($order->source === 'pos' && !in_array($order->status,['warehouse_pending','packing','ready_to_dispatch']) ? 'admin.orders.own-sale' : 'admin.orders.warehouse', compact('order'));
         }

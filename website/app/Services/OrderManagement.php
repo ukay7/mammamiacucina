@@ -14,6 +14,7 @@ class OrderManagement
     {
         DB::transaction(function () use ($order, $d, $userId) {
             $order = Order::lockForUpdate()->findOrFail($order->id);
+            $order->assertEditable();
             $fail = fn ($message) => throw ValidationException::withMessages(['order' => $message]);
             if ((int) $order->revision !== (int) $d['revision']) {
                 $fail('This order changed. Reload it before saving.');

@@ -93,6 +93,8 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         Route::get('/customers', [\App\Http\Controllers\Admin\CustomerController::class, 'index'])->middleware(AdminAccess::class.':orders.view')->name('customers.index');
         Route::get('/customers/{customer}', [\App\Http\Controllers\Admin\CustomerController::class, 'show'])->middleware(AdminAccess::class.':orders.view')->name('customers.show');
         Route::get('/orders/completed', [OrderController::class, 'index'])->middleware(AdminAccess::class.':orders.view|warehouse.pack')->name('orders.completed');
+        Route::get('/orders/archived', [OrderController::class, 'index'])->middleware(AdminAccess::class.':orders.view')->name('orders.archived');
+        Route::post('/orders/{order}/archive', [OrderController::class, 'archive'])->middleware(AdminAccess::class.':orders.manage')->name('orders.archive');
         Route::get('/orders/export', [OrderController::class, 'export'])->middleware(AdminAccess::class.':orders.view|warehouse.pack')->name('orders.export');
         Route::get('/orders/{order}/print', [OrderController::class, 'printOrder'])->middleware(AdminAccess::class.':orders.view|warehouse.pack')->name('orders.print');
         Route::middleware(AdminAccess::class.':gateways.manage')->group(function () {

@@ -32,6 +32,7 @@ class TransferReceiptController extends Controller
         try {
             DB::transaction(function () use ($order, $data, $path, $request, &$old) {
                 $locked = Order::lockForUpdate()->findOrFail($order->id);
+                $locked->assertEditable();
                 if ((int) $locked->revision !== (int) $data['revision'] || $locked->payment_status !== 'unpaid' || $locked->status !== 'transfer_pending') {
                     throw ValidationException::withMessages(['receipt'=>'This order changed or its payment was already verified. Reload before uploading.']);
                 }

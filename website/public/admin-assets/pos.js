@@ -101,8 +101,17 @@
         cart.forEach(line => {
             subtotal += line.quantity * line.unit_cents; count += line.quantity;
             const row = make('div',undefined,'pos-line');
-            const description = make('div'); description.append(make('h3',line.name),make('small',money(line.unit_cents)+' each'));
-            row.append(description,make('strong',money(line.quantity * line.unit_cents)));
+            const photo = make('div',undefined,'pos-line-photo');
+            if(line.image){const img=make('img');img.src=line.image;img.alt=line.name;img.loading='lazy';img.onerror=()=>photo.replaceChildren(make('span','No image'));photo.append(img);}
+            else photo.append(make('span','No image'));
+            const description = make('div',undefined,'pos-line-description');
+            description.append(make('h3',line.name));
+            description.append(make('small','Code: '+(line.code || line.barcode || '—')));
+            if(line.barcode && line.barcode!==line.code) description.append(make('small','Barcode: '+line.barcode));
+            const controls = make('div',undefined,'pos-line-controls');
+            controls.append(make('small',money(line.unit_cents)+' each'+(line.uom?' · '+line.uom:'')));
+            const summary = make('div',undefined,'pos-line-summary');
+            summary.append(make('strong',money(line.quantity * line.unit_cents),'pos-line-total'));
             const actions = make('div',undefined,'pos-line-actions');
             const minus = make('button','−'), plus = make('button','+'), remove = make('button','Remove','pos-remove');
             [minus,plus,remove].forEach(button => button.type = 'button');
@@ -115,7 +124,8 @@
             plus.onclick = () => changeQuantity(line.id,line.quantity + 1);
             quantity.onchange = () => { changeQuantity(line.id,Number(quantity.value)); quantity.value = String(cart.get(line.id)?.quantity || 1); };
             remove.onclick = () => { if(canEdit()){cart.delete(line.id);quote=null;renderCart();} };
-            actions.append(minus,quantity,plus,remove);row.append(actions);container.append(row);
+            actions.append(minus,quantity,plus);controls.append(actions);summary.append(remove);
+            row.append(photo,description,controls,summary);container.append(row);
         });
         if (!cart.size) container.append(make('p','No products added yet.','pos-empty'));
         $('#pos-subtotal').textContent = money(subtotal);

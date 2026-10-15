@@ -9,6 +9,20 @@ class Order extends Model
 {
     protected $guarded = ['id'];
 
+    protected function casts(): array { return ['archived_at'=>'datetime']; }
+    public function assertEditable(): void {
+        if ($this->archived_at) throw \Illuminate\Validation\ValidationException::withMessages(['order'=>'This order is archived and read-only.']);
+    }
+    public function archiveBlockReason(): ?string {
+        if ($this->archived_at) return 'This order is already archived.';
+        if (!in_array($this->status,['completed','delivered','cancelled'],true)) return 'Complete or cancel the order before archiving it.';
+        if ($this->status !== 'cancelled' && $this->final_total_cents === null) return 'Confirm the order total before archiving it.';
+        if ($this->balance_cents !== 0) return 'Settle the outstanding payment or refund before archiving it.';
+        if ($this->payment && (!in_array($this->payment->status,['paid','refunded','cancelled','expired','failed'],true) || $this->payment->attention)) return 'Resolve the gateway payment before archiving it.';
+        if ($this->payment && \Illuminate\Support\Facades\DB::table('payment_refunds')->where('payment_id',$this->payment->id)->whereNotIn('status',['completed','failed'])->exists()) return 'Resolve the pending gateway refund before archiving it.';
+        return null;
+    }
+
     protected static function booted(): void
     {
         static::updated(fn ($order) => app(\App\Services\CustomerEmails::class)->changed($order));
@@ -64,6 +78,7 @@ class Order extends Model
 
     public function getStatusOptionsAttribute(): array
     {
+        if ($this->archived_at) return [$this->status=>$this->status_label];
         $choices = match ($this->status) {
             'transfer_pending' => ['warehouse_pending', 'cancelled'],
             'placed' => ['confirmed', 'warehouse_pending'],
@@ -86,7 +101,7 @@ class Order extends Model
 
     public function scopeVisibleToWarehouse($query, int $userId)
     {
-        return $query->where(fn ($visible) => $visible
+        return $query->whereNull('archived_at')->where(fn ($visible) => $visible
             ->where(fn ($own) => $own->where('source','pos')->where('created_by', $userId))
             ->orWhere(fn ($parked) => $parked->whereIn('source', ['website','pos'])
                 ->whereIn('status', ['warehouse_pending', 'packing', 'ready_to_dispatch'])));

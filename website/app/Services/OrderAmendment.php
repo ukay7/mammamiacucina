@@ -29,6 +29,7 @@ class OrderAmendment
         DB::transaction(function () use ($order, $data, $user) {
             $settings = GeneralSetting::lockForUpdate()->findOrFail(1);
             $order = Order::lockForUpdate()->findOrFail($order->id);
+            $order->assertEditable();
             if ((int) $order->revision !== (int) $data['revision']) {
                 $this->fail('This order changed. Reload before editing.');
             }
@@ -168,6 +169,7 @@ class OrderAmendment
     {
         DB::transaction(function () use ($order, $data, $user) {
             $order = Order::lockForUpdate()->findOrFail($order->id);
+            $order->assertEditable();
             if ((int) $order->revision !== (int) $data['revision']) {
                 $this->fail('Order balance changed. Reload before recording payment.');
             }

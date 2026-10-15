@@ -67,13 +67,14 @@ class PosController extends Controller
 
     public function orders(Request $request)
     {
-        $orders=Order::where('source','pos')->where('created_by',$request->user()->id)->latest()->paginate(20);
+        $orders=Order::whereNull('archived_at')->where('source','pos')->where('created_by',$request->user()->id)->latest()->paginate(20);
         return view('admin.pos.orders',compact('orders'));
     }
 
     public function order(Request $request, Order $order)
     {
         abort_unless($order->source === 'pos' && ((int)$order->created_by === $request->user()->id || $request->user()->hasAdminPermission('orders.manage')),403);
+        if ($order->archived_at) return view('admin.orders.archived-show',['order'=>$order->load(['items','events.author','payment','settlements'])]);
         return view('admin.pos.order',['order'=>$order->load(['items.product','events.author'])]);
     }
 

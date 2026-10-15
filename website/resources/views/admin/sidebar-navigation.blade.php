@@ -11,6 +11,7 @@ $sections = [
         $group('Order Management', 'shopping-cart', [
             $link('orders.view|warehouse.pack', 'admin.orders.index', 'admin.orders.*', 'Pending Orders', 'shopping-cart'),
             $link('orders.view|warehouse.pack', 'admin.orders.completed', 'admin.orders.completed', 'Completed Orders', 'check-circle'),
+            $link('orders.view', 'admin.orders.archived', 'admin.orders.archived', 'Archived Orders', 'archive'),
         ]),
         $link('orders.view', 'admin.customers.index', 'admin.customers.*', 'Customers', 'address-book'),
         $link('quotations.view|quotations.manage', 'admin.quotations.index', 'admin.quotations.*', 'Quotations', 'file-invoice'),
@@ -62,13 +63,13 @@ $sections = [
 $allowed = static fn($item) => !($item['route'] === 'admin.reports.index' && auth()->user()->hasAdminPermission('warehouse.pack') && !auth()->user()->hasAdminPermission('orders.manage')) && ($item['permission'] === '' || collect(explode('|', $item['permission']))->contains(fn($ability) => auth()->user()->hasAdminPermission($ability)));
 $active = static fn($item) => str_starts_with($item['match'], 'path:')
     ? request()->is(substr($item['match'], 5))
-    : request()->routeIs($item['match']) && !($item['route'] === 'admin.orders.index' && request()->routeIs('admin.orders.completed'));
+    : request()->routeIs($item['match']) && !($item['route'] === 'admin.orders.index' && request()->routeIs('admin.orders.completed','admin.orders.archived'));
 @endphp
 @if(auth()->user()->isCustomer())
 <li><a href="{{ route('customer.orders') }}"><i class="fas fa-home" aria-hidden="true"></i><span>My Orders</span></a></li>
 <li class="{{ request()->routeIs('customer.profile*') ? 'active' : '' }}"><a href="{{ route('customer.profile') }}"><i class="fas fa-user" aria-hidden="true"></i><span>My Profile</span></a></li>
 @elseif(auth()->user()->isWarehouseOnly())
-@foreach($sections['Sales & Orders'][1]['children'] as $entry)
+@foreach(array_slice($sections['Sales & Orders'][1]['children'],0,2) as $entry)
 @include('admin.sidebar-link', ['entry' => $entry, 'isActive' => $active($entry)])
 @endforeach
 @else

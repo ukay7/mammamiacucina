@@ -17,6 +17,7 @@ class OnlinePayments
 
     public function initialize(Order $order): Payment
     {
+        $order->assertEditable();
         if ($order->final_total_cents < 50 || $order->final_total_cents > 999999999) {
             throw ValidationException::withMessages(['payment_method' => 'Online payment totals must be between CAD 0.50 and CAD 9,999,999.99.']);
         }
@@ -42,6 +43,7 @@ class OnlinePayments
     public function start(Payment $payment): Payment
     {
         return $this->locked($payment, function ($p, $order) {
+            $order->assertEditable();
             if ($p->status !== 'creating') {
                 return $p;
             }
@@ -71,6 +73,7 @@ class OnlinePayments
     public function sync(Payment $payment, bool $capture = false, bool $cancel = false): Payment
     {
         return $this->locked($payment, function ($p, $order) use ($capture, $cancel) {
+            if ($capture || $cancel) $order->assertEditable();
             if ($p->provider === 'helcim' && $p->provider_order_id) {
                 return $this->syncHelcim($p, $order, $cancel);
             }
@@ -288,6 +291,7 @@ class OnlinePayments
     {
         $this->sync($payment);
         $this->locked($payment, function ($p, $order) use ($userId, $expectedCents, $refundCents) {
+            $order->assertEditable();
             if ($p->status === 'refunded') {
                 return;
             }

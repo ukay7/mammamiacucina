@@ -24,8 +24,8 @@
 @if(!$order->collected_cents && !$order->settlements->count())<tr><td colspan="6">No verified payments recorded.</td></tr>@endif
 </tbody></table></div>
 @include('admin.orders.payment')
-@include('partials.transfer-receipt')
-@if(auth()->user()->hasAdminPermission('orders.manage') && $order->balance_cents!==0 && $order->final_total_cents!==null && (!$order->payment || ($order->payment->paid_at && $order->balance_cents>0)))
+@unless($order->archived_at)@include('partials.transfer-receipt')@endunless
+@if(!$order->archived_at && auth()->user()->hasAdminPermission('orders.manage') && $order->balance_cents!==0 && $order->final_total_cents!==null && (!$order->payment || ($order->payment->paid_at && $order->balance_cents>0)))
 <form method="post" enctype="multipart/form-data" action="{{ route('admin.orders.settlement',$order) }}" class="payment-entry">@csrf
 <h2>Record {{ $order->balance_cents<0?'a refund':'a payment' }}</h2>
 @if($order->payment_method==='etransfer')
