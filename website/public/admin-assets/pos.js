@@ -106,8 +106,7 @@
             else photo.append(make('span','No image'));
             const description = make('div',undefined,'pos-line-description');
             description.append(make('h3',line.name));
-            description.append(make('small','Code: '+(line.code || line.barcode || '—')));
-            if(line.barcode && line.barcode!==line.code) description.append(make('small','Barcode: '+line.barcode));
+            if(line.barcode) description.append(make('small','Barcode: '+line.barcode));
             const controls = make('div',undefined,'pos-line-controls');
             controls.append(make('small',money(line.unit_cents)+' each'+(line.uom?' · '+line.uom:'')));
             const summary = make('div',undefined,'pos-line-summary');
