@@ -119,3 +119,5 @@ Route::get('/careers/jobs/{id}',[\App\Http\Controllers\ContentPageController::cl
 Route::get('/career-departments/{department}/image',[\App\Http\Controllers\ContentPageController::class,'image'])->name('careers.image');
 
 Route::get('/contact-link-icon/{id}', [\App\Http\Controllers\ContactPageController::class, 'linkIcon'])->name('contact.link-icon');
+
+Route::get('/invoice-document/{invoice}', [\App\Http\Controllers\Admin\CustomerInvoiceController::class,'show'])->middleware('signed')->name('invoice.document');

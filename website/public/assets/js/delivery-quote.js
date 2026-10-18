@@ -13,7 +13,7 @@
   form.querySelectorAll('[data-delivery-field]').forEach(el=>{el.hidden=isPickup;el.querySelectorAll('input,select').forEach(input=>{input.disabled=isPickup;input.required=!isPickup;});});
   document.querySelector('#checkout-pickup-address').hidden=!isPickup;
   document.querySelector('#checkout-delivery-label').textContent=isPickup?'Pick up':'Delivery';
-  payment.querySelector('[value=cash]').textContent=isPickup?'Cash on pick up':'Cash on delivery';
+  const cash=payment.querySelector('[value=cash]');if(cash)cash.textContent=isPickup?'Cash on pick up':'Cash on delivery';
   if(isPickup||!service){
    const delivery=isPickup?0:Number(form.dataset.flatDelivery);
    document.querySelector('#checkout-delivery-amount').textContent=money(delivery);

@@ -96,7 +96,7 @@ class CustomerLifecycleEmailTest extends TestCase
 
     public function test_status_changes_only_and_verified_collections_not_receipt_uploads(): void
     {
-        $order = $this->order(['payment_method' => 'etransfer', 'status' => 'transfer_pending', 'manual_collected_cents' => 0]);
+        $order = $this->order(['payment_method' => 'etransfer', 'status' => 'parked_admin', 'manual_collected_cents' => 0]);
         $order->update(['transfer_receipt_path' => 'receipt.pdf', 'revision' => 1]);
         $this->assertSame(0, EmailHistory::count());
         $staff = User::factory()->create();
@@ -105,7 +105,7 @@ class CustomerLifecycleEmailTest extends TestCase
         $this->assertStringContainsString('Amount due: $60.00', EmailHistory::first()->payload['body']);
         app(OrderAmendment::class)->settle($order->fresh(), ['revision' => 2, 'direction' => 'collect', 'method' => 'etransfer', 'amount' => '60.00', 'reference' => 'TEST2', 'note' => 'Verified in bank', 'receipt_path' => 'receipt.pdf'], $staff->id);
         $this->assertSame(2, EmailHistory::where('type', 'payment_received')->count());
-        $this->assertSame(1, EmailHistory::where('type', 'order_status')->count());
+        $this->assertSame(0, EmailHistory::where('type', 'order_status')->count());
         $order = $order->fresh();
         $order->update(['notes' => 'Internal note']);
         $order->update(['status' => 'warehouse_pending']);

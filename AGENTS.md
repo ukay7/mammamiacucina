@@ -1,0 +1,5 @@
+# Customer document theme
+
+User-approved rule: all customer-facing printable/PDF documents (order confirmations, invoices, payment receipts, quotations, and future statements) must use the shared A4 document theme in website/resources/views/documents. Use the logo and configured company contact/registration details at left, document type/number/date at right, cream information panels, gold rules, clear item/totals tables, payment/delivery details and a thank-you footer. Preserve each document's meaning: an order confirmation is not proof of payment; receipts confirm actual receipts; invoices have their own unique number. Never invent registration details or copy example financial amounts. Preserve invoice snapshots and label current balances as current. If a future request conflicts with this theme, alert the user before changing it and follow their explicit decision. Reuse the shared theme instead of duplicating styling.
+
+PDF rendering with PNG logos requires PHP GD. Verify GD is enabled on deployment before running the email outbox.

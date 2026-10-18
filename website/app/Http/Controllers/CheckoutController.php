@@ -36,7 +36,7 @@ class CheckoutController extends Controller
         $charges = ['delivery' => $settings->delivery_cents, 'tax' => $settings->taxFor($cart['total']), 'rate' => $settings->tax_basis_points];
         session(['checkout_charges' => ['delivery' => $settings->delivery_cents, 'rate' => $settings->tax_basis_points, 'matrix' => (bool) $settings->matrix_delivery_enabled, 'pickup_address' => $settings->pickup_address]]);
         $token = (string) Str::uuid();
-        session(['checkout_token' => $token, 'checkout_quote' => $quote]);
+        session(['checkout_terms_revision'=>$user->customerRecord()->commercial_revision,'checkout_token' => $token, 'checkout_quote' => $quote]);
 
         return response()->view('pages.checkout', compact('cart', 'token', 'charges', 'profile', 'settings'))->header('Cache-Control', 'no-store, private');
     }
@@ -45,7 +45,8 @@ class CheckoutController extends Controller
     {
 
         $r->merge(['fulfillment' => $r->input('fulfillment', 'delivery')]);
-        $d = $r->validate(['fulfillment'=>'required|in:pickup,delivery','delivery_service'=>'nullable|string|max:20','checkout_token' => 'required|uuid', 'first_name' => 'required|string|max:100', 'last_name' => 'required|string|max:100', 'email' => 'required|email|max:255', 'phone' => 'required|string|max:40', 'address' => 'required_if:fulfillment,delivery|nullable|string|max:255', 'city' => 'required_if:fulfillment,delivery|nullable|string|max:100', 'province' => 'required_if:fulfillment,delivery|nullable|string|max:100', 'postal_code' => 'required_if:fulfillment,delivery|nullable|string|max:30', 'country' => 'required_if:fulfillment,delivery|nullable|string|max:100', 'notes' => 'nullable|string|max:2000', 'payment_method' => 'sometimes|required|in:cash,etransfer,card']);
+        $d = $r->validate(['fulfillment'=>'required|in:pickup,delivery','delivery_service'=>'nullable|string|max:20','checkout_token' => 'required|uuid', 'first_name' => 'required|string|max:100', 'last_name' => 'required|string|max:100', 'email' => 'required|email|max:255', 'phone' => 'required|string|max:40', 'address' => 'required_if:fulfillment,delivery|nullable|string|max:255', 'city' => 'required_if:fulfillment,delivery|nullable|string|max:100', 'province' => 'required_if:fulfillment,delivery|nullable|string|max:100', 'postal_code' => 'required_if:fulfillment,delivery|nullable|string|max:30', 'country' => 'required_if:fulfillment,delivery|nullable|string|max:100', 'notes' => 'nullable|string|max:2000', 'payment_method' => 'sometimes|required|in:cash,etransfer,card,cheque,credit']);
+        $r->validate(['receipt'=>'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120']);
         $d['email'] = $r->user()->email;
         $method = $d['payment_method'] ?? 'cash';
         $d['payment_method'] = $method;
@@ -94,6 +95,9 @@ class CheckoutController extends Controller
             }
             $d['delivery_service'] = $deliverySnapshot['delivery_service'] ?? null;
             if($deliverySnapshot)$d['postal_code']=$deliverySnapshot['delivery_to_postal'];
+            $customer=\App\Models\Customer::lockForUpdate()->findOrFail(auth()->user()->customerRecord()->id);
+            $terms=app(\App\Services\CustomerTerms::class);
+            if((session('checkout_terms_revision')??0)!==$customer->commercial_revision)throw ValidationException::withMessages(['cart'=>'Customer settings changed. Open checkout again.']);
             $products = Product::whereIn('id', array_keys($quantities))->orderBy('id')->lockForUpdate()->get();
             if ($products->count() !== count($quantities)) {
                 throw ValidationException::withMessages(['cart' => 'A product is no longer available. Please review your cart.']);
@@ -102,7 +106,7 @@ class CheckoutController extends Controller
             $subtotal = 0;
             foreach ($products as $p) {
                 $qty = (int) $quantities[$p->id];
-                $price = (int) round((float) $p->storefront_price * 100);
+                $pricing=$terms->price($p,$customer);$price=$pricing['unit_cents'];
                 if (! $p->is_active || ! $p->categories()->where('is_active', true)->exists() || $p->storefront_price === null || $price < 0 || $qty < 1 || $qty > 99) {
                     throw ValidationException::withMessages(['cart' => 'A product is no longer available. Please review your cart.']);
                 }
@@ -113,16 +117,19 @@ class CheckoutController extends Controller
                 if ($inventory && $inventory->quantity_on_hand !== null && (float) $inventory->quantity_on_hand < $qty) {
                     throw ValidationException::withMessages(['cart' => 'Not enough stock for '.$p->premium_marketing_name.'. Please update your cart.']);
                 }
-                $lines[] = [$p, $qty, $price, $inventory];
+                $lines[] = [$p, $qty, $price, $inventory,$pricing];
                 $subtotal += $price * $qty;
             }
-            $order = Order::create(array_merge($d, ['customer_id' => auth()->user()->customerRecord()->id, 'created_by' => auth()->id(), 'source' => 'website', 'number' => 'MMC-'.strtoupper((string) Str::ulid()), 'subtotal_cents' => $subtotal, 'delivery_cents' => ($d['fulfillment'] === 'pickup' ? 0 : ($deliverySnapshot['delivery_cents']??$settings->delivery_cents)), 'tax_cents' => $settings->taxFor($subtotal), 'tax_basis_points'=>$settings->tax_basis_points, 'payment_method' => $d['payment_method'], 'payment_status' => $d['payment_method'] === 'card' ? 'pending' : 'unpaid', 'status' => $d['payment_method'] === 'cash' ? 'warehouse_pending' : ($d['payment_method'] === 'card' ? 'awaiting_payment' : 'transfer_pending'), 'warehouse_round' => $d['payment_method'] === 'cash' ? 1 : 0, 'warehouse_sent_at' => $d['payment_method'] === 'cash' ? now() : null]));
+            $discount=$terms->orderDiscount($customer,$subtotal);$subtotal-=$discount;
+            $delivery=$d['fulfillment']==='pickup'?0:($deliverySnapshot['delivery_cents']??$settings->delivery_cents);
+            $warning=$terms->check($customer,'website',$d['payment_method'],$subtotal+$delivery+$settings->taxFor($subtotal));
+            $order = Order::create(array_merge($d,$terms->snapshot($customer,$d['payment_method']), ['order_discount_cents'=>$discount,'credit_warning'=>$warning,'customer_id' => auth()->user()->customerRecord()->id, 'created_by' => auth()->id(), 'source' => 'website', 'number' => 'MMC-'.strtoupper((string) Str::ulid()), 'subtotal_cents' => $subtotal, 'delivery_cents' => ($d['fulfillment'] === 'pickup' ? 0 : ($deliverySnapshot['delivery_cents']??$settings->delivery_cents)), 'tax_cents' => $settings->taxFor($subtotal), 'tax_basis_points'=>$settings->tax_basis_points, 'payment_method' => $d['payment_method'], 'payment_status' => $d['payment_method'] === 'card' ? 'pending' : 'unpaid', 'status' => $d['payment_method'] === 'card' ? 'awaiting_payment' : 'parked_admin', 'warehouse_round' => 0, 'warehouse_sent_at' => null]));
             if($deliverySnapshot) $order->update($deliverySnapshot);
             if ($d['fulfillment'] === 'delivery') auth()->user()->customerRecord()->update(\Illuminate\Support\Arr::only($d,['address','city','province','postal_code','country']));
             // The database-generated ID avoids collisions between simultaneous orders.
             $order->update(['number' => 'mmc-'.$order->id]);
-            foreach ($lines as [$p,$qty,$price,$inventory]) {
-                $order->items()->create(['product_id' => $p->id, 'name' => $p->premium_marketing_name, 'product_code' => $p->product_code, 'qr_code' => $p->qr_code, 'stock_deducted' => $inventory && $inventory->quantity_on_hand !== null, 'quantity' => $qty, 'unit_cents' => $price, 'line_cents' => $price * $qty]);
+            foreach ($lines as [$p,$qty,$price,$inventory,$pricing]) {
+                $order->items()->create(['original_unit_cents'=>$pricing['original_unit_cents'],'discount_bps'=>$pricing['discount_bps'],'product_id' => $p->id, 'name' => $p->premium_marketing_name, 'product_code' => $p->product_code, 'qr_code' => $p->qr_code, 'stock_deducted' => $inventory && $inventory->quantity_on_hand !== null, 'quantity' => $qty, 'unit_cents' => $price, 'line_cents' => $price * $qty]);
                 if ($inventory && $inventory->quantity_on_hand !== null) {
                     $before = $inventory->quantity_on_hand;
                     $after = ((int) round((float) $before * 1000) - $qty * 1000) / 1000;
@@ -138,6 +145,9 @@ class CheckoutController extends Controller
             app(\App\Services\CustomerEmails::class)->order($order, 'order_confirmation', 'order-created:'.$order->id);
             return $order;
         }, 3);
+        if ($r->hasFile('receipt') && in_array($order->payment_method,['cheque','etransfer'])) {
+            try {$r->merge(['revision'=>$order->revision]);app(TransferReceiptController::class)->store($r,$order);} catch (\Throwable $e) {report($e);session()->flash('receipt_status','Order saved. Please upload the receipt from your order page.');}
+        }
         session(['last_order_id' => $order->id, 'last_order_token' => $order->checkout_token]);
         session()->forget(['storefront_cart', 'checkout_token', 'checkout_quote', 'checkout_charges', 'delivery_quote']);
 

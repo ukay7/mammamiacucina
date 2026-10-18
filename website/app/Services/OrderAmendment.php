@@ -115,6 +115,7 @@ class OrderAmendment
                 $this->fail('Keep at least one item, or cancel the order instead.');
             }
             $subtotal = (int) $order->items()->sum('line_cents');
+            $order->order_discount_cents=(int)round($subtotal*$order->order_discount_bps/10000);$subtotal-=$order->order_discount_cents;
             $delivery = $data['fulfillment'] === 'pickup' ? 0 : self::cents($data['delivery']);
             $route=[];
             $routeFields=['delivery_service','delivery_service_name','delivery_from_postal','delivery_to_postal','delivery_from_zone','delivery_to_zone','delivery_rate_cents'];
@@ -148,6 +149,11 @@ class OrderAmendment
             }
             $order->pickup_address = $data['fulfillment'] === 'pickup' ? ($order->pickup_address ?: $settings->pickup_address) : null;
             $order->fill(collect($data)->only(['first_name', 'last_name', 'email', 'phone', 'address', 'city', 'province', 'postal_code', 'country', 'fulfillment'])->all());
+            if($order->payment_method==='credit'){
+                $profile=\App\Models\Customer::lockForUpdate()->findOrFail($order->customer_id);
+                $delta=max(0,$subtotal+$delivery+$tax-max(0,$order->final_total_cents));
+                $order->credit_warning=app(CustomerTerms::class)->check($profile,$order->source==='pos'?'pos':'website','credit',$delta);
+            }
             $order->subtotal_cents = $subtotal;
             $order->delivery_cents = $delivery;
             $order->tax_cents = $tax;
@@ -179,10 +185,6 @@ class OrderAmendment
             if ($order->final_total_cents === null) {
                 $this->fail('Finalize the order total before recording a payment.');
             }
-            if ($order->payment_method === 'etransfer' && $data['direction'] === 'collect'
-                && $data['method'] === 'etransfer' && empty($data['receipt_path']) && !$order->transfer_receipt_path) {
-                $this->fail('Attach the e-transfer receipt or upload it to the order before confirming funds received.');
-            }
             $amount = self::cents($data['amount']);
             $balance = $order->balance_cents;
             if ($amount <= 0 || ($data['direction'] === 'collect' ? $balance < $amount : -$balance < $amount)) {
@@ -207,16 +209,7 @@ class OrderAmendment
             $order->save();
             if ($data['direction'] === 'collect') app(CustomerEmails::class)->order($order, 'payment_received', 'settlement:'.$settlement->id, $amount);
             $order->events()->create(['user_id' => $user, 'description' => 'External '.($data['direction'] === 'refund' ? 'refund' : 'collection').' recorded: CAD '.number_format($amount / 100, 2).' via '.$data['method'].' · '.$data['note'], 'created_at' => now()]);
-            // Use the same warehouse transition as the website receipt approval flow.
-            if ($order->payment_method === 'etransfer' && $order->status === 'transfer_pending'
-                && $order->payment_status === 'paid' && $order->balance_cents === 0) {
-                app(OrderManagement::class)->update($order, [
-                    'revision' => $order->revision, 'status' => 'warehouse_pending', 'payment_status' => 'paid',
-                    'delivery' => number_format($order->delivery_cents / 100, 2, '.', ''),
-                    'tax' => number_format($order->tax_cents / 100, 2, '.', ''),
-                    'reason' => 'Admin confirmed payments received in full through the payment ledger; sent to warehouse.',
-                ], $user);
-            }
+
 
         }, 3);
     }

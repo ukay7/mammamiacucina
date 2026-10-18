@@ -25,13 +25,16 @@ class Order extends Model
 
     protected static function booted(): void
     {
-        static::updated(fn ($order) => app(\App\Services\CustomerEmails::class)->changed($order));
+        static::updated(function ($order) {
+            if(in_array($order->status,\App\Services\CustomerInvoicing::ELIGIBLE)) app(\App\Services\CustomerInvoicing::class)->issue($order);
+            app(\App\Services\CustomerEmails::class)->changed($order);
+        });
         static::creating(function ($order) {
             $order->tracking_token ??= Str::random(48);
         });
     }
 
-    public const STATUSES = ['transfer_pending' => 'Pending e-transfer verification','awaiting_payment' => 'Awaiting payment', 'payment_review' => 'Payment needs review', 'placed' => 'Placed', 'confirmed' => 'Confirmed', 'preparing' => 'Preparing', 'out_for_delivery' => 'Out for Delivery', 'delivered' => 'Delivered', 'completed' => 'Completed', 'warehouse_pending' => 'Sent to warehouse', 'packing' => 'Packing', 'warehouse_issue' => 'Warehouse issue — admin action needed', 'ready_to_dispatch' => 'Ready for dispatch', 'cancelled' => 'Cancelled'];
+    public const STATUSES = ['parked_admin' => 'Parked to Admin','awaiting_payment' => 'Awaiting payment', 'payment_review' => 'Payment needs review', 'out_for_delivery' => 'Out for Delivery', 'delivered' => 'Delivered', 'completed' => 'Completed', 'warehouse_pending' => 'Sent to warehouse', 'packing' => 'Packing', 'warehouse_issue' => 'Warehouse issue — admin action needed', 'ready_to_dispatch' => 'Ready for dispatch', 'cancelled' => 'Cancelled'];
 
     public function getStatusLabelAttribute(): string
     {
@@ -80,14 +83,11 @@ class Order extends Model
     {
         if ($this->archived_at) return [$this->status=>$this->status_label];
         $choices = match ($this->status) {
-            'transfer_pending' => ['warehouse_pending', 'cancelled'],
-            'placed' => ['confirmed', 'warehouse_pending'],
-            'confirmed' => ['preparing', 'warehouse_pending'],
-            'preparing' => ['out_for_delivery', 'warehouse_pending'],
+            'parked_admin' => ['warehouse_pending', 'cancelled'],
             'warehouse_pending' => ['warehouse_issue'],
             'packing' => ['warehouse_issue'],
             'warehouse_issue' => ['warehouse_pending'],
-            'ready_to_dispatch' => $this->fulfillment === 'pickup' ? ['completed', 'delivered', 'warehouse_pending'] : ['out_for_delivery', 'delivered', 'warehouse_pending'],
+            'ready_to_dispatch' => $this->fulfillment === 'pickup' ? ['delivered', 'warehouse_pending'] : ['out_for_delivery', 'warehouse_pending'],
             'out_for_delivery' => ['delivered'],
             'delivered' => ['completed'],
             default => [],
@@ -107,11 +107,18 @@ class Order extends Model
                 ->whereIn('status', ['warehouse_pending', 'packing', 'ready_to_dispatch'])));
     }
 
+    public function getPaymentStatusLabelAttribute(): string {
+        if ($this->payment_status === 'pending') return 'Unpaid · Bank Processing';
+        if($this->payment_status==='unpaid')return $this->payment_method==='credit'?'Unpaid · On Credit':(in_array($this->payment_method,['cheque','etransfer']) || ($this->source==='website'&&$this->payment_method==='cash')?'Unpaid · Awaiting Admin Verification':'Unpaid');
+        return ucfirst(str_replace('_',' ',$this->payment_status));
+    }
     public function getPaymentLabelAttribute(): string
     {
+        if($this->payment_method==='credit')return 'Customer Credit';
         return $this->payment_method === 'etransfer' ? 'E-transfer' : ($this->payment_method === 'cash' ? ($this->fulfillment === 'pickup' ? 'Cash on pick up' : 'Cash on delivery') : ucfirst($this->payment_method));
     }
 
+    public function invoice(){return $this->hasOne(CustomerInvoice::class);}
     public function customer(){return $this->belongsTo(Customer::class);}
     public function creator()
     {

@@ -19,7 +19,7 @@ class TransferReceiptController extends Controller
         } else {
             abort_unless($user->hasAdminPermission($write ? 'orders.manage' : 'orders.view') || ($order->source === 'pos' && (int)$order->created_by === $user->id && $user->hasAdminPermission('pos.manage')), 403);
         }
-        abort_unless($order->payment_method === 'etransfer', 404);
+        abort_unless(in_array($order->payment_method,['etransfer','cheque']), 404);
     }
 
     public function store(Request $request, Order $order)
@@ -33,12 +33,12 @@ class TransferReceiptController extends Controller
             DB::transaction(function () use ($order, $data, $path, $request, &$old) {
                 $locked = Order::lockForUpdate()->findOrFail($order->id);
                 $locked->assertEditable();
-                if ((int) $locked->revision !== (int) $data['revision'] || $locked->payment_status !== 'unpaid' || $locked->status !== 'transfer_pending') {
+                if ((int) $locked->revision !== (int) $data['revision'] || $locked->payment_status !== 'unpaid' || in_array($locked->status,['cancelled','completed'])) {
                     throw ValidationException::withMessages(['receipt'=>'This order changed or its payment was already verified. Reload before uploading.']);
                 }
                 $old = $locked->transfer_receipt_path;
                 $locked->update(['transfer_receipt_path'=>$path, 'transfer_receipt_uploaded_at'=>now(), 'revision'=>$locked->revision + 1]);
-                $locked->events()->create(['user_id'=>$request->user()->id, 'description'=>'E-transfer receipt '.($old ? 'replaced' : 'submitted').'; awaiting admin payment verification.', 'created_at'=>now()]);
+                $locked->events()->create(['user_id'=>$request->user()->id, 'description'=>'Payment proof '.($old ? 'replaced' : 'submitted').'; awaiting admin payment verification.', 'created_at'=>now()]);
             });
         } catch (\Throwable $e) {
             Storage::disk('local')->delete($path);
@@ -65,15 +65,15 @@ class TransferReceiptController extends Controller
         $this->authorizeOrder($request, $order, true);
         abort_unless($request->user()->hasAdminPermission('orders.manage'), 403);
         $data = $request->validate(['revision'=>'required|integer|min:0', 'received'=>'accepted']);
-        if ($order->status !== 'transfer_pending' || $order->payment_status !== 'unpaid') {
+        if (in_array($order->status,['cancelled','completed']) || $order->payment_status !== 'unpaid') {
             throw ValidationException::withMessages(['receipt'=>'This order has already changed. Reload to review it.']);
         }
         $service->update($order, [
-            'revision'=>$data['revision'], 'status'=>'warehouse_pending', 'payment_status'=>'paid',
+            'revision'=>$data['revision'], 'status'=>$order->status, 'payment_status'=>'paid',
             'delivery'=>number_format($order->delivery_cents/100,2,'.',''),
             'tax'=>number_format($order->tax_cents/100,2,'.',''),
-            'reason'=>'Admin verified receipt and confirmed e-transfer funds received; sent to warehouse.',
+            'reason'=>'Admin confirmed full payment received / cheque cleared.',
         ], $request->user()->id);
-        return back()->with('receipt_status', 'Payment verified. Order sent to warehouse.');
+        return back()->with('receipt_status', 'Payment verified. Fulfillment status unchanged.');
     }
 }

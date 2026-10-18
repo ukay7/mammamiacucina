@@ -13,11 +13,15 @@ $sections = [
             $link('orders.view|warehouse.pack', 'admin.orders.completed', 'admin.orders.completed', 'Completed Orders', 'check-circle'),
             $link('orders.view', 'admin.orders.archived', 'admin.orders.archived', 'Archived Orders', 'archive'),
         ]),
-        $link('orders.view', 'admin.customers.index', 'admin.customers.*', 'Customers', 'address-book'),
+        $group('Customer Management', 'address-book', [
+            $link('orders.view', 'admin.customers.index', 'admin.customers.*', 'View Customer', 'users'),
+            $link('orders.view', 'admin.customers.business-requests', 'admin.customers.business-requests', 'Business Approval Requests', 'user-check'),
+        ]),
         $link('quotations.view|quotations.manage', 'admin.quotations.index', 'admin.quotations.*', 'Quotations', 'file-invoice'),
         $link('enquiries.manage', 'admin.enquiries.index', 'admin.enquiries.*', 'Customer Enquiries', 'envelope'),
     ],
     'Reports' => [
+        $link('orders.manage', 'admin.reports.overdue-cheques', 'admin.reports.overdue-cheques', 'Overdue Cheques', 'money-check'),
         $link('orders.view', 'admin.reports.index', 'admin.reports.*', 'Reporting Centre', 'chart-bar'),
     ],
     'Products & Stock' => [
@@ -63,7 +67,7 @@ $sections = [
 $allowed = static fn($item) => !($item['route'] === 'admin.reports.index' && auth()->user()->hasAdminPermission('warehouse.pack') && !auth()->user()->hasAdminPermission('orders.manage')) && ($item['permission'] === '' || collect(explode('|', $item['permission']))->contains(fn($ability) => auth()->user()->hasAdminPermission($ability)));
 $active = static fn($item) => str_starts_with($item['match'], 'path:')
     ? request()->is(substr($item['match'], 5))
-    : request()->routeIs($item['match']) && !($item['route'] === 'admin.orders.index' && request()->routeIs('admin.orders.completed','admin.orders.archived'));
+    : request()->routeIs($item['match']) && !($item['route'] === 'admin.customers.index' && request()->routeIs('admin.customers.business-requests')) && !($item['route'] === 'admin.orders.index' && request()->routeIs('admin.orders.completed','admin.orders.archived'));
 @endphp
 @if(auth()->user()->isCustomer())
 <li><a href="{{ route('customer.orders') }}"><i class="fas fa-home" aria-hidden="true"></i><span>My Orders</span></a></li>

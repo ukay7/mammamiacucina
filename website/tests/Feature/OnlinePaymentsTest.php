@@ -100,7 +100,7 @@ $this->actingAs(User::factory()->create(['email'=>'jane@example.test','account_t
         $product = Product::create(['category_id' => 1, 'slug' => 'payment-cake', 'premium_marketing_name' => 'Payment Cake', 'qr_code' => 'PAY', 'is_active' => true, 'total_selling_price_cad' => 10]);
         $product->inventory()->create(['quantity_on_hand' => 10]);
         $this->postJson(route('cart.add', $product), ['quantity' => 2])->assertOk();
-        $this->get('/checkout')->assertOk()->assertSee('Pay by card')->assertSee('Pay with PayPal');
+        $this->get('/checkout')->assertOk()->assertSee('Pay by card')->assertDontSee('Pay with PayPal');
         $data = ['checkout_token' => session('checkout_token'), 'first_name' => 'Jane', 'last_name' => 'Doe', 'email' => 'jane@example.test',
             'phone' => '555123', 'address' => '10 Test Street', 'city' => 'Toronto', 'province' => 'ON', 'postal_code' => 'M1M1M1', 'country' => 'Canada',
             'payment_method' => $method, 'subtotal_cents' => 1, 'payment_status' => 'paid'];
@@ -197,6 +197,8 @@ $this->actingAs(User::factory()->create(['email'=>'jane@example.test','account_t
         $this->get($url)->assertRedirect(route('payment.show', $payment->reference));
         $this->assertSame('pending', $payment->order->fresh()->payment_status);
         session()->forget('last_order_id');
+        $this->get(route('payment.show', $payment->reference))->assertOk();
+        auth()->logout();session()->flush();
         $this->get(route('payment.show', $payment->reference))->assertNotFound();
     }
 
@@ -285,7 +287,7 @@ $this->actingAs(User::factory()->create(['email'=>'jane@example.test','account_t
         $this->checkout();
         $order = Order::firstOrFail();
         $this->admin(['orders.view', 'orders.manage']);
-        $this->patch(route('admin.orders.update', $order), ['revision' => 0, 'status' => 'placed', 'payment_status' => 'paid', 'delivery' => '0', 'tax' => '0'])->assertSessionHasErrors('order');
+        $this->patch(route('admin.orders.update', $order), ['revision' => 0, 'status' => 'parked_admin', 'payment_status' => 'paid', 'delivery' => '0', 'tax' => '0'])->assertSessionHasErrors('order');
         $this->post(route('admin.payments.refund', $order->payment), ['confirm' => 'REFUND', 'expected_cents' => 2000])->assertForbidden();
         $this->get(route('admin.orders.show', $order))->assertOk()->assertSee('Online payment');
         $this->assertSame('pending', $order->fresh()->payment_status);

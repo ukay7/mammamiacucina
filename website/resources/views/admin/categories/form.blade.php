@@ -6,7 +6,7 @@
 <div class="form-group"><label for="image">Category image</label>
 @if($category->image_path)<div class="mb-3"><img src="{{ route('category.image',$category) }}" alt="{{ $category->name }}" style="width:140px;height:140px;object-fit:contain;border:1px solid #dfc69c;border-radius:8px;background:#fff"></div>@endif
 <input class="form-control" type="file" id="image" name="image" accept="image/jpeg,image/png,image/webp" aria-describedby="category-image-help">
-<small id="category-image-help" class="form-text text-muted">Recommended: 800 × 800 px (square). JPG, PNG or WebP, maximum 5 MB. Leave empty to keep the current image.</small></div>
+<small id="category-image-help" class="form-text text-muted">Recommended: 800 ï¿½ 800 px (square). JPG, PNG or WebP, maximum 5 MB. Leave empty to keep the current image.</small></div>
 <div class="form-group"><label for="description">Description</label><textarea class="form-control" id="description" name="description" rows="3">{{ old('description',$category->description) }}</textarea></div>
 <div class="form-group">
 @if($category->slug==='general')<p class="text-muted"><i class="fas fa-lock" aria-hidden="true"></i> This default category is permanently protected.</p>

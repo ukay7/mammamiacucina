@@ -15,7 +15,7 @@ class PosCustomerAccountTest extends TestCase {
   $this->postJson(route('admin.pos.customer'),array_diff_key($customerData,['email'=>1]))->assertUnprocessable();
   $id=$this->postJson(route('admin.pos.customer'),$customerData)->assertOk()->json('customer.id');
   $quote=$this->postJson(route('admin.pos.quote'),['customer_id'=>$id,'items'=>[['id'=>$p->id,'quantity'=>1]],'fulfillment'=>'pickup'])->assertOk()->json('quote');
-  $data=['quote'=>$quote,'customer_id'=>$id,'payment_method'=>'cash','payment_status'=>'paid'];
+  $data=['quote'=>$quote,'customer_id'=>$id,'packing_confirmed'=>1,'payment_method'=>'cash','payment_status'=>'paid'];
   $this->postJson(route('admin.pos.store'),$data)->assertOk();
   $u=User::where('email','new@example.test')->firstOrFail();$o=Order::firstOrFail();
   $this->assertEquals($u->customerRecord()->id,$o->customer_id);$this->assertEquals($admin->id,$o->created_by);$this->assertNull($u->email_verified_at);
@@ -34,7 +34,7 @@ class PosCustomerAccountTest extends TestCase {
   $this->get(route('customer.order',$o))->assertOk();
   $this->actingAs($admin);
   $quote=$this->postJson(route('admin.pos.quote'),['customer_id'=>$u->customerRecord()->id,'items'=>[['id'=>$p->id,'quantity'=>1]],'fulfillment'=>'pickup'])->json('quote');
-  $this->postJson(route('admin.pos.store'),['quote'=>$quote,'customer_id'=>$u->customerRecord()->id,'email'=>'spoof@example.test','payment_method'=>'cash','payment_status'=>'paid'])->assertOk();
+  $this->postJson(route('admin.pos.store'),['quote'=>$quote,'customer_id'=>$u->customerRecord()->id,'email'=>'spoof@example.test','packing_confirmed'=>1,'payment_method'=>'cash','payment_status'=>'paid'])->assertOk();
   $this->assertSame(2,$u->customerRecord()->orders()->count());
   $this->assertSame($u->email,Order::latest('id')->first()->email);
  }

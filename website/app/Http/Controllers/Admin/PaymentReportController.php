@@ -16,7 +16,7 @@ class PaymentReportController extends Controller
     private function query(Request $request): array
     {
         $data = $request->validate(['from' => 'nullable|date_format:Y-m-d', 'to' => 'nullable|date_format:Y-m-d',
-            'method' => 'nullable|in:cash,card,paypal,etransfer', 'source' => 'nullable|in:website,pos',
+            'method' => 'nullable|in:cash,card,paypal,etransfer,cheque,credit', 'source' => 'nullable|in:website,pos',
             'payment_status' => 'nullable|in:unpaid,pending,paid,partially_refunded,refunded', 'sandbox' => 'nullable|boolean']);
         $from = $data['from'] ?? now()->startOfMonth()->toDateString();
         $to = $data['to'] ?? now()->endOfMonth()->toDateString();
@@ -40,7 +40,7 @@ class PaymentReportController extends Controller
     {
         [$query,$from,$to] = $this->query($request);
         $summary = [];
-        foreach (['cash', 'card', 'paypal', 'etransfer'] as $method) {
+        foreach (['cash', 'card', 'paypal', 'etransfer', 'cheque', 'credit'] as $method) {
             $summary[$method] = ['count' => 0, 'gross' => 0, 'refunded' => 0, 'pending' => 0];
         }
         foreach ((clone $query)->lazyById(500) as $order) {
@@ -86,6 +86,14 @@ class PaymentReportController extends Controller
             }
             fclose($stream);
         }, 'payments-'.now()->format('Y-m-d').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    public function resolve(Request $request, Payment $payment, OnlinePayments $payments)
+    {
+        $data = $request->validate(['revision'=>'required|integer|min:0','resolution'=>'required|in:paid,unpaid,refunded','reason'=>'required|string|max:1000','confirmed'=>'accepted|required']);
+        if ($data['resolution'] === 'refunded') abort_unless($request->user()->hasAdminPermission('payments.refund'),403);
+        $payments->resolveManually($payment,$data,$request->user()->id);
+        return back()->with('status','Manual payment decision saved. No money was moved by this action.');
     }
 
     public function reconcile(Payment $payment, OnlinePayments $payments)

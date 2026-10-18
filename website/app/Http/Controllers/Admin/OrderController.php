@@ -71,6 +71,23 @@ class OrderController extends Controller
         return view('admin.orders.payments', compact('order', 'gatewayRefunds'));
     }
 
+    public function initialPaymentDocument(Order $order)
+    {
+        abort_unless($order->collected_cents>0,404);
+        $doc=app(\App\Services\DocumentTheme::class)->order($order);
+        $doc['title']='Payment Receipt';$doc['number']='PAY-'.$order->number;
+        $doc['date']=\Illuminate\Support\Carbon::parse($order->paid_at ?? $order->payment?->paid_at ?? $order->created_at)->format('d M Y H:i').' '.config('app.timezone');
+        $doc['totals']=['This payment'=>'$'.number_format($order->collected_cents/100,2)]+$doc['totals'];
+        return view('documents.financial',compact('doc'));
+    }
+
+    public function settlementDocument(Order $order, \App\Models\OrderSettlement $settlement)
+    {
+        abort_unless((int)$settlement->order_id === (int)$order->id,404);
+        $doc=app(\App\Services\DocumentTheme::class)->order($order,null,$settlement);
+        return view('documents.financial',compact('doc'));
+    }
+
     public function paymentReceipt(Order $order, \App\Models\OrderSettlement $settlement)
     {
         abort_unless((int) $settlement->order_id === (int) $order->id && $settlement->receipt_path, 404);
@@ -84,7 +101,7 @@ class OrderController extends Controller
 
     public function settlement(Request $r, Order $order, OrderAmendment $service)
     {
-        $data = $r->validate(['revision' => 'required|integer|min:0', 'direction' => 'required|in:collect,refund', 'method' => 'required|in:cash,card,paypal,etransfer', 'amount' => ['required', 'regex:/^\d{1,7}(\.\d{1,2})?$/'], 'reference' => 'nullable|required_unless:method,cash|string|max:255', 'note' => 'required|string|max:1000', 'received' => 'accepted', 'receipt' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120']);
+        $data = $r->validate(['revision' => 'required|integer|min:0', 'direction' => 'required|in:collect,refund', 'method' => 'required|in:cash,card,paypal,etransfer,cheque', 'amount' => ['required', 'regex:/^\d{1,7}(\.\d{1,2})?$/'], 'reference' => 'nullable|required_unless:method,cash|string|max:255', 'note' => 'required|string|max:1000', 'received' => 'accepted', 'receipt' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120']);
         $path = $r->hasFile('receipt') ? $r->file('receipt')->store('order-payment-receipts', 'local') : null;
         if ($r->hasFile('receipt') && !$path) {
             throw ValidationException::withMessages(['receipt'=>'Unable to save the payment receipt. Please try again.']);

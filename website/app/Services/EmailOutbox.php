@@ -49,7 +49,7 @@ class EmailOutbox
             $payload['from_address'] ??= $settings->from_address;
             $payload['from_name'] ??= $settings->from_name;
             if (! empty($payload['document']) && ! isset($payload['attachment'])) {
-                $options = new Options(['isRemoteEnabled' => false, 'isPhpEnabled' => false, 'defaultFont' => 'DejaVu Sans']);
+                $options = new Options(['isRemoteEnabled' => false, 'isPhpEnabled' => false, 'defaultFont' => 'DejaVu Sans', 'defaultMediaType' => 'print']);
                 $pdf = new Dompdf($options);
                 $pdf->loadHtml(view('emails.order-document', $payload['document'])->render());
                 $pdf->setPaper('A4');

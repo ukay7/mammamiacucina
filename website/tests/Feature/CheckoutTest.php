@@ -37,9 +37,9 @@ class CheckoutTest extends TestCase
         $this->assertSame('mmc-'.$order->id, $order->number);
         $this->assertEquals(2140, $order->subtotal_cents);
         $this->assertSame('cash', $order->payment_method);
-        $this->assertSame('warehouse_pending',$order->status);
-        $this->assertEquals(1,$order->warehouse_round);
-        $this->assertNotNull($order->warehouse_sent_at);
+        $this->assertSame('parked_admin',$order->status);
+        $this->assertEquals(0,$order->warehouse_round);
+        $this->assertNull($order->warehouse_sent_at);
         $this->assertSame('unpaid', $order->payment_status);
         $this->assertEquals(0, $order->tax_cents);
         $this->assertEquals(0, $order->delivery_cents);
@@ -48,11 +48,11 @@ class CheckoutTest extends TestCase
         $this->assertDatabaseHas('order_items', ['order_id' => $order->id, 'name' => 'Order Cake', 'unit_cents' => 1070, 'quantity' => 2]);
         $this->post('/checkout', $d)->assertRedirect('/order-success');
         $this->assertDatabaseCount('orders', 1);
-        $this->assertEquals(1,$order->fresh()->warehouse_round);
+        $this->assertEquals(0,$order->fresh()->warehouse_round);
         $this->assertSame('8.000', $p->inventory()->first()->quantity_on_hand);
         $worker=User::factory()->create(['role_id'=>Role::where('name','Warehouse User')->value('id'),'is_active'=>true]);
-        $this->actingAs($worker)->get('/admin/orders')->assertOk()->assertSee($order->number);
-        $this->get(route('admin.orders.show',$order))->assertOk()->assertSee('Save Packing Progress');
+        $this->actingAs($worker)->get('/admin/orders')->assertOk()->assertDontSee($order->number);
+        $this->get(route('admin.orders.show',$order))->assertNotFound();
         $p->update(['premium_marketing_name' => 'Changed Cake', 'total_selling_price_cad' => 999]);
         $this->get('/order-success')->assertOk()->assertSee('Order Cake')->assertSee('$21.40')->assertDontSee('Changed Cake');
         $this->get('/order-print')->assertOk()->assertSee('Order Confirmation')->assertSee('Order Cake')->assertSee('logo.png');

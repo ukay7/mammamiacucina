@@ -26,7 +26,7 @@ class BusinessApprovalTest extends TestCase {
   $staff=User::factory()->create(['is_active'=>true,'role_id'=>Role::create(['name'=>'Viewer','permissions'=>['orders.view']])->id]);
   $this->actingAs($staff)->post($url)->assertForbidden();
   $admin=User::factory()->create(['is_active'=>true,'role_id'=>Role::where('is_super',true)->value('id')]);
-  $this->actingAs($admin)->get(route('admin.customers.index'))->assertOk()->assertSee('Buyer Ltd')->assertSee('BIN123')->assertSee('Approve business');
+  $this->actingAs($admin)->get(route('admin.customers.business-requests'))->assertOk()->assertSee('Buyer Ltd')->assertSee('BIN123')->assertSee('Approve business');
   $this->post($url)->assertSessionHasNoErrors();$approved=$user->fresh();
   $this->assertNotNull($approved->business_approved_at);$this->assertEquals($admin->id,$approved->business_approved_by);
   $this->actingAs($approved)->get(route('customer.orders'))->assertOk();

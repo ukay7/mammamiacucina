@@ -8,4 +8,4 @@
 @endif
 </td></tr>
 @empty<tr><td colspan="5">No business accounts awaiting approval.</td></tr>@endforelse
-</tbody></table></div>{{ $businessRequests->withQueryString()->links() }}</div>
+</tbody></table></div>@include('admin.customers.pagination',['records'=>$businessRequests])</div>

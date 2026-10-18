@@ -24,7 +24,8 @@ class PosSale
         $lines = [];
         foreach (collect($items)->sortBy('id') as $item) {
             $product = $products[$item['id']];
-            $price = app(PosCustomer::class)->price($product, $customer);
+            $pricing = app(CustomerTerms::class)->price($product, $customer);
+            $price=$pricing['unit_cents'];
             if (!$product->is_active || $price === null || $price < 0) {
                 $this->fail($product->premium_marketing_name.' is inactive or has no selling price.');
             }
@@ -34,14 +35,14 @@ class PosSale
                 $this->fail('Not enough stock for '.$product->premium_marketing_name.'. Available: '.$inventory->quantity_on_hand);
             }
             $lines[] = ['product' => $product, 'inventory' => $inventory, 'quantity' => (int) $item['quantity'],
-                'unit_cents' => $price];
+                'unit_cents' => $price, 'original_unit_cents'=>$pricing['original_unit_cents'],'discount_bps'=>$pricing['discount_bps']];
         }
         return $lines;
     }
 
     private function snapshot(array $lines): array
     {
-        return array_map(fn ($line) => ['id' => $line['product']->id, 'quantity' => $line['quantity'], 'unit_cents' => $line['unit_cents']], $lines);
+        return array_map(fn ($line) => ['id' => $line['product']->id, 'quantity' => $line['quantity'], 'unit_cents' => $line['unit_cents'],'original_unit_cents'=>$line['original_unit_cents'],'discount_bps'=>$line['discount_bps']], $lines);
     }
 
     public function quote(array $items, string $fulfillment, int $userId, array $destination=[]): array
@@ -57,13 +58,15 @@ class PosSale
             $route=app(DeliveryQuote::class)->quote($settings->warehouse_postal_code??'',$destination['postal_code']??'',$destination['delivery_service']??'');
         }
         $delivery = $fulfillment === 'delivery' ? ($route['delivery_cents']??$settings->delivery_cents) : 0;
+        $discount=app(CustomerTerms::class)->orderDiscount($profile,$subtotal);
+        $subtotal-=$discount;
         $tax = $settings->taxFor($subtotal);
         $data = ['token' => (string) Str::uuid(), 'user_id' => $userId, 'expires' => now()->addMinutes(30)->timestamp,
-            'customer_id'=>$profile->id,'pricing_type'=>$profile->user->account_type,'matrix'=>(bool)$settings->matrix_delivery_enabled,'delivery_route'=>$route,'items' => $this->snapshot($lines), 'fulfillment' => $fulfillment, 'delivery' => $delivery, 'rate' => $settings->tax_basis_points];
-        return ['delivery_route'=>$route,'quote' => Crypt::encryptString(json_encode($data)), 'subtotal' => $subtotal, 'delivery' => $delivery,
+            'commercial_revision'=>$profile->commercial_revision,'customer_id'=>$profile->id,'pricing_type'=>$profile->user->account_type,'matrix'=>(bool)$settings->matrix_delivery_enabled,'delivery_route'=>$route,'items' => $this->snapshot($lines), 'fulfillment' => $fulfillment, 'delivery' => $delivery, 'rate' => $settings->tax_basis_points];
+        return ['credit_order_warning'=>app(CustomerTerms::class)->warning($profile,$subtotal+$delivery+$tax),'allowed_methods'=>app(CustomerTerms::class)->allowed($profile,'pos'),'credit_warning'=>app(CustomerTerms::class)->warning($profile),'order_discount_cents'=>$discount,'order_discount_bps'=>$profile->order_discount_bps,'delivery_route'=>$route,'quote' => Crypt::encryptString(json_encode($data)), 'subtotal' => $subtotal, 'delivery' => $delivery,
             'tax' => $tax, 'total' => $subtotal + $delivery + $tax, 'tax_percent' => $settings->tax_basis_points / 100,
             'items' => array_map(fn ($line) => ['id'=>$line['product']->id,'name' => $line['product']->premium_marketing_name, 'quantity' => $line['quantity'],
-                'unit_cents' => $line['unit_cents']], $lines)];
+                'unit_cents' => $line['unit_cents'],'original_unit_cents'=>$line['original_unit_cents'],'discount_bps'=>$line['discount_bps']], $lines)];
     }
 
     public function complete(string $encrypted, array $customer, int $userId): Order
@@ -98,21 +101,24 @@ class PosSale
             }
             $profile = app(PosCustomer::class)->resolve((int) ($customer['customer_id'] ?? 0), true);
             if (($quote['customer_id'] ?? null) !== $profile->id || ($quote['pricing_type'] ?? null) !== $profile->user->account_type) $this->fail('Customer or pricing type changed. Review the sale again.');
+            if(($quote['commercial_revision']??0)!==$profile->commercial_revision)$this->fail('Customer settings changed. Review the sale again.');
             $parts = explode(' ', trim($profile->name), 2);
             $customer['first_name']=$parts[0];$customer['last_name']=$parts[1] ?? '';
             $customer['email']=$profile->email;$customer['phone']=trim($customer['phone'] ?? '') ?: $profile->phone;
             $lines = $this->lines($quote['items'], $profile, true);
             if ($this->snapshot($lines) !== $quote['items']) $this->fail('A price changed. Review the sale again before collecting payment.');
             $subtotal = array_sum(array_map(fn ($line) => $line['unit_cents'] * $line['quantity'], $lines));
+            $discount=app(CustomerTerms::class)->orderDiscount($profile,$subtotal);$subtotal-=$discount;
+            $warning=app(CustomerTerms::class)->check($profile,'pos',$customer['payment_method'],$subtotal+$delivery+$settings->taxFor($subtotal));
             $pickup = $quote['fulfillment'] === 'pickup';
             if (!$pickup) {
                 foreach (['first_name', 'phone', 'address', 'city', 'province', 'postal_code', 'country'] as $field) {
                     if (empty($customer[$field])) $this->fail('Customer name, phone and full address are required for delivery.');
                 }
             }
-            $transfer = $customer['payment_method'] === 'etransfer';
+            $transfer = in_array($customer['payment_method'],['etransfer','cheque','credit']);
             $customer['payment_status'] = $transfer ? 'unpaid' : $customer['payment_status'];
-            if ($pickup && !$transfer && $customer['payment_status'] !== 'paid') $this->fail('Confirm cash received and items handed over before completing a pickup sale.');
+            if (!$transfer && $customer['payment_status'] !== 'paid') $this->fail('Confirm cash received before finalizing this sale.');
             if($profile && !$pickup)$profile->update(\Illuminate\Support\Arr::only($customer,['address','city','province','postal_code','country']));
             $details = [];
             foreach (['first_name','last_name','email','phone','address','city','province','postal_code','country'] as $field) {
@@ -122,13 +128,14 @@ class PosSale
             if ($pickup) {
                 foreach (['address','city','province','postal_code','country'] as $field) $details[$field] = '';
             }
-            $order = Order::create($details + $route + [
+            $order = Order::create($details + $route + app(CustomerTerms::class)->snapshot($profile,$customer['payment_method']) + [
+                'order_discount_cents'=>$discount,'credit_warning'=>$warning,
                 'customer_id'=>$profile?->id, 'checkout_token' => $quote['token'], 'number' => 'POS-'.Str::ulid(),
                 'notes' => $customer['notes'] ?? null, 'source' => 'pos', 'created_by' => $userId,
                 'fulfillment' => $quote['fulfillment'], 'pickup_address'=>$pickup ? $settings->pickup_address : null,
-                'status' => $transfer ? 'transfer_pending' : ($pickup ? 'completed' : 'warehouse_pending'),
-                'warehouse_round'=>!$transfer && !$pickup ? 1 : 0,
-                'warehouse_sent_at'=>!$transfer && !$pickup ? now() : null,
+                'status' => 'ready_to_dispatch',
+                'warehouse_round'=>1,
+                'warehouse_sent_at'=>now(),
                 'subtotal_cents' => $subtotal, 'delivery_cents' => $delivery, 'tax_cents' => $settings->taxFor($subtotal), 'tax_basis_points'=>$settings->tax_basis_points,
                 'payment_method' => $customer['payment_method'], 'payment_status' => $customer['payment_status'],
                 'paid_at' => $customer['payment_status'] === 'paid' ? now() : null,
@@ -139,7 +146,7 @@ class PosSale
                 $tracked = $inventory && $inventory->quantity_on_hand !== null;
                 $order->items()->create(['product_id' => $product->id, 'name' => $product->premium_marketing_name,
                     'product_code' => $product->product_code, 'qr_code' => $product->qr_code, 'stock_deducted' => $tracked,
-                    'quantity' => $quantity, 'unit_cents' => $price, 'line_cents' => $quantity * $price]);
+                    'packed'=>true,'packed_by'=>$userId,'packed_at'=>now(),'original_unit_cents'=>$line['original_unit_cents'],'discount_bps'=>$line['discount_bps'],'quantity' => $quantity, 'unit_cents' => $price, 'line_cents' => $quantity * $price]);
                 if ($tracked) {
                     $before = $inventory->quantity_on_hand;
                     $after = ((int) round((float) $before * 1000) - $quantity * 1000) / 1000;
@@ -150,6 +157,7 @@ class PosSale
                 }
             }
             $order->events()->create(['user_id' => $userId, 'description' => 'Quick Sale created Â· '.($pickup ? 'Pick up' : 'Delivery').' Â· '.$customer['payment_method'].' '.$customer['payment_status'], 'created_at' => now()]);
+            app(CustomerInvoicing::class)->issue($order);
             app(CustomerEmails::class)->order($order, 'order_confirmation', 'order-created:'.$order->id);
             return $order;
         }, 3);

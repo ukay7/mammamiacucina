@@ -24,7 +24,7 @@ class WarehouseWorkflowTest extends TestCase
         $this->get('/checkout')->assertOk();
         $this->post('/checkout', ['checkout_token' => session('checkout_token'), 'first_name' => 'Test', 'last_name' => 'Customer', 'email' => 'test@example.test', 'phone' => '555123', 'address' => '10 Example Street', 'city' => 'Toronto', 'province' => 'Ontario', 'postal_code' => 'M1M1M1', 'country' => 'Canada'])->assertRedirect('/order-success');
         $o = Order::firstOrFail();
-        $o->update(['delivery_cents' => 500, 'tax_cents' => 0, 'status' => 'placed', 'warehouse_round' => 0, 'warehouse_sent_at' => null]); // Legacy/manual-transfer fixture.
+        $o->update(['delivery_cents' => 500, 'tax_cents' => 0, 'status' => 'parked_admin', 'warehouse_round' => 0, 'warehouse_sent_at' => null]); // Legacy/manual-transfer fixture.
         $admin = User::factory()->create(['role_id' => Role::where('is_super', true)->value('id'), 'is_active' => true]);
         $worker = User::factory()->create(['role_id' => Role::where('name', 'Warehouse User')->value('id'), 'is_active' => true]);
         $this->actingAs($admin);
@@ -143,7 +143,7 @@ class WarehouseWorkflowTest extends TestCase
     {
         [$o] = $this->fixture();
         $this->post(route('admin.orders.settlement', $o), ['revision' => 0, 'direction' => 'collect', 'method' => 'cash', 'amount' => '5', 'note' => 'Deposit', 'received' => 1])->assertSessionHasNoErrors();
-        $this->patch(route('admin.orders.update', $o), ['revision' => 1, 'status' => 'placed', 'payment_status' => 'paid', 'delivery' => '5', 'tax' => '0'])->assertSessionHasNoErrors();
+        $this->patch(route('admin.orders.update', $o), ['revision' => 1, 'status' => 'parked_admin', 'payment_status' => 'paid', 'delivery' => '5', 'tax' => '0'])->assertSessionHasNoErrors();
         $this->assertEquals(2500, $o->fresh()->net_received_cents);
         $this->assertEquals(0, $o->fresh()->balance_cents);
     }
@@ -210,8 +210,10 @@ class WarehouseWorkflowTest extends TestCase
         $this->actingAs($worker);
         $customer=User::factory()->create(['account_type'=>'individual','is_active'=>true])->customerRecord();
         $quote = $this->postJson(route('admin.pos.quote'), ['customer_id'=>$customer->id,'items' => [['id' => $product->id, 'quantity' => 1]], 'fulfillment' => 'pickup'])->assertOk()->json('quote');
-        $this->postJson(route('admin.pos.store'), ['customer_id'=>$customer->id,'first_name'=>'POS Customer','email'=>'warehouse-pos@example.test','quote' => $quote, 'payment_method' => 'cash', 'payment_status' => 'paid'])->assertOk();
+        $this->postJson(route('admin.pos.store'), ['customer_id'=>$customer->id,'first_name'=>'POS Customer','email'=>'warehouse-pos@example.test','quote' => $quote, 'packing_confirmed'=>1, 'payment_method' => 'cash', 'payment_status' => 'paid'])->assertOk();
         $own = Order::where('created_by', $worker->id)->firstOrFail();
+        $this->assertSame('ready_to_dispatch',$own->status);
+        $own->update(['status'=>'completed']);
         $other = $own->replicate(['number', 'checkout_token', 'tracking_token']);
         $other->number = 'OTHER-POS';
         $other->checkout_token = (string) Str::uuid();
@@ -388,17 +390,17 @@ class WarehouseWorkflowTest extends TestCase
     {
         \Illuminate\Support\Facades\Storage::fake('local');
         [$o,$p,$admin,$worker]=$this->fixture();
-        $o->update(['payment_method'=>'etransfer','status'=>'transfer_pending']);
+        $o->update(['payment_method'=>'etransfer','status'=>'parked_admin']);
         $receipt=fn()=>\Illuminate\Http\UploadedFile::fake()->createWithContent('transfer.png',base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1ioAAAAASUVORK5CYII='));
         $this->get(route('admin.orders.payments',$o))->assertOk()->assertSee('Record a payment')->assertSee('Partial payments remain pending');
         $data=['revision'=>0,'direction'=>'collect','method'=>'etransfer','reference'=>'BANK-1','amount'=>'10','note'=>'Bank deposit verified','received'=>1];
-        $this->post(route('admin.orders.settlement',$o),$data)->assertSessionHasErrors('order');
+        $this->post(route('admin.orders.settlement',$o),array_replace($data,['amount'=>'0']))->assertSessionHasErrors('order');
         $this->actingAs($worker)->post(route('admin.orders.settlement',$o),$data)->assertForbidden();
         $this->actingAs($admin)->post(route('admin.orders.settlement',$o),$data+['receipt'=>$receipt()])->assertSessionHasNoErrors();
         $this->assertEquals(1000,$o->fresh()->net_received_cents);
         $this->assertEquals(1500,$o->fresh()->balance_cents);
         $this->assertSame('unpaid',$o->fresh()->payment_status);
-        $this->assertSame('transfer_pending',$o->fresh()->status);
+        $this->assertSame('parked_admin',$o->fresh()->status);
         $this->post(route('admin.orders.settlement',$o),$data+['receipt'=>$receipt()])->assertSessionHasErrors('order');
         $originalPath=$receipt()->store('transfer-receipts','local');
         $o->update(['transfer_receipt_path'=>$originalPath]);
@@ -410,8 +412,8 @@ class WarehouseWorkflowTest extends TestCase
         $this->assertEquals(2500,$o->fresh()->net_received_cents);
         $this->assertEquals(0,$o->fresh()->balance_cents);
         $this->assertSame('paid',$o->fresh()->payment_status);
-        $this->assertSame('warehouse_pending',$o->fresh()->status);
-        $this->assertEquals(1,$o->fresh()->warehouse_round);
+        $this->assertSame('parked_admin',$o->fresh()->status);
+        $this->assertEquals(0,$o->fresh()->warehouse_round);
         $this->amend($o)->assertSessionHasNoErrors();
         $this->assertEquals(-1500,$o->fresh()->balance_cents);
         $this->get(route('admin.orders.payments',$o))->assertOk()->assertSee('Record a refund')->assertSee('Refund due');

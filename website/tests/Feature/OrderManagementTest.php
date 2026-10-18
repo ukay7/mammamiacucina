@@ -10,7 +10,7 @@ class OrderManagementTest extends TestCase {
   $p=Product::create(['category_id'=>1,'slug'=>'management-cake','premium_marketing_name'=>'Management Cake','qr_code'=>'MGMT','is_active'=>true,'total_selling_price_cad'=>10]);$p->inventory()->create(['quantity_on_hand'=>$stock]);
   $this->postJson(route('cart.add',$p),['quantity'=>2])->assertOk();$this->get('/checkout')->assertOk();
   $this->post('/checkout',['checkout_token'=>session('checkout_token'),'first_name'=>'Test','last_name'=>'Customer','email'=>'test@example.test','phone'=>'555123','address'=>'10 Example Street','city'=>'Toronto','province'=>'Ontario','postal_code'=>'M1M1M1','country'=>'Canada'])->assertRedirect('/order-success');
-  $o=Order::firstOrFail();$o->update(['status'=>'placed','warehouse_round'=>0,'warehouse_sent_at'=>null]); // Legacy order transitions remain supported.
+  $o=Order::firstOrFail();$o->update(['status'=>'parked_admin','warehouse_round'=>0,'warehouse_sent_at'=>null]); // Legacy order transitions remain supported.
 $user=User::factory()->create(['role_id'=>Role::where('is_super',true)->value('id'),'is_active'=>true]);$this->actingAs($user);
   return [$o,$p,$user];
  }
@@ -28,19 +28,20 @@ $user=User::factory()->create(['role_id'=>Role::where('is_super',true)->value('i
   $this->travelBack();
  }
  public function test_status_charges_cash_and_tracking_totals():void {
-  [$o,$p]=$this->setupOrder();$this->save($o,['status'=>'preparing'])->assertSessionHasErrors('order');
+  [$o,$p]=$this->setupOrder();$this->save($o,['status'=>'packing'])->assertSessionHasErrors('order');
   $o->update(['delivery_cents'=>null,'tax_cents'=>null]);$this->save($o,['payment_status'=>'paid'])->assertSessionHasErrors('order');
-  $this->save($o,['status'=>'confirmed','delivery'=>'5.50','tax'=>'2.25'])->assertRedirect();$this->assertEquals(2775,$o->fresh()->final_total_cents);
-  foreach(['preparing','out_for_delivery','delivered'] as $status)$this->save($o,['status'=>$status])->assertRedirect();
+  $this->save($o,['status'=>'warehouse_pending','delivery'=>'5.50','tax'=>'2.25'])->assertRedirect();$this->assertEquals(2775,$o->fresh()->final_total_cents);
+  app(\App\Services\WarehousePacking::class)->save($o->fresh(),['revision'=>$o->fresh()->revision,'action'=>'ready','items'=>$o->items->mapWithKeys(fn($i)=>[$i->id=>['packed'=>1,'note'=>'']])->all()],auth()->id());
+  foreach(['out_for_delivery','delivered'] as $status)$this->save($o,['status'=>$status])->assertRedirect();
   $this->save($o,['payment_status'=>'paid'])->assertRedirect();$this->assertNotNull($o->fresh()->paid_at);
   $this->save($o,['delivery'=>'9'])->assertSessionHasErrors('order');$this->save($o,['status'=>'cancelled'])->assertSessionHasErrors('order');
   $this->get('/track-order/'.$o->tracking_token)->assertOk()->assertSee('Delivered')->assertSee('$27.75')->assertSee('Amount due: $0.00');
-  $this->assertDatabaseCount('order_events',5);
+  $this->assertDatabaseCount('order_events',6);
  }
  public function test_cancel_restores_deducted_stock_once_and_rejects_stale_saves():void {
   [$o,$p]=$this->setupOrder();$this->assertSame('8.000',$p->inventory()->first()->quantity_on_hand);$this->save($o,['status'=>'cancelled'])->assertRedirect();$this->assertSame('10.000',$p->inventory()->first()->quantity_on_hand);
   $this->save($o)->assertRedirect();$this->assertSame('10.000',$p->inventory()->first()->quantity_on_hand);
-  $this->save($o,['revision'=>0])->assertSessionHasErrors('order');$this->save($o,['status'=>'confirmed'])->assertSessionHasErrors('order');
+  $this->save($o,['revision'=>0])->assertSessionHasErrors('order');$this->save($o,['status'=>'warehouse_pending'])->assertSessionHasErrors('order');
   $this->assertDatabaseCount('inventory_movements',2);
  }
  public function test_unknown_stock_not_invented_and_paid_cancel_requires_refund():void {
@@ -62,25 +63,25 @@ $user=User::factory()->create(['role_id'=>Role::where('is_super',true)->value('i
   [$o,$p,$u]=$this->setupOrder();$o->update(['delivery_cents'=>555,'tax_cents'=>222]);
   $this->get('/admin/orders')->assertOk()->assertSee('Status for '.$o->number)->assertSee('Update');
   $url=route('admin.orders.status',$o);
-  $this->patch($url,['revision'=>0,'status'=>'confirmed','q'=>'Customer','page'=>1,'tax'=>'0','payment_status'=>'paid'])->assertRedirect(route('admin.orders.index',['q'=>'Customer','page'=>1]));
-  $this->assertSame('confirmed',$o->fresh()->status);$this->assertEquals(555,$o->fresh()->delivery_cents);$this->assertEquals(222,$o->fresh()->tax_cents);$this->assertSame('unpaid',$o->fresh()->payment_status);
-  $this->patch($url,['revision'=>0,'status'=>'preparing'])->assertSessionHasErrors('order');
+  $this->patch($url,['revision'=>0,'status'=>'warehouse_pending','q'=>'Customer','page'=>1,'tax'=>'0','payment_status'=>'paid'])->assertRedirect(route('admin.orders.index',['q'=>'Customer','page'=>1]));
+  $this->assertSame('warehouse_pending',$o->fresh()->status);$this->assertEquals(555,$o->fresh()->delivery_cents);$this->assertEquals(222,$o->fresh()->tax_cents);$this->assertSame('unpaid',$o->fresh()->payment_status);
+  $this->patch($url,['revision'=>0,'status'=>'packing'])->assertSessionHasErrors('order');
   $this->patch($url,['revision'=>1,'status'=>'cancelled'])->assertRedirect();$this->assertSame('10.000',$p->inventory()->first()->quantity_on_hand);
-  $role=Role::create(['name'=>'Grid Viewer','permissions'=>['orders.view']]);$u->update(['role_id'=>$role->id]);$u->unsetRelation('role');$this->actingAs($u)->patch($url,['revision'=>2,'status'=>'placed'])->assertForbidden();
+  $role=Role::create(['name'=>'Grid Viewer','permissions'=>['orders.view']]);$u->update(['role_id'=>$role->id]);$u->unsetRelation('role');$this->actingAs($u)->patch($url,['revision'=>2,'status'=>'parked_admin'])->assertForbidden();
  }
  public function test_status_autosave_returns_new_options_and_revision():void {
   [$o]=$this->setupOrder();
-  $this->patchJson(route('admin.orders.status',$o),['revision'=>0,'status'=>'confirmed'])->assertOk()->assertJsonPath('status','confirmed')->assertJsonPath('revision',1)->assertJsonPath('options.preparing','Preparing')->assertJsonPath('terminal',false);
-  $this->patchJson(route('admin.orders.status',$o),['revision'=>0,'status'=>'preparing'])->assertUnprocessable();
+  $this->patchJson(route('admin.orders.status',$o),['revision'=>0,'status'=>'warehouse_pending'])->assertOk()->assertJsonPath('status','warehouse_pending')->assertJsonPath('revision',1)->assertJsonPath('options.warehouse_issue','Warehouse issue — admin action needed')->assertJsonPath('terminal',false);
+  $this->patchJson(route('admin.orders.status',$o),['revision'=>0,'status'=>'packing'])->assertUnprocessable();
   $this->patchJson(route('admin.orders.status',$o),['revision'=>1,'status'=>'cancelled'])->assertOk()->assertJsonPath('terminal',true)->assertJsonPath('options.cancelled','Cancelled');
  }
  public function test_tracking_needs_secret_and_management_needs_permission():void {
   [$o,$p,$u]=$this->setupOrder();$this->get('/admin/orders/'.$o->id)->assertOk()->assertSee('Manage Order');
-  $role=Role::create(['name'=>'Order Viewer','permissions'=>['orders.view'],'is_super'=>false]);$u->update(['role_id'=>$role->id]);$u->unsetRelation('role');$this->actingAs($u);$this->save($o,['status'=>'confirmed'])->assertForbidden();
+  $role=Role::create(['name'=>'Order Viewer','permissions'=>['orders.view'],'is_super'=>false]);$u->update(['role_id'=>$role->id]);$u->unsetRelation('role');$this->actingAs($u);$this->save($o,['status'=>'warehouse_pending'])->assertForbidden();
   auth()->logout();session()->flush();
   $this->get('/track-order/'.$o->tracking_token)->assertOk()->assertHeader('Referrer-Policy','no-referrer')->assertSee('Management Cake');
   $this->get('/track-order/'.$o->tracking_token.'/print')->assertOk()->assertSee('Order Confirmation');
-  $this->get('/track-order/'.$o->number)->assertOk()->assertSee('Placed')->assertDontSee('10 Example Street')->assertDontSee('test@example.test')->assertDontSee('Management Cake');
+  $this->get('/track-order/'.$o->number)->assertOk()->assertSee('Parked to Admin')->assertDontSee('10 Example Street')->assertDontSee('test@example.test')->assertDontSee('Management Cake');
   $this->get('/track-order/'.$o->number.'/print')->assertNotFound();$this->get('/track-order/'.str_repeat('x',48))->assertNotFound();
   $this->post('/track-order',['number'=>'mmc-999999'])->assertSessionHasErrors('order');
   $this->post('/track-order',['number'=>$o->number])->assertRedirect('/track-order/'.$o->number);

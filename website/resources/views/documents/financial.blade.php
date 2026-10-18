@@ -1,0 +1,12 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{{ $doc['title'] }} {{ $doc['number'] }} - Mamma Mia Cucina</title>@include('documents.style')@if(!empty($pdf))<style>body{background:#fff}.document{margin:0;padding:0;max-width:none}.doc-toolbar{display:none}</style>@endif</head><body>
+@if(empty($pdf))<div class="doc-toolbar">@isset($backUrl)<a href="{{ $backUrl }}">Back to orders</a>@endisset<span>{{ $doc['title'] }}</span><button onclick="window.print()">Print / Save as PDF</button></div>@endif
+<main class="document">@include('documents.header')
+<table class="doc-info"><tr><td><h2>Bill to</h2>@foreach($doc['billing'] as $line)<div>{{ $line }}</div>@endforeach</td><td><h2>Account summary</h2>@foreach($doc['summary'] as $label=>$value)<div>{{ $label }}: <strong>{{ $value }}</strong></div>@endforeach<small>Balances as of {{ $doc['balance_date'] ?? $doc['date'] }}.</small></td></tr></table>
+<p class="doc-notice">Order: {{ $doc['order_number'] }}. {{ $doc['notice'] }}</p>
+<table class="doc-lines"><thead><tr><th>Item code</th><th>Description</th><th class="money">Qty</th><th class="money">Unit price</th><th class="money">Line total</th></tr></thead><tbody>@foreach($doc['items'] as $item)<tr><td>{{ $item['code'] }}</td><td>{{ $item['name'] }}@if($item['discount']??null)<br><small>{{ $item['discount'] }}</small>@endif</td><td class="money">{{ $item['quantity'] }}</td><td class="money">@if($item['original']??null)<del>{{ $item['original'] }}</del><br>@endif{{ $item['unit'] }}</td><td class="money">{{ $item['total'] }}</td></tr>@endforeach</tbody></table>
+@if($doc['discount']??null)<p>{{ $doc['discount'] }}</p>@endif
+<table class="doc-totals">@foreach($doc['totals'] as $label=>$value)<tr><td>{{ $label }}</td><td class="money">{{ $value }}</td></tr>@endforeach</table>
+<div class="doc-box"><h2>Payment instructions</h2><p>{{ $doc['instructions'] }}</p><p><strong>Payment details:</strong> {{ $doc['payment'] }}</p></div>
+<div class="doc-box"><h2>Delivery / pickup details</h2><p style="white-space:pre-line">{{ $doc['delivery'] }}</p></div>
+@if($doc['notes'])<div class="doc-box"><h2>Notes</h2><p style="white-space:pre-line">{{ $doc['notes'] }}</p></div>@endif
+<footer class="doc-footer"><strong>Thank you for choosing Mamma Mia Cucina.</strong><p>Please quote {{ $doc['order_number'] }} with any enquiries. Order confirmations, invoices and payment receipts are separate records; they do not create additional charges.</p></footer></main></body></html>

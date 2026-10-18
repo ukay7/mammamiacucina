@@ -46,7 +46,7 @@ class TransferCheckoutTest extends TestCase
         $this->assertSame('pickup',$order->fulfillment);
         $this->assertEquals(0,$order->delivery_cents);
         $this->assertEquals(2100,$order->final_total_cents);
-        $this->assertSame('warehouse_pending',$order->status);
+        $this->assertSame('parked_admin',$order->status);
         $this->assertSame('Saved address',$user->customerRecord()->fresh()->address);
         $this->assertSame('123 Test Street, Toronto, ON',$order->pickup_address);
         $this->get('/order-success')->assertOk()->assertSee('Cash on pick up')->assertSee('123 Test Street');
@@ -62,11 +62,11 @@ class TransferCheckoutTest extends TestCase
         [$user,$product,$data]=$this->checkout();
         $this->post('/checkout',$data)->assertRedirect('/order-success');
         $order=Order::firstOrFail();
-        $this->assertSame('transfer_pending',$order->status);
+        $this->assertSame('parked_admin',$order->status);
         $this->assertSame('unpaid',$order->payment_status);
         $this->assertEquals(2600,$order->final_total_cents);
         $this->assertDatabaseCount('payments',0);
-        $this->get('/order-success')->assertOk()->assertSee('Please upload your e-transfer receipt');
+        $this->get('/order-success')->assertOk()->assertSee('Upload a receipt or cheque photo');
         $this->get(route('customer.order',$order))->assertOk()->assertSee('Upload receipt');
         $worker=User::factory()->create(['is_active'=>true,'role_id'=>Role::where('name','Warehouse User')->value('id')]);
         $this->actingAs($worker)->get(route('admin.orders.show',$order))->assertNotFound();
@@ -80,19 +80,19 @@ class TransferCheckoutTest extends TestCase
         $this->get(route('orders.transfer-receipt',$order))->assertOk()->assertHeader('Cache-Control','no-store, private');
         $this->post(route('orders.transfer.verify',$order),['revision'=>$order->revision,'received'=>1])->assertForbidden();
         $admin=$this->admin();
-        $this->actingAs($admin)->get(route('admin.orders.show',$order))->assertOk()->assertSee('Verify payment &amp; send to warehouse',false);
+        $this->actingAs($admin)->get(route('admin.orders.show',$order))->assertOk()->assertSee('Verify payment received',false);
         $this->post(route('orders.transfer.verify',$order),['revision'=>0,'received'=>1])->assertSessionHasErrors('order');
         $this->post(route('orders.transfer.verify',$order),['revision'=>$order->revision,'received'=>1])->assertRedirect()->assertSessionHasNoErrors();
         $order->refresh();
         $this->assertSame('paid',$order->payment_status);
-        $this->assertSame('warehouse_pending',$order->status);
+        $this->assertSame('parked_admin',$order->status);
         $this->assertEquals(0,$order->balance_cents);
-        $this->assertEquals(1,$order->warehouse_round);
+        $this->assertEquals(0,$order->warehouse_round);
         $this->assertNotNull($order->paid_at);
         $this->post(route('orders.transfer.verify',$order),['revision'=>$order->revision,'received'=>1])->assertSessionHasErrors('receipt');
         $this->actingAs($user)->post(route('orders.transfer-receipt.store',$order),['revision'=>$order->revision,'receipt'=>$this->image('replacement.png')])->assertSessionHasErrors('receipt');
-        $this->actingAs($worker)->get(route('admin.orders.show',$order))->assertOk();
-        $this->assertEquals(1,$order->fresh()->warehouse_round);
+        $this->actingAs($worker)->get(route('admin.orders.show',$order))->assertNotFound();
+        $this->assertEquals(0,$order->fresh()->warehouse_round);
         $this->assertDatabaseCount('order_events',2);
     }
 
@@ -112,7 +112,7 @@ class TransferCheckoutTest extends TestCase
         $this->actingAs($this->admin())->post($url,['revision'=>1,'receipt'=>UploadedFile::fake()->createWithContent('receipt.pdf',"%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF")])->assertSessionHasNoErrors();
         Storage::disk('local')->assertMissing($old);
         $this->assertSame('unpaid',$order->fresh()->payment_status);
-        $this->assertSame('transfer_pending',$order->fresh()->status);
+        $this->assertSame('parked_admin',$order->fresh()->status);
     }
 
     public function test_disabled_methods_missing_address_and_unverified_warehouse_transition_are_rejected(): void
@@ -128,10 +128,9 @@ class TransferCheckoutTest extends TestCase
         $order=Order::firstOrFail();
         $this->actingAs($this->admin());
         $update=['revision'=>0,'status'=>'warehouse_pending','payment_status'=>'unpaid','delivery'=>'5','tax'=>'1'];
-        $this->patch(route('admin.orders.update',$order),$update)->assertSessionHasErrors('order');
-        $this->patch(route('admin.orders.update',$order),array_replace($update,['payment_status'=>'paid']))->assertSessionHasErrors('order');
-        $this->assertSame('transfer_pending',$order->fresh()->status);
-        $this->patch(route('admin.orders.update',$order),array_replace($update,['status'=>'cancelled']))->assertSessionHasNoErrors();
+        $this->patch(route('admin.orders.update',$order),$update)->assertSessionHasNoErrors();
+        $this->assertSame('warehouse_pending',$order->fresh()->status);
+        $this->patch(route('admin.orders.update',$order),array_replace($update,['revision'=>$order->fresh()->revision,'status'=>'cancelled']))->assertSessionHasNoErrors();
         $this->assertEquals(10,$product->inventory()->first()->quantity_on_hand);
     }
 }

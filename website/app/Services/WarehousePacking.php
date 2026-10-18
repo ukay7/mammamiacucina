@@ -20,7 +20,6 @@ class WarehousePacking
             if (!in_array($order->source, ['website','pos'], true) || ! in_array($order->status, ['warehouse_pending', 'packing'])) {
                 $fail('This order is not currently assigned for packing.');
             }
-            if ($order->payment_method === 'etransfer' && $order->payment_status !== 'paid') $fail('Admin must verify the e-transfer before packing.');
             if ($order->payment && (! in_array($order->payment_status, ['paid', 'partially_refunded']) || $order->payment->attention || $order->payment->released_at)) {
                 $fail('Admin must resolve the payment before packing.');
             }

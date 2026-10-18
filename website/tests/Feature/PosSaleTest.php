@@ -37,7 +37,7 @@ class PosSaleTest extends TestCase
 
     private function sale(array $quote, array $extra = [])
     {
-        return $this->postJson(route('admin.pos.store'), array_merge(['customer_id'=>$this->customerId,'first_name'=>'Walk-in customer','email'=>'pos-customer@example.test','quote' => $quote['quote'], 'payment_method' => 'cash', 'payment_status' => 'paid'], $extra));
+        return $this->postJson(route('admin.pos.store'), array_merge(['customer_id'=>$this->customerId,'first_name'=>'Walk-in customer','email'=>'pos-customer@example.test','quote' => $quote['quote'], 'packing_confirmed'=>1,'payment_method' => 'cash', 'payment_status' => 'paid'], $extra));
     }
 
     public function test_barcode_label_uses_only_qr_field_and_preserves_leading_zeros(): void
@@ -64,7 +64,7 @@ class PosSaleTest extends TestCase
         $response = $this->sale($quote)->assertOk()->assertJsonPath('total',2247);
         $order = Order::firstOrFail();
         $this->assertSame('8.000', $product->inventory()->first()->quantity_on_hand);
-        $this->assertSame('completed', $order->status);
+        $this->assertSame('ready_to_dispatch', $order->status);
         $this->assertSame('Walkin', $order->first_name);
         $this->assertSame('pos', $order->source);
         $this->assertEquals(1070, $order->items()->first()->unit_cents);
@@ -72,7 +72,7 @@ class PosSaleTest extends TestCase
         $this->assertDatabaseCount('orders', 1);
         $this->assertDatabaseCount('inventory_movements', 1);
         $this->get($response->json('print_url'))->assertOk()->assertSee('Sales Receipt')->assertSee('Pick up')->assertDontSee('Cash on delivery');
-        $this->get('/admin/orders/completed')->assertOk()->assertSee('POS');
+        $this->get('/admin/orders')->assertOk()->assertSee('POS');
     }
 
     public function test_delivery_sale_requires_address_and_goes_to_warehouse(): void
@@ -85,10 +85,10 @@ class PosSaleTest extends TestCase
         $this->sale($quote)->assertUnprocessable();
         $this->assertDatabaseCount('orders', 0);
         $this->sale($quote, ['first_name' => 'Customer', 'phone' => '555123', 'address' => '10 Test Street', 'city' => 'Toronto',
-            'province' => 'ON', 'postal_code' => 'M1M1M1', 'country' => 'Canada', 'payment_status' => 'unpaid'])->assertOk();
+            'province' => 'ON', 'postal_code' => 'M1M1M1', 'country' => 'Canada', 'payment_status' => 'paid'])->assertOk();
         $order = Order::firstOrFail();
-        $this->assertSame('warehouse_pending', $order->status);
-        $payload = ['status'=>'cancelled','payment_status'=>'unpaid','revision'=>0,'delivery'=>'5.00','tax'=>number_format($order->tax_cents/100,2,'.','')];
+        $this->assertSame('ready_to_dispatch', $order->status);
+        $payload = ['status'=>'cancelled','payment_status'=>'refunded','revision'=>0,'delivery'=>'5.00','tax'=>number_format($order->tax_cents/100,2,'.','')];
         $this->patch(route('admin.orders.update',$order),$payload)->assertSessionHasNoErrors();
         $this->assertSame('10.000',$product->inventory()->first()->quantity_on_hand);
 

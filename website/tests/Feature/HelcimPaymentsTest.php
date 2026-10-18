@@ -284,4 +284,67 @@ class HelcimPaymentsTest extends TestCase
         $this->get(route('admin.orders.payments', $payment->order))->assertOk()->assertSee('−$5.00')->assertSee('−$5.50')->assertSee('+$21.00');
         $this->get(route('admin.orders.print', $payment->order))->assertOk()->assertSee('Amount due: $0.00')->assertSee('Net received: $10.50');
     }
+
+    public function test_manual_paid_resolution_restores_released_stock_and_is_idempotent(): void
+    {
+        [$product] = $this->checkout();
+        $p = Payment::firstOrFail();
+        $this->travel(71)->minutes();
+        app(OnlinePayments::class)->sync($p);
+        $this->assertEquals(10,$product->inventory->fresh()->quantity_on_hand);
+        $p->order->update(['status'=>'payment_review']);
+        $this->admin();
+        $this->get(route('admin.orders.show',$p->order))->assertOk()->assertSee('Record manual payment decision');
+        $data=['revision'=>$p->order->fresh()->revision,'resolution'=>'paid','reason'=>'Bank reference 123 confirmed','confirmed'=>1];
+        $this->post(route('admin.payments.resolve',$p),$data)->assertSessionHasNoErrors();
+        $this->assertSame('warehouse_pending',$p->order->fresh()->status);
+        $this->assertSame('paid',$p->fresh()->manual_resolution);
+        $this->assertEquals(8,$product->inventory->fresh()->quantity_on_hand);
+        $this->post(route('admin.payments.resolve',$p),$data)->assertSessionHasErrors('payment');
+        app(OnlinePayments::class)->sync($p);
+        $this->assertEquals(8,$product->inventory->fresh()->quantity_on_hand);
+        $data['revision']=$p->order->fresh()->revision;
+        $data['resolution']='refunded';
+        $data['reason']='Full refund completed at bank REF123';
+        $this->post(route('admin.payments.resolve',$p),$data)->assertSessionHasNoErrors();
+        $this->assertSame('refunded',$p->order->fresh()->payment_status);
+        $this->assertSame('cancelled',$p->order->fresh()->status);
+        $this->assertEquals(10,$product->inventory->fresh()->quantity_on_hand);
+        app(OnlinePayments::class)->sync($p);
+        $this->assertSame('refunded',$p->fresh()->status);
+    }
+
+    public function test_manual_unpaid_cancels_but_late_payment_still_goes_to_review(): void
+    {
+        [$product]=$this->checkout();
+        $p=Payment::firstOrFail();
+        $this->admin();
+        $this->post(route('admin.payments.resolve',$p),['revision'=>$p->order->revision,'resolution'=>'unpaid','reason'=>'Merchant confirms no funds','confirmed'=>1])->assertSessionHasNoErrors();
+        $this->assertSame('cancelled',$p->order->fresh()->status);
+        $this->assertSame('unpaid',$p->order->fresh()->payment_status);
+        $this->assertEquals(10,$product->inventory->fresh()->quantity_on_hand);
+        $this->transactions=[$this->row()];
+        app(OnlinePayments::class)->sync($p);
+        $this->assertSame('payment_review',$p->order->fresh()->status);
+        $this->assertSame('paid',$p->order->fresh()->payment_status);
+    }
+
+    public function test_manual_resolution_requires_permission_confirmation_and_available_stock(): void
+    {
+        [$product]=$this->checkout();
+        $p=Payment::firstOrFail();
+        $data=['revision'=>$p->order->revision,'resolution'=>'paid','reason'=>'Checked bank','confirmed'=>1];
+        $this->post(route('admin.payments.resolve',$p),$data)->assertRedirect(route('customer.orders'));
+        $this->assertNull($p->fresh()->manual_resolution);
+        $this->admin();
+        $this->post(route('admin.payments.resolve',$p),array_diff_key($data,['confirmed'=>true]))->assertSessionHasErrors('confirmed');
+        $this->travel(71)->minutes();
+        app(OnlinePayments::class)->sync($p);
+        $p->order->update(['status'=>'payment_review']);
+        $product->inventory->update(['quantity_on_hand'=>0]);
+        $data['revision']=$p->order->fresh()->revision;
+        $this->post(route('admin.payments.resolve',$p),$data)->assertSessionHasErrors('payment');
+        $this->assertNull($p->fresh()->manual_resolution);
+        $this->assertSame('payment_review',$p->order->fresh()->status);
+    }
 }

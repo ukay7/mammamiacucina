@@ -140,3 +140,6 @@ body.mmc-admin .nav-menu li.active>a{-webkit-box-shadow:inset 3px 0 0 #d3ae66;bo
 .mmc-sidebar-role .mmc-website-shortcut{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;color:#d8b46b;text-decoration:none}
 .mmc-sidebar-role .mmc-website-shortcut:hover{color:#fff3d6;background:#45351f}
 .mmc-sidebar-role .mmc-website-shortcut:focus-visible{outline:2px solid #d8b46b;outline-offset:2px}
+
+/* Pending customer verification or business approval. */
+.mmc-admin .table tbody tr.customer-needs-review > td {background-color:#fff0ef!important;}

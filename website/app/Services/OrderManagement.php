@@ -31,17 +31,6 @@ class OrderManagement
             $tax = $money($d['tax']);
             $status = $d['status'];
             $payment = $d['payment_status'];
-            if ($order->payment_method === 'etransfer') {
-                if ($payment === 'paid' && $order->payment_status !== 'paid' && !$order->transfer_receipt_path) {
-                    $fail('Upload the e-transfer receipt and verify the payment before marking it paid.');
-                }
-                if ($status !== $order->status && !in_array($status, ['transfer_pending', 'cancelled'], true) && $payment !== 'paid') {
-                    $fail('Verify the e-transfer and mark payment received before sending this order to warehouse.');
-                }
-                if ($status === 'warehouse_pending' && $order->payment_status === 'paid' && $order->balance_cents !== 0) {
-                    $fail('Resolve the outstanding balance before sending this order to warehouse.');
-                }
-            }
             if ($order->fulfillment === 'pickup' && $delivery !== 0) $fail('Pickup orders must have zero delivery charge.');
             if ($order->payment) {
                 if ($payment !== $order->payment_status || $delivery !== (int) $order->delivery_cents || $tax !== (int) $order->tax_cents) {
@@ -137,6 +126,11 @@ class OrderManagement
                 $order->manual_collected_cents = max(0, $order->subtotal_cents + ($delivery ?? 0) + ($tax ?? 0) - (int) $order->settlements()->sum('amount_cents'));
             }
             $description = 'Status: '.$order->status.' → '.$status.'; payment: '.$order->payment_status.' → '.$payment.'; delivery: '.($delivery === null ? 'pending' : number_format($delivery / 100, 2)).'; tax: '.($tax === null ? 'pending' : number_format($tax / 100, 2));
+            if($order->payment_method==='credit' && $status!=='cancelled') {
+                $profile=\App\Models\Customer::lockForUpdate()->findOrFail($order->customer_id);
+                $increase=max(0,($delivery??0)+($tax??0)-(int)$order->delivery_cents-(int)$order->tax_cents);
+                if($increase>0)$order->credit_warning=app(CustomerTerms::class)->check($profile,$order->source==='pos'?'pos':'website','credit',$increase);
+            }
             $order->update(['status' => $status, 'payment_status' => $payment, 'delivery_cents' => $delivery, 'tax_cents' => $tax, 'revision' => $order->revision + 1, 'paid_at' => $payment === 'paid' ? ($order->paid_at ?? now()) : $order->paid_at, 'cancelled_at' => $status === 'cancelled' ? ($order->cancelled_at ?? now()) : null]);
             $order->events()->create(['user_id' => $userId, 'description' => $description.(! empty($d['reason']) ? ' · '.$d['reason'] : ''), 'created_at' => now()]);
         }, 3);

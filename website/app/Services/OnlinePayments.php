@@ -74,6 +74,7 @@ class OnlinePayments
     {
         return $this->locked($payment, function ($p, $order) use ($capture, $cancel) {
             if ($capture || $cancel) $order->assertEditable();
+            if ($p->manual_resolution) return $p;
             if ($p->provider === 'helcim' && $p->provider_order_id) {
                 return $this->syncHelcim($p, $order, $cancel);
             }
@@ -287,11 +288,52 @@ class OnlinePayments
         $order->events()->create(['description' => 'Gateway confirmed refund total CAD '.number_format($amount / 100, 2).'.', 'created_at' => now()]);
     }
 
+
+    public function resolveManually(Payment $payment, array $data, int $userId): void
+    {
+        $this->locked($payment, function ($p, $order) use ($data, $userId) {
+            $order->assertEditable();
+            $fail = fn($message) => throw ValidationException::withMessages(['payment' => $message]);
+            if ((int)$order->revision !== (int)$data['revision']) $fail('This order changed. Reload before saving.');
+            if (!in_array($order->status, ['awaiting_payment','payment_review']) && !($p->manual_resolution === 'paid' && $order->status === 'warehouse_pending' && $data['resolution'] === 'refunded')) $fail('This action is only available for unresolved payments or an unprocessed manually confirmed order.');
+            $action = $data['resolution'];
+            if ($action === 'unpaid' && ($p->paid_at || $p->refunded_cents > 0)) $fail('Payment was already recorded. Return the money and record a manual refund instead.');
+            if ($action === 'paid') {
+                if ($p->refunded_cents > 0) $fail('A refunded payment cannot be released to the warehouse.');
+                foreach ($order->items()->orderBy('product_id')->get() as $item) {
+                    if ($item->stock_deducted) continue;
+                    if (!$item->product_id) $fail('A product is unavailable. Restore it before releasing this order.');
+                    $inventory = Inventory::where('product_id',$item->product_id)->lockForUpdate()->first();
+                    if (!$inventory || $inventory->quantity_on_hand === null) continue;
+                    $before = $inventory->quantity_on_hand;
+                    if ((float)$before < $item->quantity) $fail('Insufficient stock. Resolve stock availability before sending to warehouse.');
+                    $after = ((int)round((float)$before * 1000) - $item->quantity * 1000) / 1000;
+                    $inventory->update(['quantity_on_hand'=>$after]);
+                    InventoryMovement::create(['product_id'=>$item->product_id,'quantity_change'=>-$item->quantity,'quantity_before'=>$before,'quantity_after'=>$after,'reason'=>'Manual payment resolution '.$order->number,'created_by'=>$userId,'created_at'=>now()]);
+                    $item->update(['stock_deducted'=>true]);
+                }
+                $p->update(['status'=>'paid','paid_at'=>$p->paid_at ?? now(),'manual_resolution'=>'paid','attention'=>null,'released_at'=>null,'checkout_url'=>null]);
+                $order->update(['payment_status'=>'paid','paid_at'=>$p->paid_at,'status'=>'warehouse_pending','warehouse_round'=>$order->warehouse_round+1,'warehouse_sent_at'=>now(),'cancelled_at'=>null,'revision'=>$order->revision+1]);
+            } elseif ($action === 'refunded') {
+                $this->restock($order, 'Manually refunded order');
+                $p->update(['status'=>'refunded','paid_at'=>$p->paid_at ?? now(),'refunded_cents'=>$p->amount_cents,'manual_resolution'=>'refunded','attention'=>null,'released_at'=>$p->released_at ?? now(),'checkout_url'=>null]);
+                $order->update(['payment_status'=>'refunded','paid_at'=>$p->paid_at,'status'=>'cancelled','cancelled_at'=>now(),'revision'=>$order->revision+1]);
+            } else {
+                $this->release($p,$order,'Admin confirmed no payment');
+                // Already released orders can enter review after an ambiguous gateway result.
+                if ($order->status !== 'cancelled') $order->update(['status'=>'cancelled','payment_status'=>'unpaid','cancelled_at'=>now(),'revision'=>$order->revision+1]);
+                $p->update(['attention'=>null]);
+            }
+            $order->events()->create(['description'=>'Admin #'.$userId.' manually recorded '.$action.'. Reference / reason: '.$data['reason'],'created_at'=>now()]);
+        });
+    }
+
     public function refund(Payment $payment, int $userId, ?int $expectedCents = null, ?int $refundCents = null): void
     {
         $this->sync($payment);
         $this->locked($payment, function ($p, $order) use ($userId, $expectedCents, $refundCents) {
             $order->assertEditable();
+            if ($p->manual_resolution) throw new RuntimeException('This payment is managed manually. Record refunds completed outside the system.');
             if ($p->status === 'refunded') {
                 return;
             }

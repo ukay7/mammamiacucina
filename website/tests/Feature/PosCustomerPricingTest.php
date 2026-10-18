@@ -32,7 +32,7 @@ class PosCustomerPricingTest extends TestCase
             foreach([0,1] as $scan) $this->getJson(route('admin.pos.products',['customer_id'=>$customer->id,'q'=>'TIER','scan'=>$scan]))->assertOk()->assertJsonPath('products.0.unit_cents',$price);
         }
         $quote=$this->quote($business,$p);
-        $payload=['quote'=>$quote,'customer_id'=>$individual->id,'payment_method'=>'cash','payment_status'=>'paid'];
+        $payload=['quote'=>$quote,'customer_id'=>$individual->id,'packing_confirmed'=>1,'payment_method'=>'cash','payment_status'=>'paid'];
         $this->postJson(route('admin.pos.store'),$payload)->assertUnprocessable();
         $payload['customer_id']=$business->id;
         $this->postJson(route('admin.pos.store'),$payload+['unit_cents'=>1])->assertOk()->assertJsonPath('total',1500);
@@ -47,7 +47,7 @@ class PosCustomerPricingTest extends TestCase
         $quote=$this->quote($business,$p);
         $business->user->forceFill(['business_approved_at'=>null])->save();
         $this->getJson(route('admin.pos.products',['customer_id'=>$business->id,'q'=>'TIER']))->assertUnprocessable();
-        $payload=['quote'=>$quote,'customer_id'=>$business->id,'payment_method'=>'cash','payment_status'=>'paid'];
+        $payload=['quote'=>$quote,'customer_id'=>$business->id,'packing_confirmed'=>1,'payment_method'=>'cash','payment_status'=>'paid'];
         $this->postJson(route('admin.pos.store'),$payload)->assertUnprocessable();
         $business->user->forceFill(['business_approved_at'=>now()])->save();
         $p->update(['business_selling_price_cad'=>18]);
@@ -60,9 +60,9 @@ class PosCustomerPricingTest extends TestCase
         Storage::fake('local');
         [$staff,$individual,$business,$p]=$this->fixtures();
         $quote=$this->quote($individual,$p);
-        $response=$this->postJson(route('admin.pos.store'),['quote'=>$quote,'customer_id'=>$individual->id,'payment_method'=>'etransfer','payment_status'=>'paid'])->assertOk()->assertJsonPath('revision',0);
+        $response=$this->postJson(route('admin.pos.store'),['quote'=>$quote,'customer_id'=>$individual->id,'packing_confirmed'=>1,'payment_method'=>'etransfer','payment_status'=>'paid'])->assertOk()->assertJsonPath('revision',0);
         $order=Order::firstOrFail();
-        $this->assertSame('transfer_pending',$order->status);$this->assertSame('unpaid',$order->payment_status);
+        $this->assertSame('ready_to_dispatch',$order->status);$this->assertSame('unpaid',$order->payment_status);
         $this->get(route('admin.pos.orders'))->assertOk()->assertSee($order->number);
         $this->get($response->json('order_url'))->assertOk()->assertSee('Upload receipt');
         $file=UploadedFile::fake()->createWithContent('receipt.png',base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1ioAAAAASUVORK5CYII='));
@@ -75,14 +75,11 @@ class PosCustomerPricingTest extends TestCase
         $this->get(route('orders.transfer-receipt',$order))->assertForbidden();
         $admin=User::factory()->create(['is_active'=>true,'role_id'=>Role::where('is_super',true)->value('id')]);
         $this->actingAs($admin)->post(route('orders.transfer.verify',$order),['revision'=>$order->revision,'received'=>1])->assertSessionHasNoErrors();
-        $order->refresh();$this->assertSame('paid',$order->payment_status);$this->assertSame('warehouse_pending',$order->status);
+        $order->refresh();$this->assertSame('paid',$order->payment_status);$this->assertSame('ready_to_dispatch',$order->status);
         $this->get(route('admin.reports.payments',['method'=>'etransfer']))->assertOk()->assertViewHas('summary',fn($summary)=>$summary['etransfer']['gross']===2500 && $summary['etransfer']['pending']===0);
-        $this->actingAs($staff)->get(route('admin.orders.show',$order))->assertOk()->assertSee('Save Packing Progress');
-        $items=$order->items->mapWithKeys(fn($i)=>[$i->id=>['packed'=>1,'note'=>'']])->all();
-        $this->post(route('admin.orders.packing',$order),['revision'=>$order->revision,'action'=>'ready','items'=>$items])->assertSessionHasNoErrors();
-        $order->refresh();
-        $this->post(route('admin.pos.handover',$order),['revision'=>$order->revision,'handed_over'=>1])->assertSessionHasNoErrors();
-        $this->assertSame('completed',$order->fresh()->status);
+        $this->actingAs($staff)->post(route('admin.pos.handover',$order),['revision'=>$order->revision,'handed_over'=>1])->assertForbidden();
+        $this->actingAs($admin)->post(route('admin.pos.handover',$order),['revision'=>$order->revision,'handed_over'=>1])->assertSessionHasNoErrors();
+        $this->assertSame('delivered',$order->fresh()->status);
         $this->assertEquals(0,$order->fresh()->balance_cents);
     }
 }

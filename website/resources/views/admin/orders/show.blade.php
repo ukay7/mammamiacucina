@@ -1,8 +1,10 @@
 @extends('admin.layout')
 @section('title','Order '.$order->number)
 @section('content')
+@include('partials.order-commercial')
 @include('partials.transfer-receipt')
 @include('admin.orders.payment')
+@if($order->invoice)<p><a class="btn btn-outline-primary" href="{{ route('admin.invoices.show',$order->invoice) }}" target="_blank" rel="noopener">View Invoice {{ $order->invoice->label }} / PDF</a></p>@endif
 @include('admin.orders.packing')
 {{-- Payment adjustments panel hidden at the user's request. --}}
 

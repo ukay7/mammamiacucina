@@ -23,12 +23,34 @@ class CustomerController extends Controller {
   return redirect()->route('admin.customers.show',$customer)->with('status','Customer created. Login uses the email and password you entered. Business accounts still require approval and email verification.');
  }
  public function index(Request $request){
-  $search=trim((string)$request->query('search',''));
-  $customers=Customer::with('user')->withCount('orders')->withMax('orders','created_at')
-   ->when($search!=='',fn($q)=>$q->where(fn($q)=>$q->where('name','like',"%{$search}%")->orWhere('email','like',"%{$search}%")->orWhere('phone','like',"%{$search}%")->when(ctype_digit(ltrim($search,'#')),fn($q)=>$q->orWhere('id',(int)ltrim($search,'#')))->orWhere('business_name','like',"%{$search}%")->orWhere('business_bin','like',"%{$search}%")))
-   ->latest()->paginate(20)->withQueryString();
-  $businessRequests=Customer::with('user')->whereHas('user',fn($q)=>$q->where('account_type','business')->whereNull('business_approved_at'))->latest()->paginate(15,['*'],'requests_page');
-  return view('admin.customers.index',compact('customers','search','businessRequests'));
+  $query=$this->listingQuery($request);
+  $customers=$query->paginate((int)($request->input('per_page')?:25))->withQueryString();
+  $customers->getCollection()->loadCount('orders')->loadMax('orders','created_at');
+  $search=trim((string)$request->input('search',''));
+  return view('admin.customers.index',compact('customers','search'));
+ }
+ public function businessRequests(Request $request){
+  $businessRequests=$this->listingQuery($request)->whereHas('user',fn($q)=>$q->where('account_type','business')->whereNull('business_approved_at'))
+   ->paginate((int)($request->input('per_page')?:25))->withQueryString();
+  $search=trim((string)$request->input('search',''));
+  return view('admin.customers.approvals',compact('businessRequests','search'));
+ }
+ private function listingQuery(Request $request){
+  $request->validate(['search'=>'nullable|string|max:200','account_type'=>'nullable|in:individual,business','active'=>'nullable|in:0,1','verified'=>'nullable|in:0,1','approval'=>'nullable|in:pending,approved','per_page'=>'nullable|in:10,25,50,100','sort'=>'nullable|in:id,name,email,created_at','direction'=>'nullable|in:asc,desc']);
+  $search=trim((string)$request->input('search',''));
+  $query=Customer::with('user');
+  if($search!=='') $query->where(function($q)use($search){
+   if(ctype_digit(ltrim($search,'#'))) $q->orWhere('id',ltrim($search,'#'));
+   foreach(['name','email','phone','business_name','business_bin','business_email','business_phone','city','postal_code'] as $field) $q->orWhere($field,'like','%'.$search.'%');
+  });
+  if($request->filled('account_type')) $query->whereHas('user',fn($q)=>$q->where('account_type',$request->input('account_type')));
+  if($request->filled('active')) $query->whereHas('user',fn($q)=>$q->where('is_active',(int)$request->input('active')));
+  if($request->filled('verified')) $query->whereHas('user',fn($q)=>$request->input('verified')==='1'?$q->whereNotNull('email_verified_at'):$q->whereNull('email_verified_at'));
+  if($request->filled('approval')) $query->whereHas('user',fn($q)=>$q->where('account_type','business')->when($request->input('approval')==='approved',fn($q)=>$q->whereNotNull('business_approved_at'),fn($q)=>$q->whereNull('business_approved_at')));
+  $sort=$request->input('sort')?:'id';$direction=$request->input('direction')?:'desc';
+  $query->orderBy($sort,$direction);
+  if($sort!=='id')$query->orderBy('id',$direction);
+  return $query;
  }
  public function approveBusiness(Customer $customer){
   \Illuminate\Support\Facades\DB::transaction(function()use($customer){
@@ -43,8 +65,19 @@ class CustomerController extends Controller {
  public function show(Customer $customer){
   $customer->load('user')->loadCount('orders');
   $orders=$customer->orders()->latest('id')->paginate(20);
+  request()->validate(['invoice_search'=>'nullable|string|max:100','payment_search'=>'nullable|string|max:100','payment_method'=>'nullable|in:cash,cheque,etransfer,card,credit,paypal']);
+  $invoiceSearch=trim((string)request('invoice_search'));$paymentSearch=trim((string)request('payment_search'));
+  $invoices=\App\Models\CustomerInvoice::with(['order.payment','order.settlements'])->whereHas('order',fn($q)=>$q->where('customer_id',$customer->id))->when($invoiceSearch,fn($q)=>$q->where(fn($q)=>$q->where('number',str_ireplace('INV-','',$invoiceSearch))->orWhereHas('order',fn($o)=>$o->where('number','like','%'.$invoiceSearch.'%')->orWhere('id',$invoiceSearch))))->latest('number')->paginate(20,['*'],'invoices_page');
+  $paymentOrders=$customer->orders()->with(['payment','settlements.author'])->when($paymentSearch,fn($q)=>$q->where(fn($q)=>$q->where('number','like','%'.$paymentSearch.'%')->orWhere('id',$paymentSearch)))->when(request('payment_method'),fn($q)=>$q->where(fn($q)=>$q->where('payment_method',request('payment_method'))->orWhereHas('settlements',fn($s)=>$s->where('method',request('payment_method')))))->latest('id')->paginate(20,['*'],'payments_page');
+  $balances=app(\App\Services\CustomerInvoicing::class)->balances($customer);
   $latestOrder=$customer->orders()->latest('id')->first();
-  return view('admin.customers.show',compact('customer','orders','latestOrder'));
+  $notes=\App\Models\CustomerNote::with('author')->where('customer_id',$customer->id)->latest('id')->paginate(8,['*'],'notes_page')->withQueryString();
+  return view('admin.customers.show',compact('customer','orders','latestOrder','notes','invoices','paymentOrders','balances'));
+ }
+ public function storeNote(Request $request,Customer $customer){
+  $data=$request->validate(['body'=>'required|string|max:5000']);
+  \App\Models\CustomerNote::create(['customer_id'=>$customer->id,'user_id'=>$request->user()->id,'body'=>$data['body']]);
+  return redirect()->route('admin.customers.show',$customer)->with('status','Customer note added.');
  }
  public function edit(Customer $customer){return view('admin.customers.edit',compact('customer'));}
  public function update(Request $r,Customer $customer){

@@ -228,11 +228,16 @@
     };
     function fillQuote(data) {
         quote=data.quote;
+        const current=form.elements.payment_method.value;form.elements.payment_method.replaceChildren();
+        const labels={cash:'Cash received',etransfer:'E-transfer',cheque:'Cheque',credit:'Customer Credit'};
+        (data.allowed_methods||[]).forEach(m=>form.elements.payment_method.add(new Option(labels[m]||m,m)));
+        if((data.allowed_methods||[]).includes(current))form.elements.payment_method.value=current;
+        $('#pos-credit-warning').dataset.projected=data.credit_order_warning||'';$('#pos-credit-warning').dataset.current=data.credit_warning||'';configurePayment();
         if(data.delivery_route?.delivery_service_name && form.elements.delivery_service.selectedOptions[0])form.elements.delivery_service.selectedOptions[0].textContent=data.delivery_route.delivery_service_name+(form.elements.delivery_service.selectedOptions[0].dataset.description?' ('+form.elements.delivery_service.selectedOptions[0].dataset.description+')':'')+' — '+money(data.delivery);
         const lines=$('#quote-lines');lines.replaceChildren();
-        data.items.forEach(line=>{const row=make('div',undefined,'pos-quote-line');row.append(make('span',line.name+' × '+line.quantity),make('strong',money(line.unit_cents*line.quantity)));lines.append(row);});
+        data.items.forEach(line=>{const row=make('div',undefined,'pos-quote-line'),amount=make('strong');if(line.discount_bps){const before=make('del',money(line.original_unit_cents*line.quantity)),hint=make('abbr',' * '+(line.discount_bps/100)+'%');hint.title='Admin special discount for this customer';hint.tabIndex=0;amount.append(before,document.createTextNode(' '),hint,document.createElement('br'));}amount.append(document.createTextNode(money(line.unit_cents*line.quantity)));row.append(make('span',line.name+' × '+line.quantity),amount);lines.append(row);});
         const totals=$('#quote-totals');totals.replaceChildren();
-        [['Product subtotal',data.subtotal],[($('#fulfillment').value==='pickup'?'Pick up':'Delivery')+(data.delivery_route?.delivery_service_name?' · '+data.delivery_route.delivery_service_name:''),data.delivery],['Tax ('+MMCNumber.decimal(data.tax_percent)+'%)',data.tax],['Total (CAD)',data.total]].forEach(([label,value])=>{
+        [['Product subtotal before overall discount',data.subtotal+(data.order_discount_cents||0)],['Admin special order discount *',-(data.order_discount_cents||0)],['Discounted subtotal',data.subtotal],[($('#fulfillment').value==='pickup'?'Pick up':'Delivery')+(data.delivery_route?.delivery_service_name?' · '+data.delivery_route.delivery_service_name:''),data.delivery],['Tax ('+MMCNumber.decimal(data.tax_percent)+'%)',data.tax],['Total (CAD)',data.total]].forEach(([label,value])=>{
             const row=make('div');row.append(make('span',label),make('span',money(value)));totals.append(row);
         });
         $('#complete-button').textContent='Place order · '+money(data.total);
@@ -240,13 +245,13 @@
         $('#checkout-error').hidden=true;$('#refresh-quote').hidden=true;
     }
     function configurePayment(){
-        const transfer=form.elements.payment_method.value==='etransfer',delivery=$('#fulfillment').value==='delivery';
-        form.elements.payment_method.querySelector('[value=cash]').textContent=delivery?'Cash on delivery':'Cash on pickup';
-        form.elements.payment_status.disabled=transfer;
-        form.elements.payment_status.querySelector('[value=unpaid]').disabled=!transfer&&!delivery;
-        form.elements.payment_status.querySelector('[value=unpaid]').textContent=transfer?'Unpaid — awaiting admin verification':'Unpaid · collect on delivery';
-        form.elements.payment_status.value=transfer||delivery?'unpaid':'paid';
-        $('#pos-transfer-upload').hidden=!transfer;
+        const method=form.elements.payment_method.value,manual=['etransfer','cheque'].includes(method),credit=method==='credit';
+        form.elements.payment_status.disabled=true;
+        form.elements.payment_status.querySelector('[value=unpaid]').disabled=false;
+        form.elements.payment_status.querySelector('[value=unpaid]').textContent=credit?'Unpaid · On Credit':'Unpaid · Awaiting Admin Verification';
+        form.elements.payment_status.value=manual||credit?'unpaid':'paid';
+        $('#pos-transfer-upload').hidden=!manual;
+        $('#pos-credit-warning').textContent=credit?($('#pos-credit-warning').dataset.projected||''):($('#pos-credit-warning').dataset.current||'');
     }
     form.elements.payment_method.addEventListener('change',configurePayment);
     function configureDelivery(){
@@ -301,17 +306,17 @@
     function lockForm(lock){
         form.querySelectorAll('input,select,textarea').forEach(input=>input.disabled=lock || !!input.closest('[data-business-fields][hidden]') || (input.closest('#delivery-fields') && $('#fulfillment').value!=='delivery') || (input.name==='delivery_service'&&!matrixDelivery()));
         $('#close-checkout').disabled=lock;
-        if(!lock && form.elements.payment_method.value==='etransfer')form.elements.payment_status.disabled=true;
+        if(!lock)form.elements.payment_status.disabled=true;
     }
     form.onsubmit=async event=>{
         event.preventDefault();if(submitting||!quote)return;
         if(!window.confirm('Are you sure you want to proceed with the order?'))return;
-        if(!frozenPayload){frozenPayload={...Object.fromEntries(new FormData(form)),customer_id:customerId,payment_status:form.elements.payment_method.value==='etransfer'?'unpaid':form.elements.payment_status.value,quote};frozenReceipt=$('#pos-transfer-file').files[0]||null;}
+        if(!frozenPayload){frozenPayload={...Object.fromEntries(new FormData(form)),customer_id:customerId,payment_status:form.elements.payment_method.value==='cash'?'paid':'unpaid',quote};frozenReceipt=$('#pos-transfer-file').files[0]||null;}
         submitting=true;lockForm(true);$('#complete-button').disabled=true;$('#checkout-error').hidden=true;$('#refresh-quote').hidden=true;
         try{
             const data=await request(app.dataset.store,frozenPayload);
             let uploadMessage='';
-            if(data.payment_method==='etransfer' && frozenReceipt){
+            if(['etransfer','cheque'].includes(data.payment_method) && frozenReceipt){
                 const upload=new FormData();upload.append('revision',data.revision);upload.append('receipt',frozenReceipt);
                 try{await request(data.receipt_url,upload);uploadMessage='Receipt submitted — awaiting admin verification.';}
                 catch(error){uploadMessage='Order saved. Receipt was not uploaded: '+error.message+' Use View order to upload it.';}
@@ -337,4 +342,8 @@
     window.addEventListener('pagehide',stopCamera);
     document.addEventListener('visibilitychange',()=>{if(document.hidden)stopCamera();});
     customerGate(false);$('#pos-new-customer').querySelectorAll('input,select,textarea').forEach(el=>el.disabled=true);renderCart();
+    const requestedCustomer=new URLSearchParams(location.search).get('customer_id');
+    if(requestedCustomer && [...$('#pos-customer').options].some(option=>option.value===requestedCustomer)){
+        $('#pos-customer').value=requestedCustomer;$('#pos-customer').dispatchEvent(new Event('change'));
+    }
 })();
