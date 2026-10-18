@@ -7,5 +7,5 @@
 <p class="wh-readonly-note">Created by you · Quick Sale / POS · {{ $order->status_label }}</p>
 @include('admin.orders.packing')
 <details class="wh-route-detail"><summary>Receipt totals</summary><div class="wh-receipt-totals">@include('partials.order-lines')</div></details>
-@include('partials.transfer-receipt')
+<div class="wh-payment-proof">@include('partials.transfer-receipt')</div>
 @endsection

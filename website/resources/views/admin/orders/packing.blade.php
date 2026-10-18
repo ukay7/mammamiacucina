@@ -1,4 +1,4 @@
-@include('partials.order-commercial')
+<div class="wh-commercial-notices">@include('partials.order-commercial')</div>
 @if(in_array($order->source,['website','pos']))
 <link rel="stylesheet" href="{{ asset('admin-assets/warehouse.css') }}?v={{ filemtime(public_path('admin-assets/warehouse.css')) }}">
 @php
