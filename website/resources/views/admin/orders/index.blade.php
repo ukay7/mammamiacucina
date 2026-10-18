@@ -1,6 +1,13 @@
 @extends('admin.layout')
 @section('title',$archived?'Archived Orders':($completed?'View Completed Orders':'View Pending Orders'))
+@if($warehouseOnly)
+@section('hide-page-heading','1')
+@section('page-class','warehouse-order-page')
+@endif
 @section('content')
+@if($warehouseOnly)
+@include('admin.orders.warehouse-list')
+@else
 @if($warehouseOnly)<p>{{ $completed?'Completed orders created by you.':'Orders currently parked at the warehouse for packing.' }}</p>@endif
 <style>.warehouse-issue-row{background:#fff2c9;border-left:5px solid #bc8a16}.warehouse-issue-row .mmc-status-pill{color:#805200;font-weight:700}</style>
 <form action="{{ route($listRoute) }}" method="get" class="mmc-filters mmc-order-filters"><label>Search orders<input class="form-control" name="q" value="{{ $search }}" placeholder="Order number, customer or email"></label><label>From date<input class="form-control" type="date" name="from" value="{{ $from }}" required></label><label>To date<input class="form-control" type="date" name="to" value="{{ $to }}" required></label><label>Status<select class="form-control" name="status"><option value="">All statuses</option>@foreach(\App\Models\Order::STATUSES as $key=>$label)
@@ -13,16 +20,6 @@
 <small>Export all matching orders. PDF: choose Save as PDF in the print dialog.</small>
 </div>
 
-<div class="panel"><div class="panel-container show"><div class="panel-content table-responsive"><table class="table"><thead><tr>@include('admin.orders.sort-heading',['key'=>'date','label'=>'Order / Date'])@include('admin.orders.sort-heading',['key'=>'customer','label'=>'Customer'])@include('admin.orders.sort-heading',['key'=>'creator','label'=>'Created By'])
-<th scope="col">Source</th>
-@unless($warehouseOnly)<th>Product subtotal (CAD)</th>@endunless
-@include('admin.orders.sort-heading',['key'=>'status','label'=>'Status'])@unless($warehouseOnly)<th>Payment</th>@endunless<th scope="col">Action</th></tr></thead><tbody>
-@forelse($orders as $order)<tr class="{{ $order->status==='warehouse_issue'?'warehouse-issue-row':'' }}"><td>{{ $order->number }}@if($warehouseOnly && (int)$order->created_by===auth()->id())<small class="d-block">Created by you</small>@endif<small class="d-block">{{ $order->source==='pos'?'POS':'Website' }} · {{ $order->fulfillment==='pickup'?'Pick up':'Delivery' }}</small><small class="d-block">{{ $order->created_at->format('d M Y H:i') }}</small></td><td>{{ $order->first_name }} {{ $order->last_name }}<small class="d-block">{{ $order->email }}</small></td><td>{{ $order->creator?->name ?? ($order->created_by?'Former user':'Website customer') }}</td><td>{{ $order->source==='pos'?'Quick Sale / POS':'Website' }}@if($order->archived_at)<small class="d-block">Archived · {{ $order->archived_at->format('d M Y') }}</small>@endif</td>@unless($warehouseOnly)<td>${{ number_format($order->subtotal_cents/100,2) }}</td>@endunless<td>
-@if(auth()->user()->hasAdminPermission('orders.manage') && count($order->status_options)>1)
-<form class="mmc-grid-status" data-status-autosave data-saved-status="{{ $order->status }}" method="post" action="{{ route('admin.orders.status',$order) }}">@csrf @method('PATCH')<input type="hidden" name="revision" value="{{ $order->revision }}"><input type="hidden" name="q" value="{{ $search }}"><input type="hidden" name="from" value="{{ $from }}"><input type="hidden" name="to" value="{{ $to }}"><input type="hidden" name="page" value="{{ $orders->currentPage() }}"><select class="form-control mmc-status-pill" data-status="{{ $order->status }}" name="status" aria-label="Status for {{ $order->number }}">@foreach($order->status_options as $key=>$label)<option value="{{ $key }}" @selected($key===$order->status)>{{ $label }}</option>@endforeach</select><small class="mmc-status-feedback" role="status" aria-live="polite"></small><noscript><button class="btn btn-primary btn-sm" type="submit">Update</button></noscript></form>
-@else<span class="mmc-status-pill" data-status="{{ $order->status }}">{{ $order->status_label }}</span>@endif
-@if($order->status==='warehouse_issue')<small class="d-block text-danger">Action needed — open order to review item notes.</small>@endif
-</td>@unless($warehouseOnly)<td>{{ $order->payment_label }} · {{ $order->payment_status_label }}@if($order->payment_method==='etransfer' && $order->payment_status==='unpaid')<small class="d-block">{{ $order->transfer_receipt_path ? 'Receipt uploaded — review required' : 'Awaiting receipt' }}</small>@endif @if($order->payment?->mode==='sandbox')<small class="d-block">SANDBOX</small>@endif @if($order->balance_cents<0)<small class="d-block text-danger">Refund due: ${{ number_format(-$order->balance_cents/100,2) }}</small>@elseif($order->payment_status==='paid' && $order->balance_cents>0)<small class="d-block text-danger">Additional amount due: ${{ number_format($order->balance_cents/100,2) }}</small>@endif</td>@endunless<td><div class="mmc-order-row-actions">@if(auth()->user()->hasAdminPermission('orders.view') || auth()->user()->hasAdminPermission('orders.manage'))<a class="btn btn-outline-primary btn-sm" href="{{ route('admin.orders.payments',$order) }}">Payments</a>@endif
-<a class="btn btn-outline-primary btn-sm" href="{{ route('admin.orders.show',$order) }}">{{ $warehouseOnly && in_array($order->status,['warehouse_pending','packing'])?'Pack / View':'View' }}</a><a class="btn btn-outline-primary btn-sm" href="{{ route('admin.orders.print',$order) }}" target="_blank" rel="noopener">Print</a></div></td></tr>
-@empty<tr><td colspan="{{ $warehouseOnly?6:8 }}">No orders found for the selected dates and search.</td></tr>@endforelse</tbody></table><p>Showing {{ $orders->firstItem()??0 }}–{{ $orders->lastItem()??0 }} of {{ $orders->total() }} orders</p>{{ $orders->links() }}</div></div></div>
+@include('admin.orders.list-table')
+@endif
 @endsection

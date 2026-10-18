@@ -225,7 +225,7 @@ class WarehouseWorkflowTest extends TestCase
         $this->get('/admin/orders/completed?q=NONMATCHING')->assertViewHas('orders', fn ($orders) => $orders->isEmpty());
         $this->get('/admin/orders/completed?from=2000-01-01&to=2000-01-02')->assertViewHas('orders', fn ($orders) => $orders->isEmpty());
         $this->get(route('admin.orders.show', $own))->assertOk()->assertSee('Print Receipt')->assertSee('Warehouse Cake')->assertDontSee('Save Order Changes')->assertDontSee('Save Packing Progress');
-        $this->get(route('admin.orders.print', $own))->assertOk()->assertSee('Sales Receipt');
+        $this->get(route('admin.orders.print', $own))->assertOk()->assertSee('Payment Receipt');
         $this->get(route('admin.orders.show', $other))->assertNotFound();
         $this->get(route('admin.orders.print', $other))->assertNotFound();
         $this->moveStatus($own, 'warehouse_pending')->assertForbidden();
