@@ -15,6 +15,27 @@ class WarehouseWorkflowTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_order_images_require_order_access_and_matching_item(): void
+    {
+        [$order, $product, $admin, $worker] = $this->fixture();
+        \Illuminate\Support\Facades\Storage::fake('local');
+        \Illuminate\Support\Facades\Storage::disk('local')->put('products/test.png', base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aU1cAAAAASUVORK5CYII='));
+        $product->media()->create(['path'=>'products/test.png','original_name'=>'test.png','mime_type'=>'image/png','kind'=>'image']);
+        $item = $order->items()->first();
+        $url = route('admin.orders.item-image', [$order, $item]);
+        $this->actingAs($worker)->get($url)->assertNotFound();
+        $this->actingAs($admin);
+        $this->moveStatus($order, 'warehouse_pending')->assertOk();
+        $this->actingAs($worker)->get($url)->assertOk()->assertHeader('Content-Type', 'image/png');
+        $other = $order->replicate();
+        $other->checkout_token = (string) Str::uuid();
+        $other->tracking_token = Str::random(48);
+        $other->status = 'warehouse_pending';
+        $other->number = 'mmc-image-other';
+        $other->save();
+        $this->get(route('admin.orders.item-image', [$other, $item]))->assertNotFound();
+    }
+
     private function fixture(): array
     {
         $this->actingAs(User::factory()->create(['email'=>'test@example.test','account_type'=>'individual','phone'=>'555123','role_id'=>Role::where('name','Customer')->value('id'),'is_active'=>true]));

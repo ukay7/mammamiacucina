@@ -104,6 +104,7 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         Route::get('/orders/archived', [OrderController::class, 'index'])->middleware(AdminAccess::class.':orders.view')->name('orders.archived');
         Route::post('/orders/{order}/archive', [OrderController::class, 'archive'])->middleware(AdminAccess::class.':orders.manage')->name('orders.archive');
         Route::get('/orders/export', [OrderController::class, 'export'])->middleware(AdminAccess::class.':orders.view|warehouse.pack')->name('orders.export');
+        Route::get('/orders/{order}/items/{item}/image', [OrderController::class, 'itemImage'])->middleware(AdminAccess::class.':orders.view|warehouse.pack')->name('orders.item-image');
         Route::get('/orders/{order}/print', [OrderController::class, 'printOrder'])->middleware(AdminAccess::class.':orders.view|warehouse.pack')->name('orders.print');
         Route::middleware(AdminAccess::class.':gateways.manage')->group(function () {
             Route::get('/settings/gateways', [GatewaySettingController::class, 'edit'])->name('gateways.edit');

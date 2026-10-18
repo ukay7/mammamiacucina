@@ -248,10 +248,19 @@ class OrderController extends Controller
         return redirect()->route('admin.orders.show', $order)->with('status', 'Order updated.');
     }
 
+    public function itemImage(Order $order, \App\Models\OrderItem $item)
+    {
+        $this->readable($order);
+        abort_unless((int)$item->order_id === (int)$order->id, 404);
+        $product = $item->product;
+        $media = $product?->media()->coverImage()->first();
+        abort_unless($media, 404);
+        return app(ProductController::class)->media($product, $media);
+    }
     public function show(Order $order)
     {
         $this->readable($order);
-        $order->load(['items.product', 'events.author', 'payment', 'settlements']);
+        $order->load(['items.product.media' => fn ($q) => $q->coverImage(), 'events.author', 'payment', 'settlements']);
         if ($order->archived_at) return view('admin.orders.archived-show',compact('order'));
         if ($this->warehouseOnly()) {
             return view($order->source === 'pos' && !in_array($order->status,['warehouse_pending','packing','ready_to_dispatch']) ? 'admin.orders.own-sale' : 'admin.orders.warehouse', compact('order'));
