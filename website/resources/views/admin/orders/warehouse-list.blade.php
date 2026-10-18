@@ -4,6 +4,8 @@
         <h1><i class="fas fa-box" aria-hidden="true"></i> {{ $completed?'Completed Orders':'Pending Orders' }}</h1>
         <p>{{ $completed?'Completed orders created by you.':'Orders currently parked at the warehouse for packing.' }}</p>
     </header>
+    <details class="warehouse-filter-drawer" open>
+    <summary><span><i class="fas fa-filter" aria-hidden="true"></i> Search &amp; filters @if($search || request('status'))<small> · Filters applied</small>@endif</span><i class="fas fa-chevron-down" aria-hidden="true"></i></summary>
     <form action="{{ route($listRoute) }}" method="get" class="warehouse-filters">
         <input type="hidden" name="sort" value="{{ request('sort','date') }}">
         <input type="hidden" name="direction" value="{{ request('direction','desc') }}">
@@ -15,6 +17,16 @@
         <button class="btn btn-primary" type="submit"><i class="fas fa-search" aria-hidden="true"></i> Filter</button>
         <a class="btn btn-outline-primary" href="{{ route($listRoute) }}"><i class="fas fa-undo" aria-hidden="true"></i> Reset</a>
     </form>
+    </details>
+    <script>
+    (function () {
+        const drawer = document.querySelector('.warehouse-filter-drawer');
+        const mobile = window.matchMedia('(max-width: 991px)');
+        const resize = function () { drawer.open = !mobile.matches; };
+        resize();
+        mobile.addEventListener('change', resize);
+    })();
+    </script>
     <div class="warehouse-table-toolbar">
     <div class="warehouse-exports" aria-label="Export orders">
         @foreach(['xlsx'=>['file-excel','Excel'],'pdf'=>['file-pdf','PDF'],'print'=>['print','Print']] as $format=>$export)

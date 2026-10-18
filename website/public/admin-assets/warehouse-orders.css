@@ -47,3 +47,56 @@
  .warehouse-filters{grid-template-columns:minmax(210px,1.8fr) 140px 140px minmax(140px,1fr) 70px auto auto;gap:10px}
  .warehouse-filters .warehouse-search{grid-column:auto}
 }
+
+/* Keep the first order in reach on iPhone; expand filters only when needed. */
+.warehouse-filter-drawer>summary{display:none}
+@media(max-width:991px){
+ .warehouse-filter-drawer{margin:0 0 10px;border:1px solid #e6d5b9;border-radius:8px;background:#fffaf2}
+ .warehouse-filter-drawer>summary{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px;font-size:13px;list-style:none;cursor:pointer}
+ .warehouse-filter-drawer>summary::-webkit-details-marker{display:none}
+ .warehouse-filter-drawer>summary i{font-size:11px}
+ .warehouse-filter-drawer[open]>summary{border-bottom:1px solid #e6d5b9}
+ .warehouse-filter-drawer[open]>summary>i{transform:rotate(180deg)}
+ .warehouse-filter-drawer .warehouse-filters{border:0;border-radius:0;margin:0;box-shadow:none;padding:10px;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .warehouse-filter-drawer .warehouse-filters label{min-width:0;overflow:hidden;font-size:12px}
+ .warehouse-filter-drawer .form-control{box-sizing:border-box;min-width:0;min-inline-size:0;width:100%;max-width:100%;height:40px;min-height:40px;font-size:16px}
+ .warehouse-filter-drawer input[type=date]{-webkit-appearance:none;appearance:none;display:block;text-align:left;padding:7px 6px;line-height:24px}
+ .warehouse-filter-drawer input[type=date]::-webkit-date-and-time-value{min-width:0;text-align:left}
+ .warehouse-filter-drawer input[type=date]::-webkit-datetime-edit{min-width:0;padding:0}
+ .warehouse-filter-drawer .warehouse-search input{font-size:16px}
+ .warehouse-filter-drawer .warehouse-search i{top:17px}
+ .warehouse-filter-drawer .btn{min-height:40px;padding:8px;font-size:13px}
+ .mmc-admin.warehouse-order-page .page-header{min-height:58px;padding-top:calc(7px + env(safe-area-inset-top,0px));padding-bottom:7px;gap:8px}
+ .warehouse-order-page .mmc-admin-heading{font-size:16px}
+ .warehouse-order-page .mmc-admin-heading small{font-size:10px}
+ .mmc-admin.warehouse-order-page .page-content{padding:10px 12px}
+ .warehouse-order-page .breadcrumb{padding:9px 10px;margin-bottom:12px;font-size:12px}
+ .warehouse-list-heading h1{font-size:22px;gap:9px;margin-bottom:5px}
+ .warehouse-list-heading h1 i{font-size:23px}
+ .warehouse-list-heading p{font-size:12px;line-height:1.4;margin-bottom:12px}
+ .warehouse-exports{gap:7px}
+ .warehouse-exports .btn{min-height:36px;padding:7px 10px;font-size:12px;gap:6px}
+ .warehouse-export-help{display:none}
+ .warehouse-results{margin:10px 0;gap:8px}
+ .warehouse-results>strong{font-size:13px}
+ .warehouse-sort select{height:36px;font-size:16px;width:108px;padding:4px 7px}
+ .warehouse-sort label{display:none}
+ .warehouse-sort .btn{min-height:36px;height:36px;padding:7px 10px}
+ .warehouse-order-card{padding:12px;margin-bottom:12px;border-radius:8px}
+ .warehouse-card-top h2{font-size:20px;margin-bottom:3px}
+ .warehouse-card-top>div>span{font-size:12px}
+ .mmc-admin .warehouse-orders .warehouse-card-top .mmc-status-pill{font-size:11px;padding:6px 8px}
+ .warehouse-order-date{font-size:12px;gap:14px;margin:8px 0 10px}
+ .warehouse-card-customer{padding:10px 0;gap:10px}
+ .warehouse-card-customer strong{font-size:15px}
+ .warehouse-card-customer span{font-size:12px;margin-top:2px}
+ .warehouse-card-customer>i{font-size:16px}
+ .warehouse-card-meta{margin:10px 0;gap:10px}
+ .warehouse-card-meta dt{font-size:11px;margin-bottom:3px}
+ .warehouse-card-meta dd{font-size:12px}
+ .warehouse-source{padding:3px 6px}
+ .warehouse-card-actions{gap:8px}
+ .warehouse-card-actions .btn{min-height:42px;font-size:13px;padding:8px}
+ .warehouse-pagination{margin-top:12px}
+}
+@media print{.warehouse-filter-drawer{display:none}}
