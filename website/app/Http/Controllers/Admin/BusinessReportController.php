@@ -108,7 +108,7 @@ class BusinessReportController extends Controller
                     'payments' => [$r->number, $r->first_name.' '.$r->last_name, $r->occurred_at, $r->method, $r->provider, $r->entry_type, $money($r->amount_cents), $r->reference],
                     'methods' => [$r->method, $r->provider, $r->transactions, $r->orders, $money($r->received), $money($r->refunded), $money($r->net)],
                     'customers' => [$r->first_name.' '.$r->last_name, $r->email, $r->orders, $money($r->value), $money($r->received), $money($r->due), $money($r->refund_due), $r->unpriced],
-                    default => [$r->number, $r->first_name.' '.$r->last_name, $r->email, $r->created_at, Order::STATUSES[$r->status] ?? $r->status, $r->payment_method, $r->source, $r->fulfillment, $r->fulfillment_date, $money($r->total_cents), $money($r->net_cents), $money($r->balance_cents === null ? null : max(0, $r->balance_cents)), $money($r->balance_cents === null ? null : max(0, -$r->balance_cents))],
+                    default => [$r->number, $r->first_name.' '.$r->last_name, $r->email, $r->ordered_at, Order::STATUSES[$r->status] ?? $r->status, $r->payment_method, $r->source, $r->fulfillment, $r->fulfillment_date, $money($r->total_cents), $money($r->net_cents), $money($r->balance_cents === null ? null : max(0, $r->balance_cents)), $money($r->balance_cents === null ? null : max(0, -$r->balance_cents))],
                 };
                 fputcsv($out, array_map(fn ($v) => preg_match('/^[=+@\-\t\r]/', (string) $v) ? "'".$v : ($v ?? ''), $values), ',', '"', '');
             }

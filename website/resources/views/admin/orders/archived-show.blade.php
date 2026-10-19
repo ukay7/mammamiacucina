@@ -8,7 +8,7 @@
 <a class="btn btn-outline-primary mb-3" href="{{ route('admin.orders.payments',$order) }}">Payment history & receipts</a>
 @endif
 <section class="panel panel-content">
-<h2>{{ $order->number }}</h2><p>Final order status: {{ $order->status_label }} · Payment: {{ $order->payment_status }}</p>
+<h2>{{ $order->number }}</h2><p>Order Date: {{ $order->ordered_at->format('d M Y H:i') }} · Final order status: {{ $order->status_label }} · Payment: {{ $order->payment_status }}</p>
 <p>{{ $order->first_name }} {{ $order->last_name }}<br>{{ $order->email }}<br>{{ $order->phone }}</p>
 <div class="table-responsive"><table class="table"><thead><tr><th>Product</th><th>Code</th><th>Quantity</th><th>Unit price</th><th>Total</th></tr></thead><tbody>
 @foreach($order->items as $item)<tr><td>{{ $item->name }}</td><td>{{ $item->product_code ?? '—' }}</td><td>{{ $item->quantity }}</td><td>${{ number_format($item->unit_cents/100,2) }}</td><td>${{ number_format($item->line_cents/100,2) }}</td></tr>@endforeach

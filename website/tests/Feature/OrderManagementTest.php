@@ -19,7 +19,7 @@ $user=User::factory()->create(['role_id'=>Role::where('is_super',true)->value('i
   $this->travelTo(\Illuminate\Support\Carbon::parse('2026-09-15 12:00:00'));
   [$o]=$this->setupOrder();
   $this->get('/admin/orders')->assertOk()->assertViewHas('from','2026-09-01')->assertViewHas('to','2026-09-30')->assertViewHas('orders',fn($orders)=>$orders->total()===1);
-  $o->update(['created_at'=>'2026-08-31 23:59:59']);
+  $o->update(['ordered_at'=>'2026-08-31 23:59:59']);
   $this->get('/admin/orders')->assertOk()->assertViewHas('orders',fn($orders)=>$orders->total()===0);
   $this->get('/admin/orders?from=2026-08-31&to=2026-08-31&q=Customer')->assertOk()->assertViewHas('orders',fn($orders)=>$orders->total()===1);
   $this->get('/admin/orders?from=2026-08-31&to=2026-08-31&q=missing')->assertOk()->assertViewHas('orders',fn($orders)=>$orders->total()===0);

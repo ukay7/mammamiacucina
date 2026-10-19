@@ -10,6 +10,7 @@ use App\Services\OrderManagement;
 use App\Services\WarehousePacking;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use OpenSpout\Common\Entity\Cell\StringCell;
 use OpenSpout\Common\Entity\Row;
@@ -17,6 +18,40 @@ use OpenSpout\Writer\XLSX\Writer;
 
 class OrderController extends Controller
 {
+    public function updateOrderDate(Request $request, Order $order)
+    {
+        $data = $request->validate([
+            'revision' => 'required|integer|min:0',
+            'ordered_at' => 'required|date_format:Y-m-d\\TH:i|before_or_equal:now',
+        ]);
+        $newDate = Carbon::createFromFormat('Y-m-d\\TH:i', $data['ordered_at'], config('app.timezone'))->startOfMinute();
+
+        DB::transaction(function () use ($order, $data, $newDate, $request) {
+            $current = Order::lockForUpdate()->findOrFail($order->id);
+            $current->assertEditable();
+            if ((int) $current->revision !== (int) $data['revision']) {
+                throw ValidationException::withMessages(['ordered_at' => 'This order changed. Reload before changing its Order Date.']);
+            }
+
+            $oldDate = $current->ordered_at ?? $current->created_at;
+            if ($oldDate->equalTo($newDate)) {
+                return;
+            }
+
+            $changes = ['ordered_at' => $newDate, 'revision' => $current->revision + 1];
+            if ($current->payment_method === 'cheque' && $current->payment_status === 'unpaid' && $current->cheque_days) {
+                $changes['cheque_due_date'] = $newDate->copy()->addDays((int) $current->cheque_days)->toDateString();
+            }
+            $current->update($changes);
+            $current->events()->create([
+                'user_id' => $request->user()->id,
+                'description' => 'Order Date corrected: '.$oldDate->format('d M Y H:i').' → '.$newDate->format('d M Y H:i').'. System entry date remains '.$current->created_at->format('d M Y H:i').'.',
+                'created_at' => now(),
+            ]);
+        });
+
+        return back()->with('status', 'Order Date updated. Filters, reports and order history now use the corrected date.');
+    }
     public function archive(Request $request, Order $order, \App\Services\OrderArchive $service)
     {
         $data=$request->validate(['revision'=>'required|integer|min:0','confirm'=>'accepted']);
@@ -76,7 +111,7 @@ class OrderController extends Controller
         abort_unless($order->collected_cents>0,404);
         $doc=app(\App\Services\DocumentTheme::class)->order($order);
         $doc['title']='Payment Receipt';$doc['number']='PAY-'.$order->number;
-        $doc['date']=\Illuminate\Support\Carbon::parse($order->paid_at ?? $order->payment?->paid_at ?? $order->created_at)->format('d M Y H:i').' '.config('app.timezone');
+        $doc['date']=\Illuminate\Support\Carbon::parse($order->paid_at ?? $order->payment?->paid_at ?? $order->ordered_at)->format('d M Y H:i').' '.config('app.timezone');
         $doc['totals']=['This payment'=>'$'.number_format($order->collected_cents/100,2)]+$doc['totals'];
         return view('documents.financial',compact('doc'));
     }
@@ -131,7 +166,7 @@ class OrderController extends Controller
         $archived = $r->routeIs('admin.orders.archived') || ($r->routeIs('admin.orders.export') && $r->input('view')==='archived');
         $search = mb_substr((string) $r->input('q', ''), 0, 200);
         $dates = $r->validate(['from' => 'sometimes|required|date_format:Y-m-d', 'to' => 'sometimes|required|date_format:Y-m-d']);
-        $from = $dates['from'] ?? ($archived ? substr((string)(Order::whereNotNull('archived_at')->min('created_at') ?? now()->startOfMonth()->toDateString()),0,10) : now()->startOfMonth()->toDateString());
+        $from = $dates['from'] ?? ($archived ? substr((string)(Order::whereNotNull('archived_at')->min('ordered_at') ?? now()->startOfMonth()->toDateString()),0,10) : now()->startOfMonth()->toDateString());
         $to = $dates['to'] ?? now()->endOfMonth()->toDateString();
         if ($to < $from) {
             throw ValidationException::withMessages(['to' => 'The To date must be on or after the From date.']);
@@ -141,14 +176,14 @@ class OrderController extends Controller
         abort_if($archived && $warehouseOnly,403);
         $completed = $r->routeIs('admin.orders.completed') || ($r->routeIs('admin.orders.export') && $r->input('view')==='completed');
         $r->validate(['status' => 'nullable|in:'.implode(',', array_keys(Order::STATUSES))]);
-        $orders = Order::with(['payment', 'settlements', 'creator'])->when($archived, fn ($q)=>$q->whereNotNull('archived_at'), fn ($q)=>$q->whereNull('archived_at')->where('status', $completed ? '=' : '!=', 'completed'))->when($warehouseOnly, fn ($q) => $completed ? $q->where('created_by',$r->user()->id) : $q->visibleToWarehouse($r->user()->id))->when($r->filled('status'), fn ($q) => $q->where('status', $r->input('status')))->where('created_at', '>=', $from.' 00:00:00')->where('created_at', '<', Carbon::parse($to)->addDay()->startOfDay())->when($search, fn ($q) => $q->where(fn ($q) => $q->where('number', 'like', '%'.$search.'%')->orWhere('email', 'like', '%'.$search.'%')->orWhere('first_name', 'like', '%'.$search.'%')->orWhere('last_name', 'like', '%'.$search.'%')));
+        $orders = Order::with(['payment', 'settlements', 'creator'])->when($archived, fn ($q)=>$q->whereNotNull('archived_at'), fn ($q)=>$q->whereNull('archived_at')->where('status', $completed ? '=' : '!=', 'completed'))->when($warehouseOnly, fn ($q) => $completed ? $q->where('created_by',$r->user()->id) : $q->visibleToWarehouse($r->user()->id))->when($r->filled('status'), fn ($q) => $q->where('status', $r->input('status')))->where('ordered_at', '>=', $from.' 00:00:00')->where('ordered_at', '<', Carbon::parse($to)->addDay()->startOfDay())->when($search, fn ($q) => $q->where(fn ($q) => $q->where('number', 'like', '%'.$search.'%')->orWhere('email', 'like', '%'.$search.'%')->orWhere('first_name', 'like', '%'.$search.'%')->orWhere('last_name', 'like', '%'.$search.'%')));
         $r->validate(['per_page' => 'sometimes|in:10,20,50,100', 'sort' => 'sometimes|in:date,number,customer,creator,status', 'direction' => 'sometimes|in:asc,desc']);
         $sort = $r->input('sort', 'date');
         $direction = $r->input('direction', 'desc');
         if ($sort === 'creator') {
             $orders->orderBy(User::select('name')->whereColumn('users.id', 'orders.created_by')->limit(1), $direction);
         } else {
-            $orders->orderBy(['date' => 'created_at', 'number' => 'number', 'customer' => 'first_name', 'status' => 'status'][$sort], $direction);
+            $orders->orderBy(['date' => 'ordered_at', 'number' => 'number', 'customer' => 'first_name', 'status' => 'status'][$sort], $direction);
         }
         $orders->orderBy('id', $direction);
 
@@ -177,7 +212,7 @@ class OrderController extends Controller
         $headers = array_merge($headers, ['Delivery service','From postal','From zone','To postal','To zone','Delivery CAD']);
         $rows = function () use ($query, $warehouseOnly) {
             foreach ($query->lazy(200) as $order) {
-                $row = [$order->number, $order->created_at->format('Y-m-d H:i'), $order->source==='pos'?'Quick Sale / POS':'Website', $order->fulfillment, trim($order->first_name.' '.$order->last_name), $order->email, $order->creator?->name ?? ($order->created_by ? 'Former user' : 'Website customer'), $order->status_label];
+                $row = [$order->number, $order->ordered_at->format('Y-m-d H:i'), $order->source==='pos'?'Quick Sale / POS':'Website', $order->fulfillment, trim($order->first_name.' '.$order->last_name), $order->email, $order->creator?->name ?? ($order->created_by ? 'Former user' : 'Website customer'), $order->status_label];
                 if (! $warehouseOnly) {
                     $row = array_merge($row, [number_format($order->subtotal_cents / 100, 2, '.', ''), $order->payment_method, $order->payment_status]);
                 }

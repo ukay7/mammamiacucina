@@ -23,7 +23,7 @@ class PaymentReportController extends Controller
         if ($to < $from) {
             throw ValidationException::withMessages(['to' => 'End date must follow start date.']);
         }
-        $query = Order::with(['payment', 'settlements'])->where('created_at', '>=', $from.' 00:00:00')->where('created_at', '<', Carbon::parse($to)->addDay()->startOfDay());
+        $query = Order::with(['payment', 'settlements'])->where('ordered_at', '>=', $from.' 00:00:00')->where('ordered_at', '<', Carbon::parse($to)->addDay()->startOfDay());
         foreach (['method' => 'payment_method', 'source' => 'source', 'payment_status' => 'payment_status'] as $input => $column) {
             if (! empty($data[$input])) {
                 $query->where($column, $data[$input]);
@@ -60,7 +60,7 @@ class PaymentReportController extends Controller
                 }
             }
         }
-        $orders = $query->latest('id')->paginate(30)->withQueryString();
+        $orders = $query->orderByDesc('ordered_at')->orderByDesc('id')->paginate(30)->withQueryString();
         $gateways = ['Stripe' => $gateway->ready('stripe'), 'PayPal' => $gateway->ready('paypal')];
 
         return view('admin.reports.payments', compact('orders', 'summary', 'from', 'to', 'gateways'));
@@ -77,7 +77,7 @@ class PaymentReportController extends Controller
                 $total = $order->final_total_cents;
                 $refund = ($order->payment?->refunded_cents ?? ($order->manual_refunded_cents ?? ($order->payment_status === 'refunded' ? $order->collected_cents : 0))) + abs((int) $order->settlements->where('amount_cents', '<', 0)->sum('amount_cents'));
                 $received = $order->collected_cents + (int) $order->settlements->where('amount_cents', '>', 0)->sum('amount_cents');
-                $row = [$order->number, $order->created_at->toDateTimeString(), $order->source, $order->payment_method,
+                $row = [$order->number, $order->ordered_at->toDateTimeString(), $order->source, $order->payment_method,
                     $order->payment?->provider ?? ($order->payment_method === 'card' ? 'External terminal' : 'Manual'),
                     $order->payment?->mode ?? 'live', $order->payment_status, $total === null ? 'Unconfirmed' : number_format($total / 100, 2, '.', ''),
                     number_format($refund / 100, 2, '.', ''), number_format(($received - $refund) / 100, 2, '.', ''), $order->payment?->transaction_id ?? ''];

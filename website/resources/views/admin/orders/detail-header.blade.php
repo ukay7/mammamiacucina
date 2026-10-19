@@ -4,7 +4,7 @@
     <div class="wh-detail-info">
         <div><i class="fas fa-user" aria-hidden="true"></i><div><strong>{{ $order->first_name }} {{ $order->last_name }}</strong><span>{{ $order->email }}</span><span>{{ $order->phone }}</span></div></div>
         <div><i class="fas fa-{{ $order->fulfillment==='pickup'?'store':'truck' }}" aria-hidden="true"></i><div><strong>{{ $order->fulfillment==='pickup'?'Pick up':'Delivery' }}</strong><span>{{ $order->fulfillment==='pickup'?'Pick up in store':trim($order->address.', '.$order->city.', '.$order->province.' '.$order->postal_code.', '.$order->country,', ') }}</span></div></div>
-        <div><i class="fas fa-calendar-alt" aria-hidden="true"></i><div><strong>{{ $order->created_at->format('d M Y') }}</strong><span>{{ $order->created_at->format('H:i') }} · {{ $order->source==='pos'?'Quick Sale / POS':'Website' }}</span></div></div>
+        <div><i class="fas fa-calendar-alt" aria-hidden="true"></i><div><strong>{{ $order->ordered_at->format('d M Y') }}</strong><span>{{ $order->ordered_at->format('H:i') }} · {{ $order->source==='pos'?'Quick Sale / POS':'Website' }}</span></div></div>
     </div>
     @if($order->notes)<div class="wh-customer-note"><strong>Customer instructions</strong><p>{{ $order->notes }}</p></div>@endif
 </section>

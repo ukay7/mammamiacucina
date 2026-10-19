@@ -97,7 +97,7 @@ class BusinessReports
                 $query->where('payment_method', $f['method']);
             }
             if (in_array($kind, ['sales', 'customers'])) {
-                $query->where('created_at', '>=', $f['from'].' 00:00:00')->where('created_at', '<', Carbon::parse($f['to'])->addDay()->toDateString());
+                $query->where('ordered_at', '>=', $f['from'].' 00:00:00')->where('ordered_at', '<', Carbon::parse($f['to'])->addDay()->toDateString());
             }
             if ($kind === 'balances') {
                 $query->whereNotNull('balance_cents')->where('balance_cents', ($f['balance'] ?? 'due') === 'refund' ? '<' : '>', 0);
@@ -127,7 +127,7 @@ class BusinessReports
                 $rows->orderByDesc('id');
             }
             if ($kind === 'sales') {
-                $trend = (clone $query)->where('status', '!=', 'cancelled')->selectRaw('DATE(created_at) AS day, SUM(total_cents) AS amount')->groupByRaw('DATE(created_at)')->orderBy('day')->get();
+                $trend = (clone $query)->where('status', '!=', 'cancelled')->selectRaw('DATE(ordered_at) AS day, SUM(total_cents) AS amount')->groupByRaw('DATE(ordered_at)')->orderBy('day')->get();
             }
         }
 

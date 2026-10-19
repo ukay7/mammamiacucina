@@ -140,6 +140,7 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         Route::put('/settings/general', [GeneralSettingController::class, 'update'])->middleware(AdminAccess::class.':settings.manage')->name('settings.update');
         Route::post('/orders/{order}/packing', [OrderController::class,'packing'])->middleware(AdminAccess::class.':warehouse.pack')->name('orders.packing');
         Route::post('/orders/{order}/amend', [OrderController::class,'amend'])->middleware(AdminAccess::class.':orders.manage')->name('orders.amend');
+        Route::patch('/orders/{order}/order-date', [OrderController::class,'updateOrderDate'])->middleware(AdminAccess::class.':orders.manage')->name('orders.order-date');
         Route::get('/orders/{order}/payments', [OrderController::class,'payments'])->middleware(AdminAccess::class.':orders.view|orders.manage')->name('orders.payments');
         Route::get('/orders/{order}/payment-document', [OrderController::class,'initialPaymentDocument'])->middleware(AdminAccess::class.':orders.view|orders.manage')->name('orders.initial-payment-document');
         Route::get('/orders/{order}/payments/{settlement}/document', [OrderController::class,'settlementDocument'])->middleware(AdminAccess::class.':orders.view|orders.manage')->name('orders.payment-document');

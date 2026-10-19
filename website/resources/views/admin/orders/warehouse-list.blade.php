@@ -54,7 +54,7 @@
                 <div><h2>{{ $order->number }}</h2><span>{{ $order->source==='pos'?'POS':'Website' }} · {{ $order->fulfillment==='pickup'?'Pick up':'Delivery' }}</span></div>
                 <span class="mmc-status-pill" data-status="{{ $order->status }}">{{ $order->status_label }}</span>
             </div>
-            <div class="warehouse-order-date"><span><i class="fas fa-calendar-alt" aria-hidden="true"></i> {{ $order->created_at->format('d M Y') }}</span><span><i class="fas fa-clock" aria-hidden="true"></i> {{ $order->created_at->format('H:i') }}</span></div>
+            <div class="warehouse-order-date"><span><i class="fas fa-calendar-alt" aria-hidden="true"></i> {{ $order->ordered_at->format('d M Y') }}</span><span><i class="fas fa-clock" aria-hidden="true"></i> {{ $order->ordered_at->format('H:i') }}</span></div>
             <div class="warehouse-card-customer"><i class="fas fa-user" aria-hidden="true"></i><div><strong>{{ $order->first_name }} {{ $order->last_name }}</strong><span>{{ $order->email }}</span></div></div>
             <dl class="warehouse-card-meta"><div><dt>Source</dt><dd><span class="warehouse-source">{{ $order->source==='pos'?'Quick Sale / POS':'Website' }}</span></dd></div><div><dt>Created by</dt><dd>{{ $order->creator?->name ?? ($order->created_by?'Former user':'Website customer') }}@if((int)$order->created_by===auth()->id())<small>Created by you</small>@endif</dd></div></dl>
             @if($order->status==='warehouse_issue')<p class="text-danger">Action needed — open order to review item notes.</p>@endif

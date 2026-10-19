@@ -52,7 +52,7 @@ class CustomerAccountController extends Controller {
   return redirect()->route($r->user()->businessApprovalPending()?'customer.business.pending':$this->shoppingDestination())->with('status','Email verified.');
  }
  public function logout(Request $r){$cart=$r->session()->get('storefront_cart',[]);Auth::logout();$r->session()->invalidate();$r->session()->regenerateToken();$r->session()->put('storefront_cart',$cart);return redirect()->route('theme.index');}
- public function orders(Request $r){$orders=$r->user()->customerRecord()->orders()->latest()->paginate(20);return view('customer.orders',compact('orders'));}
+ public function orders(Request $r){$orders=$r->user()->customerRecord()->orders()->orderByDesc('ordered_at')->orderByDesc('id')->paginate(20);return view('customer.orders',compact('orders'));}
  public function order(Request $r,Order $order){abort_unless((int)$order->customer_id===$r->user()->customerRecord()->id,404);$order->load('items');return response()->view('customer.order',compact('order'))->header('Cache-Control','no-store, private');}
  public function printOrder(Request $r,Order $order){
   abort_unless((int)$order->customer_id===$r->user()->customerRecord()->id,404);

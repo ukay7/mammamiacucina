@@ -69,6 +69,8 @@ class PosSaleTest extends TestCase
         $this->assertNull($order->invoice);
         $this->assertSame('Walkin', $order->first_name);
         $this->assertSame('pos', $order->source);
+        $this->assertNotNull($order->ordered_at);
+        $this->assertTrue($order->ordered_at->diffInSeconds($order->created_at) < 2);
         $this->assertEquals(1070, $order->items()->first()->unit_cents);
         $this->sale($quote)->assertOk()->assertJsonPath('number', $response->json('number'));
         $this->assertDatabaseCount('orders', 1);

@@ -9,7 +9,7 @@ class Order extends Model
 {
     protected $guarded = ['id'];
 
-    protected function casts(): array { return ['archived_at'=>'datetime']; }
+    protected function casts(): array { return ['ordered_at'=>'datetime','archived_at'=>'datetime']; }
     public function assertEditable(): void {
         if ($this->archived_at) throw \Illuminate\Validation\ValidationException::withMessages(['order'=>'This order is archived and read-only.']);
     }
@@ -31,6 +31,8 @@ class Order extends Model
         });
         static::creating(function ($order) {
             $order->tracking_token ??= Str::random(48);
+            // created_at remains the audit timestamp; ordered_at is the business date.
+            $order->ordered_at ??= $order->created_at ?? now();
         });
     }
 

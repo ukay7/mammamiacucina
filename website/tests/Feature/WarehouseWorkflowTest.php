@@ -56,6 +56,46 @@ class WarehouseWorkflowTest extends TestCase
         $this->get(route('admin.orders.item-image', [$other, $item]))->assertNotFound();
     }
 
+    public function test_order_date_defaults_filters_and_admin_correction_are_independent_of_created_at(): void
+    {
+        [$order, , $admin, $worker] = $this->fixture();
+        $order = $order->fresh();
+        $this->assertNotNull($order->ordered_at);
+        $this->assertTrue($order->ordered_at->diffInSeconds($order->created_at) < 2);
+
+        $enteredAt = $order->created_at->copy();
+        $historic = now()->subMonthNoOverflow()->startOfMonth()->addDays(7)->setTime(14, 30);
+        $order->update(['payment_method' => 'cheque', 'payment_status' => 'unpaid', 'cheque_days' => 7]);
+
+        $this->actingAs($worker)->patch(route('admin.orders.order-date', $order), [
+            'revision' => $order->fresh()->revision,
+            'ordered_at' => $historic->format('Y-m-d\\TH:i'),
+        ])->assertForbidden();
+
+        $this->actingAs($admin)->get(route('admin.orders.show', $order))
+            ->assertOk()->assertSee('Correct Order Date')->assertSee('type="datetime-local"', false);
+        $this->patch(route('admin.orders.order-date', $order), [
+            'revision' => $order->fresh()->revision,
+            'ordered_at' => $historic->format('Y-m-d\\TH:i'),
+        ])->assertSessionHasNoErrors()->assertSessionHas('status');
+
+        $order->refresh();
+        $this->assertTrue($order->ordered_at->equalTo($historic));
+        $this->assertTrue($order->created_at->equalTo($enteredAt));
+        $this->assertSame($historic->copy()->addDays(7)->toDateString(), $order->cheque_due_date);
+        $this->assertStringContainsString('Order Date corrected', $order->events()->latest('id')->value('description'));
+
+        $this->get(route('admin.orders.index', ['from' => $historic->copy()->startOfMonth()->toDateString(), 'to' => $historic->copy()->endOfMonth()->toDateString()]))
+            ->assertOk()->assertSee($order->number);
+        $this->get(route('admin.orders.index', ['from' => now()->startOfMonth()->toDateString(), 'to' => now()->endOfMonth()->toDateString()]))
+            ->assertOk()->assertDontSee($order->number);
+
+        $this->patch(route('admin.orders.order-date', $order), [
+            'revision' => $order->revision,
+            'ordered_at' => now()->addDay()->format('Y-m-d\\TH:i'),
+        ])->assertSessionHasErrors('ordered_at');
+    }
+
     private function fixture(): array
     {
         $this->actingAs(User::factory()->create(['email'=>'test@example.test','account_type'=>'individual','phone'=>'555123','role_id'=>Role::where('name','Customer')->value('id'),'is_active'=>true]));
@@ -306,7 +346,7 @@ class WarehouseWorkflowTest extends TestCase
         $this->get('/admin/orders/export?view=completed&format=print&q=NO-MATCH')->assertDontSee($order->number);
         $this->get('/admin/orders/completed?per_page=999')->assertSessionHasErrors('per_page');
         $this->get('/admin/orders/export?view=completed&format=print&sort=invalid')->assertSessionHasErrors('sort');
-        $order->update(['created_at' => now()->subMonth()->startOfMonth()]);
+        $order->update(['ordered_at' => now()->subMonth()->startOfMonth()]);
         $this->get('/admin/orders/completed')->assertViewHas('orders', fn ($rows) => $rows->isEmpty());
         $this->get('/admin/orders/export?view=completed&format=print')->assertDontSee($order->number);
         $this->get('/admin/orders/completed?from='.now()->subMonth()->startOfMonth()->toDateString())->assertViewHas('orders', fn ($rows) => $rows->total() === 1);

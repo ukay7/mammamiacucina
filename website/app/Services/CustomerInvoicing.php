@@ -13,7 +13,7 @@ class CustomerInvoicing {
    $sequence=DB::table('invoice_sequences')->where('id',1)->lockForUpdate()->first();
    $number=$sequence->last_number+1;
    DB::table('invoice_sequences')->where('id',1)->update(['last_number'=>$number]);
-   $invoice=CustomerInvoice::create(['order_id'=>$o->id,'number'=>$number,'total_cents'=>$o->final_total_cents,'issued_at'=>now(),'historical'=>$historical,'snapshot'=>['order'=>$o->only(['number','first_name','last_name','email','phone','address','city','province','postal_code','country','fulfillment','subtotal_cents','delivery_cents','tax_cents','order_discount_cents','order_discount_bps','currency','cheque_due_date','created_at']),'items'=>$items->map(fn($i)=>$i->only(['name','product_code','qr_code','quantity','unit_cents','original_unit_cents','discount_bps','line_cents']))->all()]]);
+   $invoice=CustomerInvoice::create(['order_id'=>$o->id,'number'=>$number,'total_cents'=>$o->final_total_cents,'issued_at'=>now(),'historical'=>$historical,'snapshot'=>['order'=>$o->only(['number','first_name','last_name','email','phone','address','city','province','postal_code','country','fulfillment','subtotal_cents','delivery_cents','tax_cents','order_discount_cents','order_discount_bps','currency','cheque_due_date','ordered_at','created_at']),'items'=>$items->map(fn($i)=>$i->only(['name','product_code','qr_code','quantity','unit_cents','original_unit_cents','discount_bps','line_cents']))->all()]]);
    $o->events()->create(['description'=>'Invoice '.$invoice->label.' issued'.($historical?' for an existing packed/delivered order.': ' after packing / handover confirmation.'),'created_at'=>now()]);
    return $invoice;
   },3);

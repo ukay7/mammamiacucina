@@ -25,7 +25,7 @@ class CustomerController extends Controller {
  public function index(Request $request){
   $query=$this->listingQuery($request);
   $customers=$query->paginate((int)($request->input('per_page')?:25))->withQueryString();
-  $customers->getCollection()->loadCount('orders')->loadMax('orders','created_at');
+  $customers->getCollection()->loadCount('orders')->loadMax('orders','ordered_at');
   $search=trim((string)$request->input('search',''));
   return view('admin.customers.index',compact('customers','search'));
  }
@@ -64,13 +64,13 @@ class CustomerController extends Controller {
  }
  public function show(Customer $customer){
   $customer->load('user')->loadCount('orders');
-  $orders=$customer->orders()->latest('id')->paginate(20);
+  $orders=$customer->orders()->orderByDesc('ordered_at')->orderByDesc('id')->paginate(20);
   request()->validate(['invoice_search'=>'nullable|string|max:100','payment_search'=>'nullable|string|max:100','payment_method'=>'nullable|in:cash,cheque,etransfer,card,credit,paypal']);
   $invoiceSearch=trim((string)request('invoice_search'));$paymentSearch=trim((string)request('payment_search'));
   $invoices=\App\Models\CustomerInvoice::with(['order.payment','order.settlements'])->whereHas('order',fn($q)=>$q->where('customer_id',$customer->id))->when($invoiceSearch,fn($q)=>$q->where(fn($q)=>$q->where('number',str_ireplace('INV-','',$invoiceSearch))->orWhereHas('order',fn($o)=>$o->where('number','like','%'.$invoiceSearch.'%')->orWhere('id',$invoiceSearch))))->latest('number')->paginate(20,['*'],'invoices_page');
-  $paymentOrders=$customer->orders()->with(['payment','settlements.author'])->when($paymentSearch,fn($q)=>$q->where(fn($q)=>$q->where('number','like','%'.$paymentSearch.'%')->orWhere('id',$paymentSearch)))->when(request('payment_method'),fn($q)=>$q->where(fn($q)=>$q->where('payment_method',request('payment_method'))->orWhereHas('settlements',fn($s)=>$s->where('method',request('payment_method')))))->latest('id')->paginate(20,['*'],'payments_page');
+  $paymentOrders=$customer->orders()->with(['payment','settlements.author'])->when($paymentSearch,fn($q)=>$q->where(fn($q)=>$q->where('number','like','%'.$paymentSearch.'%')->orWhere('id',$paymentSearch)))->when(request('payment_method'),fn($q)=>$q->where(fn($q)=>$q->where('payment_method',request('payment_method'))->orWhereHas('settlements',fn($s)=>$s->where('method',request('payment_method')))))->orderByDesc('ordered_at')->orderByDesc('id')->paginate(20,['*'],'payments_page');
   $balances=app(\App\Services\CustomerInvoicing::class)->balances($customer);
-  $latestOrder=$customer->orders()->latest('id')->first();
+  $latestOrder=$customer->orders()->orderByDesc('ordered_at')->orderByDesc('id')->first();
   $notes=\App\Models\CustomerNote::with('author')->where('customer_id',$customer->id)->latest('id')->paginate(8,['*'],'notes_page')->withQueryString();
   return view('admin.customers.show',compact('customer','orders','latestOrder','notes','invoices','paymentOrders','balances'));
  }

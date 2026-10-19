@@ -42,9 +42,10 @@ class DashboardNotesTest extends TestCase {
  }
  public function test_period_metrics_all_time_alerts_low_stock_and_restricted_roles(): void {
   $this->actingAs($this->admin());
-  $old=$this->order(['status'=>'warehouse_issue','created_at'=>now()->subDays(100)]);$this->order(['status'=>'transfer_pending']);$this->order(['status'=>'completed']);
+  $old=$this->order(['status'=>'warehouse_issue','created_at'=>now()->subDays(100),'ordered_at'=>now()->subDays(100)]);$this->order(['status'=>'parked_admin']);$this->order(['status'=>'completed']);
   $p=Product::create(['category_id'=>1,'slug'=>'dashboard-stock','premium_marketing_name'=>'Low stock cake','is_active'=>true]);$p->inventory()->create(['quantity_on_hand'=>2,'low_stock_threshold'=>5]);
-  $this->get(route('admin.dashboard',['days'=>7]))->assertOk()->assertSee($old->number)->assertSee('Low stock cake')->assertViewHas('sales',fn($s)=>$s['orders']===2 && $s['value']===10000 && $s['due_count']===3)->assertViewHas('stock',fn($s)=>$s['low']===1);
+  $response=$this->get(route('admin.dashboard',['days'=>7]))->assertOk()->assertSee($old->number)->assertSee('Low stock cake')->assertViewHas('stock',fn($s)=>$s['low']===1);
+  $sales=$response->viewData('sales');$this->assertSame(2,$sales['orders']);$this->assertSame(10000,$sales['value']);$this->assertSame(3,$sales['due_count']);
   $role=Role::create(['name'=>'Notes only','permissions'=>[]]);$limited=User::factory()->create(['role_id'=>$role->id,'is_active'=>true]);$this->actingAs($limited)->get(route('admin.notes.index'))->assertOk();$this->get(route('admin.dashboard'))->assertForbidden();
   $role->update(['permissions'=>['dashboard.view','warehouse.pack','orders.view']]);$limited->unsetRelation('role');$this->actingAs($limited)->get(route('admin.dashboard'))->assertOk()->assertDontSee($old->number)->assertDontSee('Outstanding balances');
   $this->get(route('admin.dashboard.balances'))->assertForbidden();

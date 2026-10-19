@@ -68,7 +68,7 @@ class PosController extends Controller
 
     public function orders(Request $request)
     {
-        $orders=Order::whereNull('archived_at')->where('source','pos')->where('created_by',$request->user()->id)->latest()->paginate(20);
+        $orders=Order::whereNull('archived_at')->where('source','pos')->where('created_by',$request->user()->id)->orderByDesc('ordered_at')->orderByDesc('id')->paginate(20);
         return view('admin.pos.orders',compact('orders'));
     }
 
