@@ -76,7 +76,7 @@ $user=User::factory()->create(['role_id'=>Role::where('is_super',true)->value('i
   $this->patchJson(route('admin.orders.status',$o),['revision'=>1,'status'=>'cancelled'])->assertOk()->assertJsonPath('terminal',true)->assertJsonPath('options.cancelled','Cancelled');
  }
  public function test_tracking_needs_secret_and_management_needs_permission():void {
-  [$o,$p,$u]=$this->setupOrder();$this->get('/admin/orders/'.$o->id)->assertOk()->assertSee('Manage Order');
+  [$o,$p,$u]=$this->setupOrder();$this->get('/admin/orders/'.$o->id)->assertOk()->assertSee('Status &amp; payment',false)->assertSee('Edit products &amp; customer details',false)->assertSee('Order history');
   $role=Role::create(['name'=>'Order Viewer','permissions'=>['orders.view'],'is_super'=>false]);$u->update(['role_id'=>$role->id]);$u->unsetRelation('role');$this->actingAs($u);$this->save($o,['status'=>'warehouse_pending'])->assertForbidden();
   auth()->logout();session()->flush();
   $this->get('/track-order/'.$o->tracking_token)->assertOk()->assertHeader('Referrer-Policy','no-referrer')->assertSee('Management Cake');

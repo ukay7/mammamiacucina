@@ -1,26 +1,73 @@
 @extends('admin.layout')
 @section('title','Order '.$order->number)
+@section('page-class','warehouse-detail-page order-detail-page')
+@section('hide-page-heading',true)
 @section('content')
-@include('partials.order-commercial')
-@include('partials.transfer-receipt')
-@include('admin.orders.payment')
-@if($order->invoice)<p><a class="btn btn-outline-primary" href="{{ route('admin.invoices.show',$order->invoice) }}" target="_blank" rel="noopener">View Invoice {{ $order->invoice->label }} / PDF</a></p>@endif
-@include('admin.orders.packing')
-{{-- Payment adjustments panel hidden at the user's request. --}}
+<link rel="stylesheet" href="{{ asset('admin-assets/warehouse-detail.css') }}?v={{ filemtime(public_path('admin-assets/warehouse-detail.css')) }}">
+<link rel="stylesheet" href="{{ asset('admin-assets/order-detail.css') }}?v={{ filemtime(public_path('admin-assets/order-detail.css')) }}">
 
-<p><a class="btn btn-outline-primary" href="{{ route('admin.orders.index') }}">← Back to Orders</a> <a class="btn btn-primary" href="{{ route('admin.orders.print',$order) }}" target="_blank" rel="noopener">Print / Save as PDF</a></p>
-<div class="panel"><div class="panel-container show"><div class="panel-content"><p><strong>Order Date:</strong> {{ $order->ordered_at->format('d M Y H:i') }} · {{ $order->status_label }}@if(!$order->ordered_at->equalTo($order->created_at))<br><small>Entered into system {{ $order->created_at->format('d M Y H:i') }}</small>@endif</p><h2>{{ $order->fulfillment === 'pickup' ? 'Customer · Pick up' : 'Customer & Delivery' }}</h2><p>{{ $order->first_name }} {{ $order->last_name }}<br>{{ $order->email }}<br>{{ $order->phone }}</p>@if($order->fulfillment !== 'pickup')<p>{{ $order->address }}<br>{{ $order->city }}, {{ $order->province }} {{ $order->postal_code }}<br>{{ $order->country }}</p>@endif @if($order->notes)<h3>Order notes</h3><p style="white-space:pre-wrap">{{ $order->notes }}</p>@endif
-@if(auth()->user()->hasAdminPermission('orders.manage') && !in_array($order->status,['cancelled','completed','delivered','out_for_delivery','awaiting_payment','payment_review']))
-@if($order->fulfillment === 'pickup' && $order->pickup_address)<p style="white-space:pre-line"><strong>Pickup address</strong><br>{{ $order->pickup_address }}</p>@endif
-@include('partials.order-delivery')
-@endif
-<h2>Products</h2>@include('admin.orders.amend')</div></div></div>
+@include('admin.orders.detail-header',['printLabel'=>'Print Order / PDF','showFinancialSummary'=>true,'showOrderLinks'=>true])
+
+<div class="order-detail-notices">
+    @include('partials.order-commercial')
+    @include('partials.transfer-receipt')
+    @include('admin.orders.payment')
+</div>
+
+@include('admin.orders.packing',['commercialShown'=>true])
+
+{{-- Payment adjustments panel remains hidden at the user's request. --}}
+<section class="order-detail-workspace" aria-label="Order details and controls">
 @if(auth()->user()->hasAdminPermission('orders.manage'))
-<div class="panel"><div class="panel-container show"><div class="panel-content"><h2>Correct Order Date</h2><p>Super Admin and authorized order managers can correct the business date. The original system entry timestamp remains unchanged for audit purposes.</p><form method="post" action="{{ route('admin.orders.order-date',$order) }}">@csrf @method('PATCH')<input type="hidden" name="revision" value="{{ $order->revision }}"><div class="row align-items-end"><div class="form-group col-md-6 mb-md-0"><label for="order-date">Order Date and time</label><input class="form-control" id="order-date" type="datetime-local" name="ordered_at" max="{{ now()->format('Y-m-d\TH:i') }}" value="{{ old('ordered_at',$order->ordered_at->format('Y-m-d\TH:i')) }}" required></div><div class="col-md-6"><button class="btn btn-primary" type="submit">Save Order Date</button></div></div></form></div></div></div>
-<div class="panel"><div class="panel-container show"><div class="panel-content"><h2>Manage Order</h2><form method="post" action="{{ route('admin.orders.update',$order) }}">@csrf @method('PATCH')@if($order->payment)<input type="hidden" name="payment_status" value="{{ $order->payment_status }}">@endif<input type="hidden" name="revision" value="{{ $order->revision }}">
-<div class="row"><div class="col-md-6"><label>Status</label><select class="form-control" name="status">@foreach(($order->status_options + (!$order->payment && !in_array($order->status,['completed','delivered','out_for_delivery','cancelled']) ? ['cancelled'=>'Cancelled'] : [])) as $key=>$label)<option value="{{ $key }}" @selected(old('status',$order->status)===$key)>{{ $label }}</option>@endforeach</select></div><div class="col-md-6"><label>Payment status</label><select class="form-control" name="payment_status" @if($order->payment) disabled @endif>@foreach(($order->payment?['pending'=>'Pending gateway confirmation','partially_refunded'=>'Partially refunded']:[])+['unpaid'=>'Unpaid','paid'=>'Paid — payment received','refunded'=>'Refunded — payment returned (cancellation)'] as $key=>$label)<option value="{{ $key }}" @selected(old('payment_status',$order->payment_status)===$key)>{{ $label }}</option>@endforeach</select></div></div>
-<div class="row mt-3"><div class="col-md-6"><label>Delivery charge (CAD)</label><input class="form-control" type="number" data-number-display="decimal" min="0" max="9999999.99" step="0.01" name="delivery" @readonly($order->payment || $order->delivery_service) value="{{ old('delivery',$order->delivery_cents===null?'':number_format($order->delivery_cents/100,2,'.','')) }}"></div><div class="col-md-6"><label>Tax amount (CAD)</label><input class="form-control" type="number" data-number-display="decimal" min="0" max="9999999.99" step="0.01" name="tax" @readonly($order->payment) value="{{ old('tax',$order->tax_cents===null?'':number_format($order->tax_cents/100,2,'.','')) }}"></div></div><p class="mt-2">Leave charges blank until confirmed; enter 0 for no charge. Mark Paid only after payment is received. Cancellation restores deducted stock once. Return collected payment before cancelling a paid order.</p><label>Internal change note (optional)</label><textarea class="form-control" name="reason" maxlength="1000">{{ old('reason') }}</textarea><button class="btn btn-primary mt-3" type="submit">Save Order</button></form></div></div></div>
+    <div class="order-detail-section-heading">
+        <div><span class="order-detail-eyebrow">ADMIN TOOLS</span><h2 id="order-admin-tools">Order controls</h2></div>
+        <p>Use these controls only when the order needs a correction or manual decision.</p>
+    </div>
+
+    @if(!in_array($order->status,['cancelled','completed','delivered','out_for_delivery','awaiting_payment','payment_review']))
+    <details class="order-detail-disclosure" @if($errors->hasAny(['items','first_name','last_name','email','phone','address','city','province','postal_code','country','fulfillment','delivery','tax','reason'])) open @endif>
+        <summary><span><i class="fas fa-edit" aria-hidden="true"></i><strong>Edit products &amp; customer details</strong><small>Quantities, prices, fulfillment, address and charges</small></span><i class="fas fa-chevron-down order-detail-chevron" aria-hidden="true"></i></summary>
+        <div class="order-detail-disclosure-body">
+            @if($order->fulfillment === 'pickup' && $order->pickup_address)<div class="order-detail-inline-note"><strong>Pickup address</strong><span>{{ $order->pickup_address }}</span></div>@endif
+            @include('admin.orders.amend')
+        </div>
+    </details>
+    @endif
+
+    <div class="order-detail-control-grid">
+        <section class="order-detail-control-card">
+            <div class="order-detail-card-title"><i class="fas fa-calendar-alt" aria-hidden="true"></i><div><h3>Correct Order Date</h3><p>Creation time stays unchanged in the audit record.</p></div></div>
+            <form method="post" action="{{ route('admin.orders.order-date',$order) }}">@csrf @method('PATCH')
+                <input type="hidden" name="revision" value="{{ $order->revision }}">
+                <label for="order-date">Order Date and time</label>
+                <div class="order-detail-inline-form"><input class="form-control" id="order-date" type="datetime-local" name="ordered_at" max="{{ now()->format('Y-m-d\TH:i') }}" value="{{ old('ordered_at',$order->ordered_at->format('Y-m-d\TH:i')) }}" required><button class="btn btn-primary" type="submit">Save date</button></div>
+                @if(!$order->ordered_at->equalTo($order->created_at))<small>Entered into the system {{ $order->created_at->format('d M Y H:i') }}</small>@endif
+            </form>
+        </section>
+
+        <section class="order-detail-control-card">
+            <div class="order-detail-card-title"><i class="fas fa-tasks" aria-hidden="true"></i><div><h3>Status &amp; payment</h3><p>Record an operational or payment decision.</p></div></div>
+            <form method="post" action="{{ route('admin.orders.update',$order) }}">@csrf @method('PATCH')
+                @if($order->payment)<input type="hidden" name="payment_status" value="{{ $order->payment_status }}">@endif
+                <input type="hidden" name="revision" value="{{ $order->revision }}">
+                <div class="order-detail-form-grid"><label>Status<select class="form-control" name="status">@foreach(($order->status_options + (!$order->payment && !in_array($order->status,['completed','delivered','out_for_delivery','cancelled']) ? ['cancelled'=>'Cancelled'] : [])) as $key=>$label)<option value="{{ $key }}" @selected(old('status',$order->status)===$key)>{{ $label }}</option>@endforeach</select></label><label>Payment status<select class="form-control" name="payment_status" @if($order->payment) disabled @endif>@foreach(($order->payment?['pending'=>'Pending gateway confirmation','partially_refunded'=>'Partially refunded']:[])+['unpaid'=>'Unpaid','paid'=>'Paid — payment received','refunded'=>'Refunded — payment returned'] as $key=>$label)<option value="{{ $key }}" @selected(old('payment_status',$order->payment_status)===$key)>{{ $label }}</option>@endforeach</select></label><label>Delivery charge (CAD)<input class="form-control" type="number" data-number-display="decimal" min="0" max="9999999.99" step="0.01" name="delivery" @readonly($order->payment || $order->delivery_service) value="{{ old('delivery',$order->delivery_cents===null?'':number_format($order->delivery_cents/100,2,'.','')) }}"></label><label>Tax amount (CAD)<input class="form-control" type="number" data-number-display="decimal" min="0" max="9999999.99" step="0.01" name="tax" @readonly($order->payment) value="{{ old('tax',$order->tax_cents===null?'':number_format($order->tax_cents/100,2,'.','')) }}"></label></div>
+                <details class="order-detail-note-toggle"><summary>Add an internal change note</summary><textarea class="form-control" name="reason" maxlength="1000" placeholder="Reason for this change">{{ old('reason') }}</textarea></details>
+                <div class="order-detail-card-footer"><small>Confirm money was received before marking Paid. Return collected funds before cancelling a paid order.</small><button class="btn btn-primary" type="submit">Save order</button></div>
+            </form>
+        </section>
+    </div>
 @endif
-<div class="panel"><div class="panel-container show"><div class="panel-content"><h2>Order History</h2>@forelse($order->events as $event)<p><strong>{{ $event->created_at->format('d M Y H:i') }} · {{ $event->author?->name ?? 'System' }}</strong><br>{{ $event->description }}</p>@empty<p>No changes recorded yet.</p>@endforelse</div></div></div>
-@include('admin.orders.archive-action')
+
+    <details class="order-detail-disclosure order-detail-secondary">
+        <summary><span><i class="fas fa-history" aria-hidden="true"></i><strong>Order history</strong><small>{{ $order->events->count() }} recorded {{ Str::plural('event',$order->events->count()) }}</small></span><i class="fas fa-chevron-down order-detail-chevron" aria-hidden="true"></i></summary>
+        <div class="order-detail-disclosure-body order-detail-timeline">@forelse($order->events as $event)<article><span aria-hidden="true"></span><div><strong>{{ $event->created_at->format('d M Y H:i') }} · {{ $event->author?->name ?? 'System' }}</strong><p>{{ $event->description }}</p></div></article>@empty<p>No changes recorded yet.</p>@endforelse</div>
+    </details>
+
+    @if(auth()->user()->hasAdminPermission('orders.manage'))
+    <details class="order-detail-disclosure order-detail-secondary">
+        <summary><span><i class="fas fa-archive" aria-hidden="true"></i><strong>Archive order</strong><small>Available after the order is settled and closed</small></span><i class="fas fa-chevron-down order-detail-chevron" aria-hidden="true"></i></summary>
+        <div class="order-detail-disclosure-body order-detail-archive">@include('admin.orders.archive-action')</div>
+    </details>
+    @endif
+</section>
 @endsection
