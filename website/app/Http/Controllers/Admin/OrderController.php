@@ -25,7 +25,7 @@ class OrderController extends Controller
     }
     private function warehouseOnly(): bool
     {
-        return auth()->user()->hasAdminPermission('warehouse.pack') && ! auth()->user()->hasAdminPermission('orders.manage');
+        return auth()->user()->isWarehouseOnly();
     }
 
     private function readable(Order $order): void

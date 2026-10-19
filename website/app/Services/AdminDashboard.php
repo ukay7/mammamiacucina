@@ -18,7 +18,7 @@ class AdminDashboard {
  public function build(User $user,int $days): array {
   $data=['days'=>$days,'start'=>today()->subDays($days-1),'end'=>now(),'sales'=>null,'stock'=>null];
   // Warehouse-only accounts keep the same restricted order visibility as the order screens.
-  $canSeeOrders=$user->hasAdminPermission('orders.view') && !($user->hasAdminPermission('warehouse.pack') && !$user->hasAdminPermission('orders.manage'));
+  $canSeeOrders=$user->hasAdminPermission('orders.view') && !$user->isWarehouseOnly();
   if($canSeeOrders){
    $base=Order::where('currency','CAD')->where(fn($q)=>$q->whereDoesntHave('payment')->orWhereHas('payment',fn($p)=>$p->where('mode','live')));
    $period=(clone $base)->whereBetween('created_at',[$data['start'],$data['end']]);

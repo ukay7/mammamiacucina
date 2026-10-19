@@ -22,7 +22,7 @@ class RoleController extends Controller
 
     public function create()
     {
-        return view('admin.roles.form', ['role' => new Role(['permissions' => ['dashboard.view']])]);
+        return view('admin.roles.form', ['role' => new Role(['permissions' => []])]);
     }
 
     public function edit(Role $role)
@@ -59,8 +59,8 @@ class RoleController extends Controller
 
     private function validated(Request $r, ?Role $role = null): array
     {
-        $data = $r->validate(['name' => ['required', 'string', 'max:80', Rule::unique('roles')->ignore($role?->id)], 'permissions' => 'required|array', 'permissions.*' => ['string', Rule::in(auth()->user()->permissions())]]);
-        $permissions = array_unique(['dashboard.view', ...$data['permissions']]);
+        $data = $r->validate(['name' => ['required', 'string', 'max:80', Rule::unique('roles')->ignore($role?->id), function($attribute,$value,$fail){if(strtolower(trim($value))==='super admin')$fail('Super Admin is a protected user type.');}], 'permissions' => 'sometimes|array', 'permissions.*' => ['string', Rule::in(auth()->user()->permissions())]]);
+        $permissions = \App\Services\AdminNavigation::normalize($data['permissions'] ?? []);
         foreach (['users', 'roles', 'categories', 'products', 'imports', 'inventory'] as $module) {
             if (in_array($module.'.manage', $permissions)) {
                 $permissions[] = $module.'.view';

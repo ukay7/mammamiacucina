@@ -179,6 +179,13 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         Route::post('/inventory/{product}', [InventoryController::class, 'adjust'])->middleware(AdminAccess::class.':inventory.manage')->name('inventory.adjust');
         Route::post('/logout', [AuthController::class, 'destroy'])->name('logout');
         Route::get('/', fn () => redirect()->route(auth()->user()->accountRoute()))->name('home');
+        Route::view('/no-access', 'admin.no-access')->name('no-access');
+        Route::get('/module-home', function () {
+            foreach (\App\Services\AdminNavigation::nodes() as $node) {
+                if (\App\Services\AdminNavigation::allowed(auth()->user(), $node)) return redirect()->route($node['route'], $node['params']);
+            }
+            return redirect()->route('admin.no-access');
+        })->name('module-home');
         Route::get('/dashboard/balances', [\App\Http\Controllers\Admin\DashboardController::class,'balances'])->middleware(AdminAccess::class.':dashboard.view')->name('dashboard.balances');
         Route::get('/dashboard', \App\Http\Controllers\Admin\DashboardController::class)->middleware(AdminAccess::class.':dashboard.view')->name('dashboard');
         Route::get('/notes',[\App\Http\Controllers\Admin\NoteController::class,'index'])->name('notes.index');

@@ -37,27 +37,27 @@ class AdminAccessTest extends TestCase
         $user = $this->account('Warehouse User', ['password' => 'TestingPassword123']);
         $this->get('/admin/users')->assertRedirect('/admin/login');
         $this->post('/admin/login', ['email' => $user->email, 'password' => 'TestingPassword123'])
-            ->assertRedirect('/admin/orders')->assertSessionMissing('url.intended');
+            ->assertRedirect('/admin/notes')->assertSessionMissing('url.intended');
         $this->assertAuthenticatedAs($user);
         $this->get('/admin/orders')->assertOk();
-        $this->get('/admin/login')->assertRedirect('/admin/orders');
-        $this->get('/admin')->assertRedirect('/admin/orders');
+        $this->get('/admin/login')->assertRedirect('/admin/notes');
+        $this->get('/admin')->assertRedirect('/admin/notes');
         $this->get('/admin/users')->assertForbidden();
     }
 
-    public function test_warehouse_sidebar_contains_only_the_two_order_links(): void
+    public function test_warehouse_sidebar_shows_all_its_granted_modules(): void
     {
         $this->actingAs($this->account('Warehouse User'));
         foreach (['admin.orders.index', 'admin.orders.completed'] as $route) {
             $html = $this->get(route($route))->assertOk()->getContent();
             preg_match('/<ul class="nav-menu">(.*?)<\/nav>/s', $html, $matches);
             $sidebar = $matches[1];
-            $this->assertSame(2, substr_count($sidebar, '<a '));
+            $this->assertSame(4, substr_count($sidebar, '<a '));
             $this->assertStringContainsString('Pending Orders', $sidebar);
             $this->assertStringContainsString('Completed Orders', $sidebar);
             $this->assertStringContainsString('href="'.route($route).'"  aria-current="page"', $sidebar);
-            $this->assertStringNotContainsString('My Notes', $sidebar);
-            $this->assertStringNotContainsString('Dashboard', $sidebar);
+            $this->assertStringContainsString('My Notes', $sidebar);
+            $this->assertStringContainsString('Dashboard', $sidebar);
             $this->assertStringNotContainsString('Website &amp; Social', $sidebar);
             $this->assertStringNotContainsString('mmc-website-shortcut', $html);
         }
@@ -111,7 +111,7 @@ class AdminAccessTest extends TestCase
     public function test_role_permissions_control_sidebar_and_server_access(): void
     {
         $actor = $this->account();
-        $this->actingAs($actor)->post('/admin/user-types', ['name' => 'Read only team', 'permissions' => ['users.view']])->assertRedirect('/admin/user-types');
+        $this->actingAs($actor)->post('/admin/user-types', ['name' => 'Read only team', 'permissions' => ['access.admin.users.index','access.admin.notes.index']])->assertRedirect('/admin/user-types');
         $role = Role::where('name', 'Read only team')->firstOrFail();
         $user = $this->account('Staff', ['role_id' => $role->id]);
         $this->actingAs($user)->get('/admin/notes')->assertOk()->assertSee('User Management');

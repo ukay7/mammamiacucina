@@ -16,7 +16,7 @@ class BusinessReportController extends Controller
     private function authorizeReport(Request $request): void
     {
         $user = $request->user();
-        abort_unless($user->hasAdminPermission('orders.view') && ! ($user->hasAdminPermission('warehouse.pack') && ! $user->hasAdminPermission('orders.manage')), 403);
+        abort_unless($user->hasAdminPermission('orders.view'), 403);
     }
 
     private function filters(Request $request, string $kind): array

@@ -63,9 +63,9 @@ class User extends Authenticatable
     public function canSignIn(): bool {return $this->is_active && ($this->isCustomer() || $this->role !== null);}
     public function accountRoute(): string {
         if($this->isCustomer())return 'customer.orders';
-        return $this->isWarehouseOnly() ? 'admin.orders.index' : 'admin.notes.index';
+        return \App\Services\AdminNavigation::landing($this);
     }
-    public function isWarehouseOnly(): bool { return $this->hasAdminPermission('warehouse.pack') && !$this->hasAdminPermission('orders.manage'); }
+    public function isWarehouseOnly(): bool { return $this->hasAdminPermission('warehouse.pack') && !$this->hasAdminPermission('orders.manage') && !$this->hasAdminPermission('orders.scope.all'); }
     public function isCustomer(): bool { return in_array($this->account_type, ['individual','business'], true); }
     public function isSuper(): bool
     {
@@ -74,7 +74,7 @@ class User extends Authenticatable
 
     public function permissions(): array
     {
-        return $this->isSuper() ? array_keys(config('admin.permissions')) : ($this->role?->permissions ?? []);
+        return $this->isSuper() ? [...array_keys(config('admin.permissions')), ...array_keys(\App\Services\AdminNavigation::nodes()), \App\Services\AdminNavigation::MARKER, 'orders.scope.all'] : ($this->role?->permissions ?? []);
     }
 
     public function hasAdminPermission(string $permission): bool

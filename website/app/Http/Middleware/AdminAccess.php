@@ -19,6 +19,7 @@ class AdminAccess
 
             return redirect()->route('admin.login');
         }
+        \App\Services\AdminNavigation::authorize($request);
         if ($permission) {
             abort_unless(collect(explode('|',$permission))->contains(fn($ability)=>$user->hasAdminPermission($ability)), 403);
         }

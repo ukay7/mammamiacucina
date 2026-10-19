@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 class DashboardController extends Controller {
  public function balances(Request $r,AdminDashboard $dashboard){
   $user=$r->user();
-  abort_unless($user->hasAdminPermission('orders.view') && !($user->hasAdminPermission('warehouse.pack') && !$user->hasAdminPermission('orders.manage')),403);
+  abort_unless($user->hasAdminPermission('orders.view') && !$user->isWarehouseOnly(),403);
   $kind=$r->query('kind')==='refunds'?'refunds':'dues';
   $query=\Illuminate\Support\Facades\DB::query()->fromSub($dashboard->balances(),'b')->where('balance_cents',$kind==='refunds'?'<':'>',0);
   $total=abs((int)(clone $query)->sum('balance_cents'));
