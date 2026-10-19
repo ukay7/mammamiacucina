@@ -73,6 +73,9 @@ $active = static fn($item) => str_starts_with($item['match'], 'path:')
 <li><a href="{{ route('customer.orders') }}"><i class="fas fa-home" aria-hidden="true"></i><span>My Orders</span></a></li>
 <li class="{{ request()->routeIs('customer.profile*') ? 'active' : '' }}"><a href="{{ route('customer.profile') }}"><i class="fas fa-user" aria-hidden="true"></i><span>My Profile</span></a></li>
 @elseif(auth()->user()->isWarehouseOnly())
+@if($allowed($sections['Sales & Orders'][0]))
+@include('admin.sidebar-link', ['entry' => $sections['Sales & Orders'][0], 'isActive' => $active($sections['Sales & Orders'][0])])
+@endif
 @foreach(array_slice($sections['Sales & Orders'][1]['children'],0,2) as $entry)
 @include('admin.sidebar-link', ['entry' => $entry, 'isActive' => $active($entry)])
 @endforeach

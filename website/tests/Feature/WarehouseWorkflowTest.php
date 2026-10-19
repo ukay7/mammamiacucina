@@ -15,6 +15,20 @@ class WarehouseWorkflowTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_warehouse_quick_sale_navigation_follows_permission(): void
+    {
+        $role = Role::where('name', 'Warehouse User')->firstOrFail();
+        $role->update(['permissions' => ['warehouse.pack', 'pos.manage']]);
+        $worker = User::factory()->create(['role_id'=>$role->id, 'is_active'=>true]);
+        $this->actingAs($worker);
+        $this->get(route('admin.orders.index'))->assertOk()->assertSee('Quick Sale / POS')->assertSee('Pending Orders')->assertSee('Completed Orders');
+        $this->get(route('admin.pos.index'))->assertOk();
+        $role->update(['permissions' => ['warehouse.pack']]);
+        $this->actingAs($worker->fresh());
+        $this->get(route('admin.orders.index'))->assertOk()->assertDontSee('Quick Sale / POS');
+        $this->get(route('admin.pos.index'))->assertForbidden();
+    }
+
     public function test_order_images_require_order_access_and_matching_item(): void
     {
         [$order, $product, $admin, $worker] = $this->fixture();
