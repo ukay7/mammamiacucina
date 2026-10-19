@@ -1,5 +1,4 @@
 <link rel="stylesheet" href="{{ asset('admin-assets/warehouse-orders.css') }}?v={{ filemtime(public_path('admin-assets/warehouse-orders.css')) }}">
-<link rel="stylesheet" href="{{ asset('admin-assets/warehouse-detail.css') }}?v={{ filemtime(public_path('admin-assets/warehouse-detail.css')) }}">
 <section class="wh-detail-summary">
     <div class="wh-detail-title"><h1><i class="fas fa-box" aria-hidden="true"></i> Order <strong>{{ $order->number }}</strong></h1><span class="mmc-status-pill" data-status="{{ $order->status }}">{{ $order->status_label }}</span></div>
     <div class="wh-detail-info">

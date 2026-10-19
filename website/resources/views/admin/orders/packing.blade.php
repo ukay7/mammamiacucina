@@ -1,6 +1,9 @@
 <div class="wh-commercial-notices">@include('partials.order-commercial')</div>
 @if(in_array($order->source,['website','pos']))
 <link rel="stylesheet" href="{{ asset('admin-assets/warehouse.css') }}?v={{ filemtime(public_path('admin-assets/warehouse.css')) }}">
+@once
+<link rel="stylesheet" href="{{ asset('admin-assets/warehouse-detail.css') }}?v={{ filemtime(public_path('admin-assets/warehouse-detail.css')) }}">
+@endonce
 @php
 $canPack=auth()->user()->hasAdminPermission('warehouse.pack') && in_array($order->status,['warehouse_pending','packing']);
 @endphp
@@ -21,7 +24,7 @@ $barcode=$item->qr_code?:$item->product?->qr_code;
 @endphp
 <tr data-packing-row data-barcode="{{ $barcode }}" data-name="{{ $item->name }}" class="{{ $issue?'has-issue':($packed?'is-packed':'') }}">
 <td>@if($canPack)<input type="hidden" name="items[{{ $item->id }}][packed]" value="0"><input aria-label="Packed {{ $item->name }}" type="checkbox" data-packed-check name="items[{{ $item->id }}][packed]" value="1" @checked($packed)>@else{{ $packed?'✓':'—' }}@endif</td>
-<td><div class="wh-product">@if($item->product?->media->first())<img src="{{ route('admin.orders.item-image',[$order,$item]) }}" alt="" loading="lazy">@else<span class="wh-product-placeholder" aria-hidden="true"><i class="fas fa-box"></i></span>@endif<div><strong>{{ $item->name }}</strong><small class="d-block">Barcode: {{ $barcode?:'Not set' }}</small></div></div></td><td><strong>{{ $item->quantity }}</strong></td>
+<td><div class="wh-product">@if($item->product?->media->first())<img class="wh-product-image" src="{{ route('admin.orders.item-image',[$order,$item]) }}" alt="" width="52" height="52" loading="lazy">@else<span class="wh-product-placeholder" aria-hidden="true"><i class="fas fa-box"></i></span>@endif<div><strong>{{ $item->name }}</strong><small class="d-block">Barcode: {{ $barcode?:'Not set' }}</small></div></div></td><td><strong>{{ $item->quantity }}</strong></td>
 <td>@if($canPack)<textarea class="form-control" data-item-note aria-label="Item note for {{ $item->name }}" name="items[{{ $item->id }}][note]" maxlength="1000" rows="2" placeholder="Note / shortage…">{{ $note }}</textarea><button type="button" class="warehouse-shortage" data-shortage>⚠ Mark shortage</button>@else<span class="warehouse-note">{{ $note?:'—' }}</span>@endif</td>
 <td><span data-item-state class="warehouse-state">{{ $issue?'~ Issue / shortage':($packed?'✓ Packed':($order->status==='completed'?'Packing not recorded':'Awaiting packing')) }}</span></td></tr>
 @endforeach

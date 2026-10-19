@@ -40,6 +40,12 @@ class WarehouseWorkflowTest extends TestCase
         $this->actingAs($worker)->get($url)->assertNotFound();
         $this->actingAs($admin);
         $this->moveStatus($order, 'warehouse_pending')->assertOk();
+        $this->get(route('admin.orders.show', $order))
+            ->assertOk()
+            ->assertSee('admin-assets/warehouse-detail.css', false)
+            ->assertSee('class="wh-product-image"', false)
+            ->assertSee('width="52"', false)
+            ->assertSee('height="52"', false);
         $this->actingAs($worker)->get($url)->assertOk()->assertHeader('Content-Type', 'image/png');
         $other = $order->replicate();
         $other->checkout_token = (string) Str::uuid();
