@@ -45,7 +45,8 @@ class PosController extends Controller
 
     public function store(Request $request, PosSale $service)
     {
-        $data = $request->validate(['delivery_service'=>'nullable|string|max:20','customer_id'=>'required|integer|exists:customers,id','account_type'=>'sometimes|in:individual,business','packing_confirmed'=>'accepted','quote' => 'required|string|max:100000', 'first_name' => 'required_without:customer_id|nullable|string|max:100',
+        $packingRule = $request->user()->isWarehouseUserType() ? 'required|accepted' : 'nullable';
+        $data = $request->validate(['delivery_service'=>'nullable|string|max:20','customer_id'=>'required|integer|exists:customers,id','account_type'=>'sometimes|in:individual,business','packing_confirmed'=>$packingRule,'quote' => 'required|string|max:100000', 'first_name' => 'required_without:customer_id|nullable|string|max:100',
             'last_name' => 'nullable|string|max:100', 'email' => 'required_without:customer_id|nullable|email|max:255', 'phone' => 'nullable|string|max:40',
             'address' => 'nullable|string|max:255', 'city' => 'nullable|string|max:100', 'province' => 'nullable|string|max:100',
             'postal_code' => 'nullable|string|max:30', 'country' => 'nullable|string|max:100', 'notes' => 'nullable|string|max:2000',

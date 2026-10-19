@@ -11,7 +11,8 @@ class PosCustomerPricingTest extends TestCase
     use RefreshDatabase;
     private function fixtures(): array
     {
-        $role=Role::create(['name'=>'POS warehouse tester','permissions'=>['pos.manage','warehouse.pack']]);
+        $role=Role::where('name', Role::WAREHOUSE_USER)->firstOrFail();
+        $role->update(['permissions'=>['pos.manage','warehouse.pack']]);
         $staff=User::factory()->create(['is_active'=>true,'role_id'=>$role->id]);
         $individual=User::factory()->create(['account_type'=>'individual','is_active'=>true,'phone'=>'555123']);
         $business=User::factory()->create(['account_type'=>'business','business_approved_at'=>now(),'is_active'=>true,'phone'=>'555123']);

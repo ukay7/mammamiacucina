@@ -8,15 +8,17 @@ use App\Models\{User,Role,Product,Order,GeneralSetting};
 use App\Services\{PosSale,CustomerTerms,OrderManagement};
 class CommercialWorkflowTest extends TestCase {
  use RefreshDatabase;
+ private int $saleUserId;
  private function setupSale():array {
   $admin=User::factory()->create(['role_id'=>Role::where('is_super',true)->value('id'),'is_active'=>true]);
+  $warehouse=User::factory()->create(['role_id'=>Role::where('name',Role::WAREHOUSE_USER)->value('id'),'is_active'=>true]);
   $u=User::factory()->create(['role_id'=>Role::where('name','Customer')->value('id'),'account_type'=>'individual','is_active'=>true]);$c=$u->customerRecord();
   $p=Product::create(['category_id'=>1,'slug'=>'discount-cake','premium_marketing_name'=>'Discount Cake','qr_code'=>'CREDIT','is_active'=>true,'total_selling_price_cad'=>100]);
-  $p->inventory()->create(['quantity_on_hand'=>100]);GeneralSetting::find(1)->update(['tax_basis_points'=>0,'delivery_cents'=>0,'pickup_address'=>'Warehouse']);$this->actingAs($admin);return [$admin,$u,$c,$p];
+  $this->saleUserId=$warehouse->id;$p->inventory()->create(['quantity_on_hand'=>100]);GeneralSetting::find(1)->update(['tax_basis_points'=>0,'delivery_cents'=>0,'pickup_address'=>'Warehouse']);$this->actingAs($admin);return [$admin,$u,$c,$p];
  }
  private function sale($c,$p,$admin,string $method='cash',string $fulfillment='pickup'){
-  $service=app(PosSale::class);$q=$service->quote([['id'=>$p->id,'quantity'=>1]],$fulfillment,$admin->id,['customer_id'=>$c->id]);
-  return $service->complete($q['quote'],['customer_id'=>$c->id,'payment_method'=>$method,'payment_status'=>'paid','address'=>'Street','city'=>'Toronto','province'=>'ON','postal_code'=>'M1P1A1','country'=>'Canada','phone'=>'123'],$admin->id);
+  $service=app(PosSale::class);$q=$service->quote([['id'=>$p->id,'quantity'=>1]],$fulfillment,$this->saleUserId,['customer_id'=>$c->id]);
+  return $service->complete($q['quote'],['customer_id'=>$c->id,'payment_method'=>$method,'payment_status'=>'paid','address'=>'Street','city'=>'Toronto','province'=>'ON','postal_code'=>'M1P1A1','country'=>'Canada','phone'=>'123'],$this->saleUserId);
  }
  public function test_product_and_order_discounts_are_customer_scoped_and_snapshotted(){
   [$a,$u,$c,$p]=$this->setupSale();$c->update(['order_discount_bps'=>500]);DB::table('customer_product_discounts')->insert(['customer_id'=>$c->id,'product_id'=>$p->id,'discount_bps'=>500,'enabled'=>true]);

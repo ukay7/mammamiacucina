@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class Role extends Model
 {
+    public const WAREHOUSE_USER = 'Warehouse User';
+
     protected $fillable = ['name', 'permissions'];
 
     protected function casts(): array

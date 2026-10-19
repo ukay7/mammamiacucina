@@ -64,14 +64,16 @@ class PosSaleTest extends TestCase
         $response = $this->sale($quote)->assertOk()->assertJsonPath('total',2247);
         $order = Order::firstOrFail();
         $this->assertSame('8.000', $product->inventory()->first()->quantity_on_hand);
-        $this->assertSame('ready_to_dispatch', $order->status);
+        $this->assertSame('warehouse_pending', $order->status);
+        $this->assertFalse((bool) $order->items()->first()->packed);
+        $this->assertNull($order->invoice);
         $this->assertSame('Walkin', $order->first_name);
         $this->assertSame('pos', $order->source);
         $this->assertEquals(1070, $order->items()->first()->unit_cents);
         $this->sale($quote)->assertOk()->assertJsonPath('number', $response->json('number'));
         $this->assertDatabaseCount('orders', 1);
         $this->assertDatabaseCount('inventory_movements', 1);
-        $this->get($response->json('print_url'))->assertOk()->assertSee('Sales Receipt')->assertSee('Pick up')->assertDontSee('Cash on delivery');
+        $this->get($response->json('print_url'))->assertOk()->assertSee('Payment Receipt')->assertSee('Cash on pick up')->assertDontSee('Cash on delivery');
         $this->get('/admin/orders')->assertOk()->assertSee('POS');
     }
 
@@ -87,7 +89,7 @@ class PosSaleTest extends TestCase
         $this->sale($quote, ['first_name' => 'Customer', 'phone' => '555123', 'address' => '10 Test Street', 'city' => 'Toronto',
             'province' => 'ON', 'postal_code' => 'M1M1M1', 'country' => 'Canada', 'payment_status' => 'paid'])->assertOk();
         $order = Order::firstOrFail();
-        $this->assertSame('ready_to_dispatch', $order->status);
+        $this->assertSame('warehouse_pending', $order->status);
         $payload = ['status'=>'cancelled','payment_status'=>'refunded','revision'=>0,'delivery'=>'5.00','tax'=>number_format($order->tax_cents/100,2,'.','')];
         $this->patch(route('admin.orders.update',$order),$payload)->assertSessionHasNoErrors();
         $this->assertSame('10.000',$product->inventory()->first()->quantity_on_hand);
@@ -178,5 +180,26 @@ class PosSaleTest extends TestCase
         $this->postJson(route('admin.pos.quote'),['customer_id'=>$this->customerId,'items'=>[['id'=>$product->id,'quantity'=>1],['id'=>$product->id,'quantity'=>1]],'fulfillment'=>'pickup'])->assertUnprocessable();
         $quote=$this->quote($product);$product->update(['is_active'=>false]);$this->sale($quote)->assertUnprocessable();
         $this->assertDatabaseCount('orders',0);
+    }
+
+    public function test_only_the_warehouse_user_type_skips_the_warehouse_queue(): void
+    {
+        $this->staff();
+        $product = $this->product('WAREHOUSE-FLOW');
+        $warehouseRole = Role::where('name', Role::WAREHOUSE_USER)->firstOrFail();
+        $warehouseRole->update(['permissions' => ['pos.manage', 'warehouse.pack']]);
+        $warehouseUser = User::factory()->create(['role_id' => $warehouseRole->id, 'is_active' => true]);
+        $this->actingAs($warehouseUser);
+
+        $this->get(route('admin.pos.index'))->assertOk()->assertSee('All items are packed and ready for dispatch / pickup.');
+        $quote = $this->quote($product);
+        $payload = ['customer_id'=>$this->customerId,'quote'=>$quote['quote'],'payment_method'=>'cash','payment_status'=>'paid'];
+        $this->postJson(route('admin.pos.store'), $payload)->assertUnprocessable()->assertJsonValidationErrors('packing_confirmed');
+        $this->postJson(route('admin.pos.store'), $payload + ['packing_confirmed'=>1])->assertOk();
+
+        $order = Order::firstOrFail();
+        $this->assertSame('ready_to_dispatch', $order->status);
+        $this->assertTrue((bool) $order->items()->first()->packed);
+        $this->assertNotNull($order->invoice);
     }
 }

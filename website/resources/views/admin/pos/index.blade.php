@@ -36,7 +36,12 @@
 <div id="pos-delivery-choice" hidden><label>Delivery service<select class="form-control" name="delivery_service" id="pos-delivery-service"><option value="">Enter postal code first</option></select></label><p id="pos-delivery-description" class="pos-help" role="status"></p></div>
 <div class="pos-customer-grid"><label>Payment method<select class="form-control" name="payment_method"><option value="cash">Cash on pickup</option><option value="etransfer">E-transfer</option><option value="cheque">Cheque</option><option value="credit">Customer Credit</option></select></label><label>Payment status<select class="form-control" name="payment_status"><option value="paid">Paid · payment received</option><option value="unpaid">Unpaid · collect on delivery</option></select></label></div>
 <p class="pos-help">Cash requires confirmation of payment received. Cheque/E-transfer await admin verification; customer credit remains unpaid.</p>
-<label class="d-block my-3"><input type="checkbox" name="packing_confirmed" value="1" required> All items are packed and ready for dispatch / pickup.</label><p id="pos-credit-warning" role="status"></p>
+@if(auth()->user()->isWarehouseUserType())
+<label class="d-block my-3"><input type="checkbox" name="packing_confirmed" value="1" required> All items are packed and ready for dispatch / pickup.</label>
+@else
+<p class="pos-help my-3">This order will be sent to the warehouse for packing.</p>
+@endif
+<p id="pos-credit-warning" role="status"></p>
 <div id="pos-transfer-upload" hidden><label>Receipt / cheque photo (optional)<input class="form-control" type="file" id="pos-transfer-file" accept="image/jpeg,image/png,image/webp,application/pdf"></label><p class="pos-help">Upload now or later from My POS Orders. JPG, PNG, WebP or PDF, maximum 5 MB. Admin verifies payment separately from fulfillment.</p></div>
 <label>Notes (optional)<textarea class="form-control" name="notes" rows="2" maxlength="2000"></textarea></label>
 <p id="checkout-error" class="pos-error" role="alert" hidden></p>

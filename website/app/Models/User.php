@@ -66,6 +66,7 @@ class User extends Authenticatable
         return \App\Services\AdminNavigation::landing($this);
     }
     public function isWarehouseOnly(): bool { return ($this->hasAdminPermission('warehouse.pack') || $this->hasAdminPermission('orders.scope.restricted')) && !$this->hasAdminPermission('orders.manage') && !$this->hasAdminPermission('orders.scope.all'); }
+    public function isWarehouseUserType(): bool { return !$this->isCustomer() && $this->role?->name === Role::WAREHOUSE_USER; }
     public function isCustomer(): bool { return in_array($this->account_type, ['individual','business'], true); }
     public function isSuper(): bool
     {

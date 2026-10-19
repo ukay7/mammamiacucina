@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\{GeneralSetting, Inventory, InventoryMovement, Order, Product};
+use App\Models\{GeneralSetting, Inventory, InventoryMovement, Order, Product, User};
 use Illuminate\Support\Facades\{Crypt, DB};
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -80,6 +80,8 @@ class PosSale
         return DB::transaction(function () use ($quote, $customer, $userId) {
             // A shared lock serializes checkout against stock and settings changes. A retry never deducts twice.
             $settings = GeneralSetting::lockForUpdate()->findOrFail(1);
+            $creator = User::with('role')->findOrFail($userId);
+            $warehouseSale = $creator->isWarehouseUserType();
             if ($existing = Order::where('checkout_token', $quote['token'])->first()) {
                 if ($existing->source !== 'pos' || (int) $existing->created_by !== $userId) $this->fail('Invalid sale reference.');
                 return $existing;
@@ -133,7 +135,7 @@ class PosSale
                 'customer_id'=>$profile?->id, 'checkout_token' => $quote['token'], 'number' => 'POS-'.Str::ulid(),
                 'notes' => $customer['notes'] ?? null, 'source' => 'pos', 'created_by' => $userId,
                 'fulfillment' => $quote['fulfillment'], 'pickup_address'=>$pickup ? $settings->pickup_address : null,
-                'status' => 'ready_to_dispatch',
+                'status' => $warehouseSale ? 'ready_to_dispatch' : 'warehouse_pending',
                 'warehouse_round'=>1,
                 'warehouse_sent_at'=>now(),
                 'subtotal_cents' => $subtotal, 'delivery_cents' => $delivery, 'tax_cents' => $settings->taxFor($subtotal), 'tax_basis_points'=>$settings->tax_basis_points,
@@ -146,7 +148,7 @@ class PosSale
                 $tracked = $inventory && $inventory->quantity_on_hand !== null;
                 $order->items()->create(['product_id' => $product->id, 'name' => $product->premium_marketing_name,
                     'product_code' => $product->product_code, 'qr_code' => $product->qr_code, 'stock_deducted' => $tracked,
-                    'packed'=>true,'packed_by'=>$userId,'packed_at'=>now(),'original_unit_cents'=>$line['original_unit_cents'],'discount_bps'=>$line['discount_bps'],'quantity' => $quantity, 'unit_cents' => $price, 'line_cents' => $quantity * $price]);
+                    'packed'=>$warehouseSale,'packed_by'=>$warehouseSale ? $userId : null,'packed_at'=>$warehouseSale ? now() : null,'original_unit_cents'=>$line['original_unit_cents'],'discount_bps'=>$line['discount_bps'],'quantity' => $quantity, 'unit_cents' => $price, 'line_cents' => $quantity * $price]);
                 if ($tracked) {
                     $before = $inventory->quantity_on_hand;
                     $after = ((int) round((float) $before * 1000) - $quantity * 1000) / 1000;
@@ -157,7 +159,7 @@ class PosSale
                 }
             }
             $order->events()->create(['user_id' => $userId, 'description' => 'Quick Sale created Â· '.($pickup ? 'Pick up' : 'Delivery').' Â· '.$customer['payment_method'].' '.$customer['payment_status'], 'created_at' => now()]);
-            app(CustomerInvoicing::class)->issue($order);
+            if ($warehouseSale) app(CustomerInvoicing::class)->issue($order);
             app(CustomerEmails::class)->order($order, 'order_confirmation', 'order-created:'.$order->id);
             return $order;
         }, 3);
