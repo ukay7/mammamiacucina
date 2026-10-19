@@ -5,7 +5,7 @@
 @if($payment->attention)<p class="alert alert-warning">{{ $payment->attention }}</p>@endif
 @if($payment->provider==='helcim')<p>Helcim invoice: {{ $payment->provider_order_id ?: 'Awaiting checkout' }} Â· <a href="{{ route('admin.orders.print',$order) }}" target="_blank" rel="noopener">Print invoice / receipt</a></p>@endif
 <p>Online payment status and totals are verified with the gateway. For a stuck payment, check your merchant dashboard or bank and record the decision below.</p>
-@if(auth()->user()->hasAdminPermission('orders.manage'))
+@if(auth()->user()->hasAdminPermission('payments.manage'))
 @if(in_array($order->status,['awaiting_payment','payment_review']) || ($payment->manual_resolution==='paid' && $order->status==='warehouse_pending'))
 <form method="post" action="{{ route('admin.payments.resolve',$payment) }}" class="mb-3">
 @csrf<input type="hidden" name="revision" value="{{ $order->revision }}">
@@ -14,10 +14,10 @@
 <label for="manual-payment-resolution">Decision</label><select id="manual-payment-resolution" class="form-control" name="resolution" required>
 <option value="">Select a decision</option>
 @if(in_array($order->status,['awaiting_payment','payment_review']))
-@if(!$payment->refunded_cents)<option value="paid">Payment received — mark Paid and Send to Warehouse</option>@endif
-@if(!$payment->paid_at && !$payment->refunded_cents)<option value="unpaid">No payment received — mark Unpaid and Cancel</option>@endif
+@if(!$payment->refunded_cents)<option value="paid">Payment received â€” mark Paid and Send to Warehouse</option>@endif
+@if(!$payment->paid_at && !$payment->refunded_cents)<option value="unpaid">No payment received â€” mark Unpaid and Cancel</option>@endif
 @endif
-@if(auth()->user()->hasAdminPermission('payments.refund'))<option value="refunded">Full refund already completed manually — mark Refunded and Cancel</option>@endif
+@if(auth()->user()->hasAdminPermission('payments.refund'))<option value="refunded">Full refund already completed manually â€” mark Refunded and Cancel</option>@endif
 </select>
 <label for="manual-payment-reason" class="mt-2">Merchant / bank reference and note</label><textarea id="manual-payment-reason" class="form-control" name="reason" required maxlength="1000"></textarea>
 <label class="mt-2"><input type="checkbox" name="confirmed" value="1" required> I checked the bank / merchant records. For a refund, I have already returned the full payment externally.</label>

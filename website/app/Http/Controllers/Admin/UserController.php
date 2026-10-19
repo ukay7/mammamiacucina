@@ -22,13 +22,13 @@ class UserController extends Controller
 
     private function roles()
     {
-        return Role::where('is_super', false)->get()->filter(fn ($role) => ! array_diff($role->permissions, auth()->user()->permissions()));
+        return Role::where('is_super', false)->get()->filter(fn ($role) => ! array_diff($role->permissions, auth()->user()->grantablePermissions()));
     }
 
     private function target(User $user): void
     {
         abort_if($user->role?->is_super, 403, 'Super Admin accounts are protected.');
-        abort_if(array_diff($user->permissions(), auth()->user()->permissions()), 403);
+        abort_if(array_diff($user->permissions(), auth()->user()->grantablePermissions()), 403);
     }
 
     public function create()

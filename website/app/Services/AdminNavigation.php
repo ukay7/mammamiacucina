@@ -40,6 +40,7 @@ class AdminNavigation
         if(in_array(self::MARKER,$permissions,true)) return $permissions;
         $result=$permissions;
         foreach(self::nodes() as $key=>$node) {
+            if($node['route']==='admin.reports.overdue-cheques') $node['permission']='orders.manage';
             if($node['permission']==='' || array_intersect(explode('|',$node['permission']),$permissions)) $result[]=$key;
         }
         // Preserve the existing order-record boundary independently of menu visibility.

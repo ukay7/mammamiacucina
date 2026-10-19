@@ -17,7 +17,7 @@
 </div>
 <div class="customer-header-actions">
 @if(auth()->user()->hasAdminPermission('pos.manage'))<a class="btn btn-primary" href="{{ route('admin.pos.index',['customer_id'=>$customer->id]) }}"><i class="fas fa-plus mr-1" aria-hidden="true"></i>Quick Sale / New Order</a>@endif
-@if(auth()->user()->hasAdminPermission('users.manage'))
+@if(auth()->user()->hasAdminPermission('customers.manage'))
 <button class="btn btn-outline-primary" type="button" data-toggle="modal" data-target="#customer-note-modal"><i class="fas fa-sticky-note mr-1" aria-hidden="true"></i>Add Note</button>
 @endif
 </div>
@@ -38,13 +38,13 @@
 <section class="panel customer-tab-panel">
 <ul class="nav nav-tabs" role="tablist" aria-label="Customer account sections">
 @foreach(['details'=>'Customer Details','orders'=>'Orders','invoices'=>'Invoices','payments'=>'Payments & Cheques','settings'=>'Manager Settings','discounts'=>'Discounts'] as $key=>$label)
-@continue(in_array($key,['settings','discounts']) && !auth()->user()->hasAdminPermission('users.manage'))
+@continue(in_array($key,['settings','discounts']) && !auth()->user()->hasAdminPermission('customers.manage'))
 <li class="nav-item"><a class="nav-link {{ $key==='details'?'active':'' }}" id="customer-tab-{{ $key }}" href="#customer-{{ $key }}" data-toggle="tab" role="tab" aria-controls="customer-{{ $key }}" aria-selected="{{ $key==='details'?'true':'false' }}">{{ $label }}</a></li>
 @endforeach
 </ul>
 <div class="tab-content panel-content">
 <div class="tab-pane fade show active" id="customer-details" role="tabpanel" aria-labelledby="customer-tab-details">
-@if(auth()->user()->hasAdminPermission('users.manage'))
+@if(auth()->user()->hasAdminPermission('customers.manage'))
 @include('admin.customers.account-editor')
 @else
 <h3>Customer Details</h3><dl class="customer-details">
@@ -61,7 +61,7 @@
 </tbody></table></div><p>Showing {{ $orders->firstItem() ?? 0 }}–{{ $orders->lastItem() ?? 0 }} of {{ $orders->total() }} orders</p>{{ $orders->withQueryString()->fragment('customer-orders')->links() }}</div>
 @include('admin.customers.financial-tabs')
 
-@if(auth()->user()->hasAdminPermission('users.manage'))
+@if(auth()->user()->hasAdminPermission('customers.manage'))
 <div class="tab-pane fade" id="customer-settings" role="tabpanel" aria-labelledby="customer-tab-settings">
 @include('admin.customers.manager-settings')
 </div>
@@ -71,14 +71,14 @@
 </div>
 </section>
 <aside>
-<section class="panel panel-content" id="customer-notes"><div class="d-flex justify-content-between align-items-center mb-3"><h3 class="mb-0">Notes <small>({{ $notes->total() }})</small></h3>@if(auth()->user()->hasAdminPermission('users.manage'))<button class="btn btn-outline-primary btn-sm" type="button" title="Add Note" aria-label="Add Note" data-toggle="modal" data-target="#customer-note-modal"><i class="fas fa-plus" aria-hidden="true"></i></button>@endif</div>
+<section class="panel panel-content" id="customer-notes"><div class="d-flex justify-content-between align-items-center mb-3"><h3 class="mb-0">Notes <small>({{ $notes->total() }})</small></h3>@if(auth()->user()->hasAdminPermission('customers.manage'))<button class="btn btn-outline-primary btn-sm" type="button" title="Add Note" aria-label="Add Note" data-toggle="modal" data-target="#customer-note-modal"><i class="fas fa-plus" aria-hidden="true"></i></button>@endif</div>
 @forelse($notes as $note)<article class="customer-sticky"><p>{{ $note->body }}</p><small>{{ $note->author?->name ?? 'Former staff member' }} · {{ $note->created_at->format('d M Y H:i') }}</small></article>@empty<p class="text-muted mb-0">No notes yet. Add a description or follow-up for this customer.</p>@endforelse
 {{ $notes->fragment('customer-notes')->links() }}
 </section>
 </aside>
 </div>
 </div>
-@if(auth()->user()->hasAdminPermission('users.manage'))
+@if(auth()->user()->hasAdminPermission('customers.manage'))
 <div class="modal fade" id="customer-note-modal" tabindex="-1" role="dialog" aria-labelledby="customer-note-title" aria-hidden="true"><div class="modal-dialog modal-dialog-centered" role="document"><div class="modal-content"><form method="post" action="{{ route('admin.customers.notes.store',$customer) }}">@csrf<div class="modal-header"><h3 class="modal-title" id="customer-note-title">Add customer note</h3><button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">×</span></button></div><div class="modal-body"><p>For {{ $customer->name }} · #{{ $customer->id }}</p><label for="customer-note-body">Description</label><textarea id="customer-note-body" name="body" class="form-control" rows="6" maxlength="5000" required>{{ old('body') }}</textarea><small>Your name and the date will be recorded with this note.</small></div><div class="modal-footer"><button type="button" class="btn btn-outline-primary" data-dismiss="modal">Cancel</button><button class="btn btn-primary" type="submit">Save Note</button></div></form></div></div></div>
 
 @endif

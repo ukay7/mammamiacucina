@@ -65,7 +65,7 @@ class User extends Authenticatable
         if($this->isCustomer())return 'customer.orders';
         return \App\Services\AdminNavigation::landing($this);
     }
-    public function isWarehouseOnly(): bool { return $this->hasAdminPermission('warehouse.pack') && !$this->hasAdminPermission('orders.manage') && !$this->hasAdminPermission('orders.scope.all'); }
+    public function isWarehouseOnly(): bool { return ($this->hasAdminPermission('warehouse.pack') || $this->hasAdminPermission('orders.scope.restricted')) && !$this->hasAdminPermission('orders.manage') && !$this->hasAdminPermission('orders.scope.all'); }
     public function isCustomer(): bool { return in_array($this->account_type, ['individual','business'], true); }
     public function isSuper(): bool
     {
@@ -74,12 +74,18 @@ class User extends Authenticatable
 
     public function permissions(): array
     {
-        return $this->isSuper() ? [...array_keys(config('admin.permissions')), ...array_keys(\App\Services\AdminNavigation::nodes()), \App\Services\AdminNavigation::MARKER, 'orders.scope.all'] : ($this->role?->permissions ?? []);
+        return $this->isSuper() ? [...array_keys(config('admin.permissions')), ...array_keys(\App\Services\AdminNavigation::nodes()), ...\App\Services\StaffPermissions::extraKeys(), \App\Services\AdminNavigation::MARKER, 'orders.scope.all'] : \App\Services\StaffPermissions::compatible($this->role?->permissions ?? []);
     }
 
     public function hasAdminPermission(string $permission): bool
     {
         return !$this->isCustomer() && $this->is_active && in_array($permission, $this->permissions(), true);
+    }
+
+    public function grantablePermissions(): array
+    {
+        // A restriction is not an additional authority; managers may preserve it on narrower roles.
+        return [...$this->permissions(), 'orders.scope.restricted'];
     }
 
     protected function casts(): array

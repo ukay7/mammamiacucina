@@ -16,7 +16,7 @@ class RoleController extends Controller
 
     private function guard(Role $role): void
     {
-        abort_if($role->is_super || array_diff($role->permissions, auth()->user()->permissions()), 403);
+        abort_if($role->is_super || array_diff($role->permissions, auth()->user()->grantablePermissions()), 403);
         abort_if($role->id === auth()->user()->role_id, 403, 'You cannot change your own user type permissions.');
     }
 
@@ -59,13 +59,13 @@ class RoleController extends Controller
 
     private function validated(Request $r, ?Role $role = null): array
     {
-        $data = $r->validate(['name' => ['required', 'string', 'max:80', Rule::unique('roles')->ignore($role?->id), function($attribute,$value,$fail){if(strtolower(trim($value))==='super admin')$fail('Super Admin is a protected user type.');}], 'permissions' => 'sometimes|array', 'permissions.*' => ['string', Rule::in(auth()->user()->permissions())]]);
-        $permissions = \App\Services\AdminNavigation::normalize($data['permissions'] ?? []);
+        $data = $r->validate(['name' => ['required', 'string', 'max:80', Rule::unique('roles')->ignore($role?->id), function($attribute,$value,$fail){if(strtolower(trim($value))==='super admin')$fail('Super Admin is a protected user type.');}], 'permissions' => 'sometimes|array', 'permissions.*' => ['string', Rule::in(auth()->user()->grantablePermissions())]]);
+        $permissions = \App\Services\StaffPermissions::normalize($data['permissions'] ?? []);
         foreach (['users', 'roles', 'categories', 'products', 'imports', 'inventory'] as $module) {
             if (in_array($module.'.manage', $permissions)) {
                 $permissions[] = $module.'.view';
             }
-        }abort_if(array_diff($permissions, auth()->user()->permissions()), 403);
+        }abort_if(array_diff($permissions, auth()->user()->grantablePermissions()), 403);
         $data['permissions'] = array_values(array_unique($permissions));
 
         return $data;

@@ -72,31 +72,31 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         Route::get('/reports/payments', [PaymentReportController::class, 'index'])->middleware(AdminAccess::class.':orders.view')->name('reports.payments');
         Route::get('/reports/payments/export', [PaymentReportController::class, 'export'])->middleware(AdminAccess::class.':orders.view')->name('reports.payments.export');
         foreach (['reconcile', 'cancel', 'refund', 'resolve'] as $action) {
-            $route = Route::post('/payments/{payment}/'.$action, [PaymentReportController::class, $action])->middleware(AdminAccess::class.':orders.manage')->name('payments.'.$action);
+            $route = Route::post('/payments/{payment}/'.$action, [PaymentReportController::class, $action])->middleware(AdminAccess::class.':payments.manage')->name('payments.'.$action);
             if ($action === 'refund') {
                 $route->middleware(AdminAccess::class.':payments.refund');
             }
         }
         Route::get('/invoices/{invoice}', [\App\Http\Controllers\Admin\CustomerInvoiceController::class,'show'])->middleware(AdminAccess::class.':orders.view')->name('invoices.show');
-        Route::post('/invoices/{invoice}/email', [\App\Http\Controllers\Admin\CustomerInvoiceController::class,'email'])->middleware([AdminAccess::class.':orders.manage','throttle:10,1'])->name('invoices.email');
-        Route::get('/reports/overdue-cheques', [\App\Http\Controllers\Admin\CustomerTermsController::class,'overdue'])->middleware(AdminAccess::class.':orders.manage')->name('reports.overdue-cheques');
-        Route::post('/customers/{customer}/terms', [\App\Http\Controllers\Admin\CustomerTermsController::class,'save'])->middleware(AdminAccess::class.':users.manage')->name('customers.terms');
-        Route::get('/customers/{customer}/discounts', [\App\Http\Controllers\Admin\CustomerTermsController::class,'discounts'])->middleware(AdminAccess::class.':users.manage')->name('customers.discounts');
-        Route::post('/customers/{customer}/discounts', [\App\Http\Controllers\Admin\CustomerTermsController::class,'saveDiscounts'])->middleware(AdminAccess::class.':users.manage')->name('customers.discounts.save');
-        Route::post('/customers/{customer}/notes', [\App\Http\Controllers\Admin\CustomerController::class,'storeNote'])->middleware([AdminAccess::class.':orders.view',AdminAccess::class.':users.manage'])->name('customers.notes.store');
-        Route::post('/customers/{customer}/verify-email', [\App\Http\Controllers\Admin\CustomerController::class,'verifyEmail'])->middleware(AdminAccess::class.':users.manage')->name('customers.verify-email');
-        Route::get('/customers/create', [\App\Http\Controllers\Admin\CustomerController::class,'create'])->middleware(AdminAccess::class.':users.manage')->name('customers.create');
-        Route::post('/customers', [\App\Http\Controllers\Admin\CustomerController::class,'store'])->middleware(AdminAccess::class.':users.manage')->name('customers.store');
+        Route::post('/invoices/{invoice}/email', [\App\Http\Controllers\Admin\CustomerInvoiceController::class,'email'])->middleware([AdminAccess::class.':customers.invoice-email','throttle:10,1'])->name('invoices.email');
+        Route::get('/reports/overdue-cheques', [\App\Http\Controllers\Admin\CustomerTermsController::class,'overdue'])->middleware(AdminAccess::class.':orders.view')->name('reports.overdue-cheques');
+        Route::post('/customers/{customer}/terms', [\App\Http\Controllers\Admin\CustomerTermsController::class,'save'])->middleware(AdminAccess::class.':customers.manage')->name('customers.terms');
+        Route::get('/customers/{customer}/discounts', [\App\Http\Controllers\Admin\CustomerTermsController::class,'discounts'])->middleware(AdminAccess::class.':customers.manage')->name('customers.discounts');
+        Route::post('/customers/{customer}/discounts', [\App\Http\Controllers\Admin\CustomerTermsController::class,'saveDiscounts'])->middleware(AdminAccess::class.':customers.manage')->name('customers.discounts.save');
+        Route::post('/customers/{customer}/notes', [\App\Http\Controllers\Admin\CustomerController::class,'storeNote'])->middleware([AdminAccess::class.':orders.view',AdminAccess::class.':customers.manage'])->name('customers.notes.store');
+        Route::post('/customers/{customer}/verify-email', [\App\Http\Controllers\Admin\CustomerController::class,'verifyEmail'])->middleware(AdminAccess::class.':customers.manage')->name('customers.verify-email');
+        Route::get('/customers/create', [\App\Http\Controllers\Admin\CustomerController::class,'create'])->middleware(AdminAccess::class.':customers.manage')->name('customers.create');
+        Route::post('/customers', [\App\Http\Controllers\Admin\CustomerController::class,'store'])->middleware(AdminAccess::class.':customers.manage')->name('customers.store');
         Route::resource('quotations', \App\Http\Controllers\Admin\QuotationController::class)->except(['index','show'])->middleware(AdminAccess::class.':quotations.manage');
         Route::get('/quotations', [\App\Http\Controllers\Admin\QuotationController::class,'index'])->middleware(AdminAccess::class.':quotations.view|quotations.manage')->name('quotations.index');
         Route::get('/quotations/{quotation}/print', [\App\Http\Controllers\Admin\QuotationController::class,'print'])->middleware(AdminAccess::class.':quotations.view|quotations.manage')->name('quotations.print');
         Route::get('/quotations/{quotation}', [\App\Http\Controllers\Admin\QuotationController::class,'show'])->middleware(AdminAccess::class.':quotations.view|quotations.manage')->name('quotations.show');
-        Route::get('/customers/{customer}/edit', [\App\Http\Controllers\Admin\CustomerController::class,'edit'])->middleware(AdminAccess::class.':users.manage')->name('customers.edit');
-        Route::put('/customers/{customer}', [\App\Http\Controllers\Admin\CustomerController::class,'update'])->middleware(AdminAccess::class.':users.manage')->name('customers.update');
-        Route::post('/customers/{customer}/password', [\App\Http\Controllers\Admin\CustomerController::class,'password'])->middleware(AdminAccess::class.':users.manage')->name('customers.password');
-        Route::post('/customers/{customer}/approve-business', [\App\Http\Controllers\Admin\CustomerController::class,'approveBusiness'])->middleware(AdminAccess::class.':users.manage')->name('customers.approve-business');
-        Route::post('/customers/{customer}/active', [\App\Http\Controllers\Admin\CustomerController::class,'active'])->middleware(AdminAccess::class.':users.manage')->name('customers.active');
-        Route::post('/customers/{customer}/verification', [\App\Http\Controllers\Admin\CustomerController::class,'resend'])->middleware([AdminAccess::class.':users.manage','throttle:5,1'])->name('customers.resend');
+        Route::get('/customers/{customer}/edit', [\App\Http\Controllers\Admin\CustomerController::class,'edit'])->middleware(AdminAccess::class.':customers.manage')->name('customers.edit');
+        Route::put('/customers/{customer}', [\App\Http\Controllers\Admin\CustomerController::class,'update'])->middleware(AdminAccess::class.':customers.manage')->name('customers.update');
+        Route::post('/customers/{customer}/password', [\App\Http\Controllers\Admin\CustomerController::class,'password'])->middleware(AdminAccess::class.':customers.manage')->name('customers.password');
+        Route::post('/customers/{customer}/approve-business', [\App\Http\Controllers\Admin\CustomerController::class,'approveBusiness'])->middleware(AdminAccess::class.':customers.approve')->name('customers.approve-business');
+        Route::post('/customers/{customer}/active', [\App\Http\Controllers\Admin\CustomerController::class,'active'])->middleware(AdminAccess::class.':customers.manage')->name('customers.active');
+        Route::post('/customers/{customer}/verification', [\App\Http\Controllers\Admin\CustomerController::class,'resend'])->middleware([AdminAccess::class.':customers.manage','throttle:5,1'])->name('customers.resend');
         Route::get('/customers', [\App\Http\Controllers\Admin\CustomerController::class, 'index'])->middleware(AdminAccess::class.':orders.view')->name('customers.index');
         Route::get('/customers/business-requests', [\App\Http\Controllers\Admin\CustomerController::class, 'businessRequests'])->middleware(AdminAccess::class.':orders.view')->name('customers.business-requests');
         Route::get('/customers/{customer}', [\App\Http\Controllers\Admin\CustomerController::class, 'show'])->middleware(AdminAccess::class.':orders.view')->name('customers.show');

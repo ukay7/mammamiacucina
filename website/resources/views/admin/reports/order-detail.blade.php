@@ -3,6 +3,9 @@ $money = fn($value) => $value===null?'Unconfirmed':($value<0?'−':'').'$'.numbe
 $total = $order->final_total_cents;
 @endphp
 <h2>{{ $order->number }} · {{ $order->first_name }} {{ $order->last_name }}</h2>
+@if(auth()->user()->hasAdminPermission('payments.manage'))
+@include('admin.orders.payment')
+@endif
 <p>{{ $order->status_label }} · {{ $order->payment_label }} · {{ $order->email }}</p>
 <div class="report-kpis">@foreach(['Order total'=>$total,'Net received'=>$order->net_received_cents,'Amount due'=>$total===null?null:max(0,$order->balance_cents),'Refund due'=>$total===null?null:max(0,-$order->balance_cents)] as $label=>$amount)<div class="report-kpi"><span>{{ $label }}</span><strong>{{ $money($amount) }}</strong><small>CAD</small></div>@endforeach</div>
 <div class="report-detail-grid"><div><h3>Order amounts</h3><p>Products: {{ $money($order->subtotal_cents) }}<br>Delivery: {{ $money($order->delivery_cents) }}<br>Tax: {{ $money($order->tax_cents) }}</p></div><div><h3>{{ ucfirst($order->fulfillment) }}</h3><p>Planned: {{ $order->fulfillment_date?:'Unscheduled' }}<br>{{ $order->address }}<br>{{ $order->city }} {{ $order->postal_code }}<br>{{ $order->phone }}</p></div></div>

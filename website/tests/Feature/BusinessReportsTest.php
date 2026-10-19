@@ -96,7 +96,7 @@ class BusinessReportsTest extends TestCase
         $viewer = User::factory()->create(['is_active' => true, 'role_id' => Role::create(['name' => 'Report reader', 'permissions' => ['orders.view']])->id]);
         $this->actingAs($viewer)->get('/admin/reports/order/'.$order->id)->assertOk()->assertDontSee('Save planned date');
         $this->post('/admin/reports/order/'.$order->id.'/schedule', ['revision' => 1])->assertForbidden();
-        $warehouse = User::factory()->create(['is_active' => true, 'role_id' => Role::create(['name' => 'Restricted warehouse reports', 'permissions' => ['orders.view', 'warehouse.pack']])->id]);
+        $warehouse = User::factory()->create(['is_active' => true, 'role_id' => Role::create(['name' => 'Restricted warehouse reports', 'permissions' => \App\Services\StaffPermissions::normalize(['access.admin.orders.index', 'warehouse.pack'])])->id]);
         $this->actingAs($warehouse)->get('/admin/reports')->assertForbidden();
         $this->get('/admin/reports/order/'.$order->id)->assertForbidden();
         $this->get('/admin/reports/export/sales')->assertForbidden();
