@@ -197,6 +197,7 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         Route::post('/stock-counts/{stockCount}/items/{item}', [StockCountController::class,'save'])->middleware(AdminAccess::class.':stock-counts.perform')->name('stock-counts.items.save');
         Route::post('/stock-counts/{stockCount}/submit', [StockCountController::class,'submit'])->middleware(AdminAccess::class.':stock-counts.perform')->name('stock-counts.submit');
         Route::post('/stock-counts/{stockCount}/cancel', [StockCountController::class,'cancel'])->middleware(AdminAccess::class.':stock-counts.manage')->name('stock-counts.cancel');
+        Route::delete('/stock-counts/{stockCount}', [StockCountController::class,'destroy'])->middleware(AdminAccess::class.':stock-counts.manage')->name('stock-counts.destroy');
         Route::post('/logout', [AuthController::class, 'destroy'])->name('logout');
         Route::get('/', fn () => redirect()->route(auth()->user()->accountRoute()))->name('home');
         Route::view('/no-access', 'admin.no-access')->name('no-access');
