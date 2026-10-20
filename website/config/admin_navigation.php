@@ -33,7 +33,6 @@ return [
             $link('allergies.manage', 'admin.allergies.index', 'admin.allergies.*', 'Allergies', 'leaf'),
         ]),
         $link('inventory.view', 'admin.inventory.index', 'admin.inventory.*', 'Inventory', 'warehouse'),
-        $link('warehouses.view', 'admin.warehouses.index', 'admin.warehouses.*', 'Warehouses & Locations', 'building'),
         $link('stock-counts.view', 'admin.stock-counts.index', 'admin.stock-counts.*', 'Stock Count Tasks', 'clipboard-check'),
         $link('stock-counts.perform', 'admin.stock-counts.mine', 'admin.stock-counts.*', 'My Stock Counts', 'tasks'),
     ],
@@ -54,6 +53,7 @@ return [
         $link('settings.manage', 'admin.theme.edit', 'admin.theme.*', 'Theme Settings', 'palette'),
     ],
     'Administration' => [
+        $link('warehouses.view', 'admin.warehouses.index', 'admin.warehouses.*', 'Warehouses & Locations', 'building'),
         $link('settings.manage', 'admin.settings.general', 'admin.settings.*', 'General Settings', 'cog'),
         $link('settings.manage', 'admin.delivery.index', 'admin.delivery.*', 'Delivery Rates', 'truck'),
         $link('gateways.manage', 'admin.gateways.edit', 'admin.gateways.*', 'Gateway Settings', 'credit-card'),
