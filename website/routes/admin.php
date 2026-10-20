@@ -194,6 +194,7 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         Route::get('/stock-counts/create', [StockCountController::class,'create'])->middleware(AdminAccess::class.':stock-counts.manage')->name('stock-counts.create');
         Route::post('/stock-counts', [StockCountController::class,'store'])->middleware(AdminAccess::class.':stock-counts.manage')->name('stock-counts.store');
         Route::get('/stock-counts/{stockCount}', [StockCountController::class,'show'])->middleware(AdminAccess::class.':stock-counts.view|stock-counts.perform')->name('stock-counts.show');
+        Route::get('/stock-counts/{stockCount}/items/{item}/logs', [StockCountController::class,'logs'])->middleware(AdminAccess::class.':stock-counts.view|stock-counts.perform')->name('stock-counts.items.logs');
         Route::post('/stock-counts/{stockCount}/items/{item}', [StockCountController::class,'save'])->middleware(AdminAccess::class.':stock-counts.perform')->name('stock-counts.items.save');
         Route::post('/stock-counts/{stockCount}/submit', [StockCountController::class,'submit'])->middleware(AdminAccess::class.':stock-counts.perform')->name('stock-counts.submit');
         Route::post('/stock-counts/{stockCount}/cancel', [StockCountController::class,'cancel'])->middleware(AdminAccess::class.':stock-counts.manage')->name('stock-counts.cancel');

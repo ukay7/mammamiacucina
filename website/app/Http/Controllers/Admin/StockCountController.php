@@ -1,7 +1,7 @@
 <?php
 namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
-use App\Models\{Product,Role,StockCountItem,StockCountTask,User,Warehouse,WarehouseInventory};
+use App\Models\{Product,Role,StockCountItem,StockCountItemLog,StockCountTask,User,Warehouse,WarehouseInventory};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -34,7 +34,31 @@ class StockCountController extends Controller {
    ->orderBy('id')->paginate($rows)->withQueryString();
   return view('admin.stock-counts.show',['task'=>$stockCount,'items'=>$items,'search'=>$search,'rows'=>$rows,'canViewSystem'=>$r->user()->hasAdminPermission('stock-counts.view'),'canCount'=>$stockCount->assigned_to===$r->user()->id&&in_array($stockCount->status,['scheduled','in_progress'],true)]);
  }
- public function save(Request $r,StockCountTask $stockCount,StockCountItem $item){$this->countAccess($r,$stockCount);abort_unless($item->stock_count_task_id===$stockCount->id,404);$d=$r->validate(['actual_quantity'=>'required|numeric|min:0|max:999999999|decimal:0,3','note'=>'nullable|string|max:2000']);$item->update([...$d,'counted_at'=>now()]);$stockCount->update(['status'=>'in_progress','last_saved_at'=>now()]);return $r->expectsJson()?response()->json(['message'=>'Count saved.','counted'=>$stockCount->items()->whereNotNull('actual_quantity')->count(),'total'=>$stockCount->items()->count()]):back()->with('status','Count saved.');}
+ public function save(Request $r,StockCountTask $stockCount,StockCountItem $item){
+  $this->countAccess($r,$stockCount);abort_unless($item->stock_count_task_id===$stockCount->id,404);
+  $d=$r->validate(['quantity_change'=>'required|numeric|min:-999999999|max:999999999|decimal:0,3','note'=>'nullable|string|max:2000']);
+  $change=(int)round((float)$d['quantity_change']*1000);$note=trim((string)($d['note']??''));
+  if($change===0)throw ValidationException::withMessages(['quantity_change'=>'Enter a quantity to add or remove.']);
+  if($change<0&&$note==='')throw ValidationException::withMessages(['note'=>'Add a reason when removing damaged or unavailable products.']);
+  $after=DB::transaction(function()use($r,$stockCount,$item,$change,$note){
+   $task=StockCountTask::lockForUpdate()->findOrFail($stockCount->id);
+   abort_unless($task->assigned_to===$r->user()->id&&in_array($task->status,['scheduled','in_progress'],true),422,'This count is closed.');
+   $locked=StockCountItem::lockForUpdate()->where('stock_count_task_id',$task->id)->findOrFail($item->id);
+   $before=(int)round((float)($locked->actual_quantity??0)*1000);$after=$before+$change;
+   if($after<0)throw ValidationException::withMessages(['quantity_change'=>'This adjustment would make the counted total negative.']);
+   if($after>999999999000)throw ValidationException::withMessages(['quantity_change'=>'The counted total cannot exceed 999,999,999.']);
+   $now=now();$locked->update(['actual_quantity'=>$after/1000,'note'=>$note?:null,'counted_at'=>$now]);
+   StockCountItemLog::create(['stock_count_item_id'=>$locked->id,'quantity_change'=>$change/1000,'quantity_before'=>$before/1000,'quantity_after'=>$after/1000,'note'=>$note?:null,'created_by'=>$r->user()->id,'created_at'=>$now]);
+   $task->update(['status'=>'in_progress','last_saved_at'=>$now]);return $after/1000;
+  },3);
+  $payload=['message'=>'Count adjustment saved.','quantity'=>$after,'counted'=>$stockCount->items()->whereNotNull('actual_quantity')->count(),'total'=>$stockCount->items()->count()];
+  return $r->expectsJson()?response()->json($payload):back()->with('status',$payload['message']);
+ }
+ public function logs(Request $r,StockCountTask $stockCount,StockCountItem $item){
+  $this->access($r,$stockCount);abort_unless($item->stock_count_task_id===$stockCount->id,404);$item->load('product');
+  $logs=$item->logs()->with('author')->latest('id')->limit(100)->get();
+  return response()->json(['product'=>$item->product->premium_marketing_name,'total'=>(float)($item->actual_quantity??0),'logs'=>$logs->map(fn($log)=>['change'=>(float)$log->quantity_change,'before'=>(float)$log->quantity_before,'after'=>(float)$log->quantity_after,'note'=>$log->note,'user'=>$log->author?->name??'Former user','date'=>$log->created_at?->format('d M Y H:i')])]);
+ }
  public function submit(Request $r,StockCountTask $stockCount){$this->countAccess($r,$stockCount);DB::transaction(function()use($stockCount){$task=StockCountTask::lockForUpdate()->findOrFail($stockCount->id);if($task->items()->whereNull('actual_quantity')->exists())throw ValidationException::withMessages(['count'=>'Enter an actual count for every product before submitting.']);$levels=WarehouseInventory::where('warehouse_id',$task->warehouse_id)->whereIn('product_id',$task->items()->pluck('product_id'))->get()->keyBy('product_id');foreach($task->items as $item)$item->update(['system_quantity_snapshot'=>$levels[$item->product_id]->quantity_on_hand??null]);$task->update(['status'=>'submitted','submitted_at'=>now(),'last_saved_at'=>now()]);});return redirect()->route('admin.stock-counts.show',$stockCount)->with('status','Count submitted. The result is now frozen for admin review.');}
  public function cancel(Request $r,StockCountTask $stockCount){abort_unless($r->user()->hasAdminPermission('stock-counts.manage'),403);abort_if($stockCount->status==='submitted',422,'Submitted counts cannot be cancelled.');$stockCount->update(['status'=>'cancelled']);return back()->with('status','Count task cancelled.');}
  public function destroy(Request $r,StockCountTask $stockCount){abort_unless($r->user()->hasAdminPermission('stock-counts.manage'),403);$number=$stockCount->number;$stockCount->delete();return redirect()->route('admin.stock-counts.index')->with('status','Stock count '.$number.' deleted.');}
