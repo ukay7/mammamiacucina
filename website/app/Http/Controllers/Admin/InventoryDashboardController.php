@@ -7,6 +7,9 @@ use App\Models\Inventory;
 use App\Models\InventoryMovement;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\Warehouse;
+use App\Models\WarehouseInventory;
+use App\Models\StockCountTask;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -54,18 +57,21 @@ class InventoryDashboardController extends Controller
         $unset=Product::with('inventory')->whereHas('inventory',fn($q)=>$q->whereNull('quantity_on_hand'))->orderBy('premium_marketing_name')->limit(10)->get();
         $affected=Order::with(['items'=>fn($q)=>$q->where('inventory_shortage_quantity','>',0),'items.product'])->whereIn('status',$activeStatuses)->whereHas('items',fn($q)=>$q->where('inventory_shortage_quantity','>',0))->latest('ordered_at')->limit(10)->get();
         $usage=DB::table('order_items as oi')->join('orders as o','o.id','=','oi.order_id')->leftJoin('products as p','p.id','=','oi.product_id')->where('o.status','!=','cancelled')->where('o.ordered_at','>=',$from.' 00:00:00')->where('o.ordered_at','<',$end)->groupBy('oi.product_id','p.premium_marketing_name','p.uom')->orderByDesc('units')->limit(10)->get(['oi.product_id','p.premium_marketing_name','p.uom',DB::raw('SUM(oi.quantity) as units'),DB::raw('COUNT(DISTINCT o.id) as orders')]);
-        $recent=InventoryMovement::with(['product','author'])->latest('id')->limit(12)->get();
+        $recent=InventoryMovement::with(['product','author','warehouse'])->latest('id')->limit(12)->get();
         $uomTotals=Inventory::join('products','products.id','=','inventories.product_id')->whereNotNull('quantity_on_hand')->selectRaw("COALESCE(NULLIF(products.uom,''),'Unspecified') as uom, SUM(inventories.quantity_on_hand) as quantity, COUNT(*) as products")->groupByRaw("COALESCE(NULLIF(products.uom,''),'Unspecified')")->orderBy('uom')->get();
+        $warehouseSummary=Warehouse::withCount(['inventories as tracked_products'=>fn($q)=>$q->whereNotNull('quantity_on_hand')])->withSum('inventories as total_quantity','quantity_on_hand')->orderByDesc('is_default')->get();
+        $countTasks=StockCountTask::with(['warehouse','assignee'])->withCount(['items','items as counted_items_count'=>fn($q)=>$q->whereNotNull('actual_quantity')])->latest()->limit(8)->get();
+        $metrics['open_counts']=StockCountTask::whereIn('status',['scheduled','in_progress'])->count();
 
-        return view('admin.inventory.dashboard',compact('from','to','metrics','stockHealth','trend','maxTrend','attention','unset','affected','usage','recent','uomTotals'));
+        return view('admin.inventory.dashboard',compact('from','to','metrics','stockHealth','trend','maxTrend','attention','unset','affected','usage','recent','uomTotals','warehouseSummary','countTasks'));
     }
 
     public function export(Request $request,string $report): StreamedResponse
     {
         abort_unless(in_array($report,['snapshot','movements','usage'],true),404);[$from,$to]=$this->dates($request);$end=Carbon::parse($to)->addDay();
         return response()->streamDownload(function()use($report,$from,$end){$out=fopen('php://output','w');fputs($out,"\xEF\xBB\xBF");
-            if($report==='snapshot'){fputcsv($out,['Product','Code','Active','UoM','On hand','Threshold','Status']);Product::with('inventory')->orderBy('premium_marketing_name')->chunk(200,function($rows)use($out){foreach($rows as $p){$q=$p->inventory?->quantity_on_hand;$t=$p->inventory?->low_stock_threshold??0;$status=$q===null?'Not set':($q<0?'Shortage':($q==0?'Out of stock':($q<=$t?'Low stock':'Healthy')));fputcsv($out,[$p->premium_marketing_name,$p->product_code,$p->is_active?'Yes':'No',$p->uom,$q,$t,$status]);}});
-            }elseif($report==='movements'){fputcsv($out,['Date','Product','Change','Before','After','Reason','Changed by']);InventoryMovement::with(['product','author'])->where('created_at','>=',$from.' 00:00:00')->where('created_at','<',$end)->orderBy('id')->chunk(200,function($rows)use($out){foreach($rows as $m)fputcsv($out,[$m->created_at,$m->product?->premium_marketing_name,$m->quantity_change,$m->quantity_before,$m->quantity_after,$m->reason,$m->author?->name]);});
+            if($report==='snapshot'){fputcsv($out,['Product','Code','Active','UoM','Warehouse','Warehouse on hand','Combined on hand','Threshold','Status']);Product::with(['inventory','warehouseInventories.warehouse'])->orderBy('premium_marketing_name')->chunk(200,function($rows)use($out){foreach($rows as $p){$locations=$p->warehouseInventories->isEmpty()?collect([null]):$p->warehouseInventories;foreach($locations as $location){$q=$location?->quantity_on_hand;$t=$p->inventory?->low_stock_threshold??0;$status=$q===null?'Not set':($q<0?'Shortage':($q==0?'Out of stock':($q<=$t?'Low stock':'Healthy')));fputcsv($out,[$p->premium_marketing_name,$p->product_code,$p->is_active?'Yes':'No',$p->uom,$location?->warehouse?->name,$q,$p->inventory?->quantity_on_hand,$t,$status]);}}});
+            }elseif($report==='movements'){fputcsv($out,['Date','Product','Warehouse','Change','Before','After','Reason','Changed by']);InventoryMovement::with(['product','author','warehouse'])->where('created_at','>=',$from.' 00:00:00')->where('created_at','<',$end)->orderBy('id')->chunk(200,function($rows)use($out){foreach($rows as $m)fputcsv($out,[$m->created_at,$m->product?->premium_marketing_name,$m->warehouse?->name,$m->quantity_change,$m->quantity_before,$m->quantity_after,$m->reason,$m->author?->name]);});
             }else{fputcsv($out,['Product','UoM','Units ordered','Orders']);$rows=DB::table('order_items as oi')->join('orders as o','o.id','=','oi.order_id')->leftJoin('products as p','p.id','=','oi.product_id')->where('o.status','!=','cancelled')->where('o.ordered_at','>=',$from.' 00:00:00')->where('o.ordered_at','<',$end)->groupBy('oi.product_id','p.premium_marketing_name','p.uom')->orderByDesc('units')->get(['p.premium_marketing_name','p.uom',DB::raw('SUM(oi.quantity) as units'),DB::raw('COUNT(DISTINCT o.id) as orders')]);foreach($rows as $row)fputcsv($out,(array)$row);}
             fclose($out);},'inventory-'.$report.'-'.$from.'-to-'.$to.'.csv',['Content-Type'=>'text/csv; charset=UTF-8']);
     }

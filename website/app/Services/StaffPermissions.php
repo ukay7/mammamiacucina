@@ -14,6 +14,8 @@ class StaffPermissions
             'admin.categories.index' => ['categories.manage' => 'Manage categories'],
             'admin.imports.index' => ['imports.manage' => 'Upload and commit imports'],
             'admin.inventory.index' => ['inventory.manage' => 'Adjust stock'],
+            'admin.warehouses.index' => ['warehouses.manage' => 'Create and edit warehouses'],
+            'admin.stock-counts.index' => ['stock-counts.manage' => 'Create and cancel count tasks'],
             'admin.banners.index' => ['banners.manage' => 'Manage banners'],
             'admin.quotations.index' => ['quotations.manage' => 'Create, edit and delete'],
             'admin.customers.index' => ['customers.manage' => 'Manage customers, terms, discounts and notes', 'customers.invoice-email' => 'Email invoices'],
@@ -31,7 +33,7 @@ class StaffPermissions
 
     public static function extraKeys(): array
     {
-        return [self::VERSION, 'orders.scope.restricted', 'customers.manage', 'customers.approve', 'customers.invoice-email', 'payments.manage'];
+        return [self::VERSION, 'orders.scope.restricted', 'customers.manage', 'customers.approve', 'customers.invoice-email', 'payments.manage', 'stock-counts.perform'];
     }
 
     public static function labels(array $permissions): array

@@ -7,6 +7,8 @@ use App\Models\Inventory;
 use App\Models\InventoryMovement;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\Warehouse;
+use App\Models\WarehouseInventory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -15,8 +17,10 @@ class InventoryController extends Controller
 {
     public function index(Request $r)
     {
-        $r->validate(['stock' => 'nullable|in:tracked,unset,healthy,low,out,shortage', 'per_page' => 'nullable|in:10,20,50,100']);
-        $products = Product::with(['inventory', 'categories', 'media' => fn ($q) => $q->coverImage()])
+        $r->validate(['stock' => 'nullable|in:tracked,unset,healthy,low,out,shortage', 'per_page' => 'nullable|in:10,20,50,100','warehouse'=>'nullable|exists:warehouses,id']);
+        $warehouses=Warehouse::where('is_active',true)->orderByDesc('is_default')->orderBy('name')->get();
+        $selectedWarehouse=$warehouses->firstWhere('id',(int)$r->input('warehouse'))??$warehouses->firstWhere('is_default',true)??$warehouses->first();
+        $products = Product::with(['inventory','warehouseInventories'=>fn($q)=>$q->where('warehouse_id',$selectedWarehouse?->id), 'categories', 'media' => fn ($q) => $q->coverImage()])
             ->when($r->filled('q'), fn ($q) => $q->searchTerm((string)$r->input('q')))
             ->when($r->input('stock') === 'tracked', fn ($q) => $q->whereHas('inventory', fn ($i) => $i->whereNotNull('quantity_on_hand')))
             ->when($r->input('stock') === 'unset', fn ($q) => $q->whereHas('inventory', fn ($i) => $i->whereNull('quantity_on_hand')))
@@ -26,22 +30,24 @@ class InventoryController extends Controller
             ->when($r->input('stock') === 'shortage', fn ($q) => $q->whereHas('inventory', fn ($i) => $i->where('quantity_on_hand', '<', 0)))
             ->orderBy('premium_marketing_name')->paginate((int)$r->input('per_page', 20))->withQueryString();
 
-        return view('admin.inventory.index', compact('products'));
+        return view('admin.inventory.index', compact('products','warehouses','selectedWarehouse'));
     }
 
     public function show(Product $product)
     {
         $product->load('inventory');
 
-        return view('admin.inventory.show', ['product' => $product, 'movements' => $product->movements()->with('author')->latest('id')->paginate(20)]);
+        return view('admin.inventory.show', ['product' => $product, 'movements' => $product->movements()->with(['author','warehouse'])->latest('id')->paginate(20)]);
     }
 
     public function adjust(Request $r, Product $product)
     {
-        $d = $r->validate(['action' => 'required|in:set,add,remove', 'quantity' => 'required|numeric|min:0|max:999999999|decimal:0,3', 'expected_quantity' => 'nullable|numeric', 'low_stock_threshold' => 'required|numeric|min:0|max:999999999|decimal:0,3', 'reason' => 'required|string|max:2000']);
+        $d = $r->validate(['warehouse_id'=>'nullable|exists:warehouses,id','action' => 'required|in:set,add,remove', 'quantity' => 'required|numeric|min:0|max:999999999|decimal:0,3', 'expected_quantity' => 'nullable|numeric', 'low_stock_threshold' => 'required|numeric|min:0|max:999999999|decimal:0,3', 'reason' => 'required|string|max:2000']);
+        $d['warehouse_id']=$d['warehouse_id']??Warehouse::where('is_default',true)->value('id');
         DB::transaction(function () use ($d, $product, $r) {
             $inventory = Inventory::where('product_id', $product->id)->lockForUpdate()->firstOrFail();
-            $before = $inventory->quantity_on_hand;
+            $warehouseInventory=WarehouseInventory::where('product_id',$product->id)->where('warehouse_id',$d['warehouse_id'])->lockForUpdate()->first();
+            $before = $warehouseInventory?->quantity_on_hand;
             $expected = $d['expected_quantity'] ?? null;
             if (($before === null) !== ($expected === null) || ($before !== null && (float) $before !== (float) $expected)) {
                 throw ValidationException::withMessages(['quantity' => 'Stock has changed since this page was opened. Reload and try again.']);
@@ -58,12 +64,15 @@ class InventoryController extends Controller
             if ($after < 0 || $after > 999999999000) {
                 throw ValidationException::withMessages(['quantity' => 'Adjustment must leave stock between 0 and 999,999,999.']);
             }
-            $inventory->update(['quantity_on_hand' => $after / 1000, 'low_stock_threshold' => $d['low_stock_threshold']]);
-            InventoryMovement::create(['product_id' => $product->id, 'quantity_change' => ($after - $old) / 1000, 'quantity_before' => $before, 'quantity_after' => $after / 1000, 'reason' => $d['reason'], 'created_by' => $r->user()->id, 'created_at' => now()]);
+            WarehouseInventory::updateOrCreate(['product_id'=>$product->id,'warehouse_id'=>$d['warehouse_id']],['quantity_on_hand'=>$after/1000]);
+            $total=WarehouseInventory::where('product_id',$product->id)->whereNotNull('quantity_on_hand')->sum('quantity_on_hand');
+            Inventory::withoutEvents(fn()=>$inventory->update(['quantity_on_hand' => $total, 'low_stock_threshold' => $d['low_stock_threshold']]));
+            InventoryMovement::create(['product_id' => $product->id,'warehouse_id'=>$d['warehouse_id'], 'quantity_change' => ($after - $old) / 1000, 'quantity_before' => $before, 'quantity_after' => $after / 1000, 'reason' => $d['reason'], 'created_by' => $r->user()->id, 'created_at' => now()]);
         }, 3);
 
         $inventory = $product->fresh()->inventory;
-        $payload = ['message' => 'Inventory updated and the adjustment was recorded.', 'quantity' => (float)$inventory->quantity_on_hand, 'threshold' => (float)$inventory->low_stock_threshold];
+        $warehouseQuantity=WarehouseInventory::where('product_id',$product->id)->where('warehouse_id',$d['warehouse_id'])->value('quantity_on_hand');
+        $payload = ['message' => 'Warehouse inventory updated and the adjustment was recorded.', 'quantity' => (float)$warehouseQuantity, 'threshold' => (float)$inventory->low_stock_threshold];
 
         return $r->expectsJson() ? response()->json($payload) : back()->with('status',$payload['message']);
     }

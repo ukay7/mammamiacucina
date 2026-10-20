@@ -1,0 +1,7 @@
+@extends('admin.layout')
+@section('title',$warehouse->exists?'Edit Warehouse':'Add Warehouse')
+@section('content')
+<link rel="stylesheet" href="{{ asset('admin-assets/stock-counts.css') }}?v={{ filemtime(public_path('admin-assets/stock-counts.css')) }}">
+<form class="sc-panel sc-form" method="post" action="{{ $warehouse->exists?route('admin.warehouses.update',$warehouse):route('admin.warehouses.store') }}">@csrf @if($warehouse->exists)@method('PUT')@endif
+<h2>{{ $warehouse->exists?'Update storage location':'Create storage location' }}</h2><label>Warehouse name<input class="form-control" name="name" required maxlength="120" value="{{ old('name',$warehouse->name) }}"></label><label>Storage condition<select class="form-control" name="storage_type">@foreach(['ambient'=>'Ambient / room temperature','chilled'=>'Chilled','freezer'=>'Freezer'] as $key=>$label)<option value="{{ $key }}" @selected(old('storage_type',$warehouse->storage_type)===$key)>{{ $label }}</option>@endforeach</select></label><label>Description<textarea class="form-control" name="description" rows="4" maxlength="2000">{{ old('description',$warehouse->description) }}</textarea></label><input type="hidden" name="is_active" value="0"><label class="sc-check"><input type="checkbox" name="is_active" value="1" @checked(old('is_active',$warehouse->is_active))> Active warehouse</label><div><button class="btn btn-primary">Save warehouse</button> <a class="btn btn-light" href="{{ route('admin.warehouses.index') }}">Cancel</a></div></form>
+@endsection

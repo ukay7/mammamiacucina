@@ -57,7 +57,7 @@ class AdminNavigation
             // Existing route/action checks remain in force beneath the menu gate.
             $result[]=explode('|',$node['permission'])[0];
         }
-        foreach(['users','roles','categories','products','imports','inventory','banners','quotations','orders'] as $module) {
+        foreach(['users','roles','categories','products','imports','inventory','warehouses','stock-counts','banners','quotations','orders'] as $module) {
             if(in_array($module.'.manage',$result,true)) $result[]=$module.'.view';
         }
         return array_values(array_unique($result));
@@ -92,6 +92,10 @@ class AdminNavigation
             $target='admin.reports.inventory';
         } elseif(Str::startsWith($route,'admin.inventory.')) {
             $target='admin.inventory.index';
+        } elseif(Str::startsWith($route,'admin.warehouses.')) {
+            $target='admin.warehouses.index';
+        } elseif(Str::startsWith($route,'admin.stock-counts.')) {
+            $target=$user->hasAdminPermission('stock-counts.view')?'admin.stock-counts.index':'admin.stock-counts.mine';
         } elseif(Str::startsWith($route,'admin.dashboard')) {
             $target='admin.dashboard';
         } elseif(Str::startsWith($route,'admin.email.') && !Str::startsWith($route,['admin.email.templates.','admin.email.history'])) {

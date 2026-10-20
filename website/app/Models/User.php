@@ -45,6 +45,7 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Role::class);
     }
+    public function stockCountTasks(){return $this->hasMany(StockCountTask::class,'assigned_to');}
 
     public function customer(){return $this->hasOne(Customer::class);}
     public function customerRecord(): Customer {

@@ -14,7 +14,7 @@ $active = static fn($item) => str_starts_with($item['match'], 'path:')
 @else
 @foreach($sections as $heading => $items)
 @php
-$visible = collect($items)->map(function($item) use ($allowed) {
+$visible = collect($items)->reject(fn($item)=>($item['route']??null)==='admin.stock-counts.mine' && auth()->user()->hasAdminPermission('stock-counts.view'))->map(function($item) use ($allowed) {
     if (isset($item['children'])) {
         $item['children'] = array_values(array_filter($item['children'], $allowed));
         return $item['children'] ? $item : null;

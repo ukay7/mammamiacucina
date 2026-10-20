@@ -52,12 +52,13 @@ class AdminAccessTest extends TestCase
             $html = $this->get(route($route))->assertOk()->getContent();
             preg_match('/<ul class="nav-menu">(.*?)<\/nav>/s', $html, $matches);
             $sidebar = $matches[1];
-            $this->assertSame(4, substr_count($sidebar, '<a '));
+            $this->assertSame(5, substr_count($sidebar, '<a '));
             $this->assertStringContainsString('Pending Orders', $sidebar);
             $this->assertStringContainsString('Completed Orders', $sidebar);
             $this->assertStringContainsString('href="'.route($route).'"  aria-current="page"', $sidebar);
             $this->assertStringContainsString('My Notes', $sidebar);
             $this->assertStringContainsString('Dashboard', $sidebar);
+            $this->assertStringContainsString('My Stock Counts', $sidebar);
             $this->assertStringNotContainsString('Website &amp; Social', $sidebar);
             $this->assertStringNotContainsString('mmc-website-shortcut', $html);
         }

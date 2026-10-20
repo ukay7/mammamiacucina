@@ -21,6 +21,11 @@ return ['permissions' => ['quotations.view'=>'View and print quotations', 'quota
     'imports.manage' => 'Upload and import products',
     'inventory.view' => 'View inventory and stock history',
     'inventory.manage' => 'Adjust product stock',
+    'warehouses.view' => 'View warehouses',
+    'warehouses.manage' => 'Manage warehouses',
+    'stock-counts.view' => 'View all stock count tasks',
+    'stock-counts.manage' => 'Create and cancel stock count tasks',
+    'stock-counts.perform' => 'Complete assigned stock count tasks',
     'roles.view' => 'View user types',
     'roles.manage' => 'Manage user types and permissions',
 ]];

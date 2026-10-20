@@ -1,0 +1,7 @@
+@extends('admin.layout')
+@section('title','Warehouses & Locations')
+@section('content')
+<link rel="stylesheet" href="{{ asset('admin-assets/stock-counts.css') }}?v={{ filemtime(public_path('admin-assets/stock-counts.css')) }}">
+<section class="sc-hero"><div><span>STORAGE MAP</span><h2>Warehouses &amp; Locations</h2><p>Create storage locations and keep each product's warehouse stock visible.</p></div>@if(auth()->user()->hasAdminPermission('warehouses.manage'))<a class="btn btn-primary" href="{{ route('admin.warehouses.create') }}"><i class="fas fa-plus"></i> Add warehouse</a>@endif</section>
+<div class="sc-card-grid">@foreach($warehouses as $warehouse)<article class="sc-card"><div class="sc-card-head"><span class="sc-icon"><i class="fas fa-{{ $warehouse->storage_type==='freezer'?'snowflake':($warehouse->storage_type==='chilled'?'temperature-low':'warehouse') }}"></i></span><div><h3>{{ $warehouse->name }}</h3><p>{{ ucfirst($warehouse->storage_type) }} storage</p></div></div><p>{{ $warehouse->description ?: 'No description provided.' }}</p><div class="sc-meta"><span>{{ $warehouse->inventories_count }} stocked products</span><span>{{ $warehouse->is_active?'Active':'Inactive' }}</span>@if($warehouse->is_default)<strong>Default</strong>@endif</div>@if(auth()->user()->hasAdminPermission('warehouses.manage'))<a class="btn btn-outline-primary btn-sm" href="{{ route('admin.warehouses.edit',$warehouse) }}">Edit warehouse</a>@endif</article>@endforeach</div>
+@endsection

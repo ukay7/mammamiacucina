@@ -10,6 +10,11 @@ class InventoryMovement extends Model
 
     protected $guarded = ['id'];
 
+    protected static function booted(): void
+    {
+        static::creating(function(self $movement){if(!$movement->warehouse_id && \Illuminate\Support\Facades\Schema::hasTable('warehouses'))$movement->warehouse_id=Warehouse::where('is_default',true)->value('id');});
+    }
+
     protected function casts(): array
     {
         return ['created_at' => 'datetime'];
@@ -24,4 +29,6 @@ class InventoryMovement extends Model
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+
+    public function warehouse(){return $this->belongsTo(Warehouse::class);}
 }
