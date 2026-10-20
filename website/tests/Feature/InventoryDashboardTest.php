@@ -43,7 +43,7 @@ class InventoryDashboardTest extends TestCase
         $this->actingAs($this->actor());$product=$this->product(-2,10);
         $order=Order::create(['checkout_token'=>(string)Str::uuid(),'number'=>'mmc-9001','first_name'=>'Stock','last_name'=>'Customer','email'=>'stock@example.test','phone'=>'555','address'=>'','city'=>'','province'=>'','postal_code'=>'','country'=>'','status'=>'warehouse_pending','source'=>'website','fulfillment'=>'pickup','payment_method'=>'cash','payment_status'=>'unpaid','subtotal_cents'=>2000,'delivery_cents'=>0,'tax_cents'=>0,'ordered_at'=>now()]);
         $order->items()->create(['product_id'=>$product->id,'name'=>$product->premium_marketing_name,'product_code'=>$product->product_code,'qr_code'=>$product->qr_code,'quantity'=>2,'unit_cents'=>1000,'line_cents'=>2000,'stock_deducted'=>true,'inventory_shortage_quantity'=>2]);
-        $this->get(route('admin.reports.inventory'))->assertOk()->assertSee('Inventory health')->assertSee('Orders accepted with inventory shortage')->assertSee('mmc-9001')->assertSee('Dashboard Cake');
+        $this->get(route('admin.reports.inventory'))->assertOk()->assertSee('Inventory health')->assertSee('What does Healthy mean?')->assertSee('Products with a negative current quantity')->assertSee('Orders accepted with inventory shortage')->assertSee('mmc-9001')->assertSee('Dashboard Cake');
         $this->get(route('admin.reports.inventory.export',['report'=>'snapshot']))->assertOk()->assertDownload();
         $this->get(route('admin.reports.inventory.export',['report'=>'usage']))->assertOk()->assertDownload();
         $this->getJson(route('admin.inventory.orders',$product))->assertOk()->assertJsonPath('orders.0.number','mmc-9001')->assertJsonPath('orders.0.shortage',2);
