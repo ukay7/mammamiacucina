@@ -3,6 +3,21 @@ menu?.addEventListener('click',()=>{const open=document.body.classList.toggle('s
 document.addEventListener('click',e=>{if(document.body.classList.contains('sidebar-open')&&!e.target.closest('.page-sidebar')&&!e.target.closest('.mmc-admin-menu')){document.body.classList.remove('sidebar-open');menu?.setAttribute('aria-expanded','false');}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){document.body.classList.remove('sidebar-open');menu?.setAttribute('aria-expanded','false');}});
 
+// Product-heavy admin screens become usable immediately; photos load only as they approach view.
+(()=>{
+ const images=[...document.querySelectorAll('img.mmc-lazy-image[data-src]')];
+ const load=image=>{
+  const source=image.dataset.src;if(!source)return;
+  const reveal=()=>image.classList.add('is-loaded');
+  image.addEventListener('load',reveal,{once:true});
+  image.addEventListener('error',()=>image.classList.add('is-error'),{once:true});
+  image.src=source;delete image.dataset.src;if(image.complete)reveal();
+ };
+ if(!('IntersectionObserver' in window)){images.forEach(load);return;}
+ const observer=new IntersectionObserver(entries=>entries.forEach(entry=>{if(entry.isIntersecting){load(entry.target);observer.unobserve(entry.target)}}),{rootMargin:'180px 0px'});
+ images.forEach(image=>observer.observe(image));
+})();
+
 
 document.querySelector('[data-select-products]')?.addEventListener('change', function(){document.querySelectorAll('input[name="product_ids[]"]').forEach(input=>input.checked=this.checked);});
 

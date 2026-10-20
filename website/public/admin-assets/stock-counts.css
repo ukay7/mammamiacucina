@@ -33,7 +33,7 @@
 .sc-create-form .sc-product-list label{position:relative;min-width:0;min-height:54px;padding:8px 10px;background:#fff;border-color:#e5d6bd;transition:border-color .15s,background .15s,box-shadow .15s}
 .sc-create-form .sc-product-list label:has(input:checked){border-color:#c9a76c;background:#fffaf0;box-shadow:inset 3px 0 #a90022}
 .sc-create-form .sc-product-list input{width:17px;height:17px;flex:0 0 17px;accent-color:#a90022}
-.sc-create-form .sc-product-list label>span{width:34px;height:34px;flex:0 0 34px;overflow:hidden;color:#9b7537}.sc-product-symbol i{font-size:14px}.sc-product-symbol img{display:block;width:34px;height:34px;border-radius:8px;object-fit:cover;opacity:0;transition:opacity .15s}.sc-product-symbol img.is-loaded{opacity:1}
+.sc-create-form .sc-product-list label>span{width:34px;height:34px;flex:0 0 34px;overflow:hidden;color:#9b7537}.sc-product-symbol i{font-size:14px}.sc-product-symbol img{display:block;width:34px;height:34px;border-radius:8px;object-fit:cover}
 .sc-create-form .sc-product-list b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}.sc-create-form .sc-product-list small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;margin-top:3px}
 .sc-create-form>.sc-form-actions{position:relative;z-index:2;align-items:center;margin:0;padding:14px 20px;border-top:1px solid #dfc9a5;background:#f8efdf;box-shadow:0 -5px 16px rgba(67,43,16,.05)}
 .sc-create-form>.sc-form-actions p{margin:0 auto 0 0;color:#746652;font-size:11px}.sc-create-form>.sc-form-actions p i{color:#a1742d;margin-right:5px}.sc-create-form>.sc-form-actions .btn{min-height:42px}
