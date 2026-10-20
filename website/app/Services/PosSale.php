@@ -31,9 +31,6 @@ class PosSale
             }
             $query = Inventory::where('product_id', $product->id);
             $inventory = ($lock ? $query->lockForUpdate() : $query)->first();
-            if ($inventory && $inventory->quantity_on_hand !== null && (float) $inventory->quantity_on_hand < $item['quantity']) {
-                $this->fail('Not enough stock for '.$product->premium_marketing_name.'. Available: '.$inventory->quantity_on_hand);
-            }
             $lines[] = ['product' => $product, 'inventory' => $inventory, 'quantity' => (int) $item['quantity'],
                 'unit_cents' => $price, 'original_unit_cents'=>$pricing['original_unit_cents'],'discount_bps'=>$pricing['discount_bps']];
         }
@@ -146,9 +143,10 @@ class PosSale
             foreach ($lines as $line) {
                 ['product' => $product, 'inventory' => $inventory, 'quantity' => $quantity, 'unit_cents' => $price] = $line;
                 $tracked = $inventory && $inventory->quantity_on_hand !== null;
+                $shortage = $tracked ? max(0, $quantity - max(0, (float) $inventory->quantity_on_hand)) : null;
                 $order->items()->create(['product_id' => $product->id, 'name' => $product->premium_marketing_name,
                     'product_code' => $product->product_code, 'qr_code' => $product->qr_code, 'stock_deducted' => $tracked,
-                    'packed'=>$warehouseSale,'packed_by'=>$warehouseSale ? $userId : null,'packed_at'=>$warehouseSale ? now() : null,'original_unit_cents'=>$line['original_unit_cents'],'discount_bps'=>$line['discount_bps'],'quantity' => $quantity, 'unit_cents' => $price, 'line_cents' => $quantity * $price]);
+                    'inventory_shortage_quantity'=>$shortage,'packed'=>$warehouseSale,'packed_by'=>$warehouseSale ? $userId : null,'packed_at'=>$warehouseSale ? now() : null,'original_unit_cents'=>$line['original_unit_cents'],'discount_bps'=>$line['discount_bps'],'quantity' => $quantity, 'unit_cents' => $price, 'line_cents' => $quantity * $price]);
                 if ($tracked) {
                     $before = $inventory->quantity_on_hand;
                     $after = ((int) round((float) $before * 1000) - $quantity * 1000) / 1000;

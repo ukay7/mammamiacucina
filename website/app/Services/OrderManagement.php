@@ -118,7 +118,7 @@ class OrderManagement
                         $fail('Restoring stock would exceed the inventory limit.');
                     }
                     $inventory->update(['quantity_on_hand' => $after]);
-                    $item->update(['stock_deducted' => false]);
+                    $item->update(['stock_deducted' => false, 'inventory_shortage_quantity' => 0]);
                     InventoryMovement::create(['product_id' => $item->product_id, 'quantity_change' => $item->quantity, 'quantity_before' => $before, 'quantity_after' => $after, 'reason' => 'Cancelled order '.$order->number, 'created_by' => $userId, 'created_at' => now()]);
                 }
             }

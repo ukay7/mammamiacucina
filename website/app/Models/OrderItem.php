@@ -8,6 +8,11 @@ class OrderItem extends Model
 {
     protected $guarded = ['id'];
 
+    protected function casts(): array
+    {
+        return ['inventory_shortage_quantity' => 'decimal:3'];
+    }
+
     public function order()
     {
         return $this->belongsTo(Order::class);

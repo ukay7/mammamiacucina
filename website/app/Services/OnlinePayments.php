@@ -250,7 +250,7 @@ class OnlinePayments
             $inventory->update(['quantity_on_hand' => $after]);
             InventoryMovement::create(['product_id' => $item->product_id, 'quantity_change' => $item->quantity,
                 'quantity_before' => $before, 'quantity_after' => $after, 'reason' => $reason.' '.$order->number, 'created_by' => null, 'created_at' => now()]);
-            $item->update(['stock_deducted' => false]);
+            $item->update(['stock_deducted' => false, 'inventory_shortage_quantity' => 0]);
         }
     }
 
@@ -306,11 +306,11 @@ class OnlinePayments
                     $inventory = Inventory::where('product_id',$item->product_id)->lockForUpdate()->first();
                     if (!$inventory || $inventory->quantity_on_hand === null) continue;
                     $before = $inventory->quantity_on_hand;
-                    if ((float)$before < $item->quantity) $fail('Insufficient stock. Resolve stock availability before sending to warehouse.');
+                    $shortage=max(0,$item->quantity-max(0,(float)$before));
                     $after = ((int)round((float)$before * 1000) - $item->quantity * 1000) / 1000;
                     $inventory->update(['quantity_on_hand'=>$after]);
                     InventoryMovement::create(['product_id'=>$item->product_id,'quantity_change'=>-$item->quantity,'quantity_before'=>$before,'quantity_after'=>$after,'reason'=>'Manual payment resolution '.$order->number,'created_by'=>$userId,'created_at'=>now()]);
-                    $item->update(['stock_deducted'=>true]);
+                    $item->update(['stock_deducted'=>true,'inventory_shortage_quantity'=>$shortage]);
                 }
                 $p->update(['status'=>'paid','paid_at'=>$p->paid_at ?? now(),'manual_resolution'=>'paid','attention'=>null,'released_at'=>null,'checkout_url'=>null]);
                 $order->update(['payment_status'=>'paid','paid_at'=>$p->paid_at,'status'=>'warehouse_pending','warehouse_round'=>$order->warehouse_round+1,'warehouse_sent_at'=>now(),'cancelled_at'=>null,'revision'=>$order->revision+1]);

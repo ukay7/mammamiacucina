@@ -209,15 +209,16 @@ class WarehouseWorkflowTest extends TestCase
         $this->get('/admin/reports/payments')->assertOk()->assertViewHas('summary', fn ($s) => $s['cash']['gross'] === 2500 && $s['cash']['refunded'] === 1500);
     }
 
-    public function test_insufficient_stock_and_removing_every_item_rollback(): void
+    public function test_short_stock_is_recorded_and_removing_every_item_rolls_back(): void
     {
         [$o,$p] = $this->fixture();
         $id = $o->items()->first()->id;
-        $this->amend($o, ['items' => [$id => ['quantity' => 20, 'unit_price' => '10']]])->assertSessionHasErrors('order');
-        $this->assertSame('8.000', $p->inventory()->first()->quantity_on_hand);
+        $this->amend($o, ['items' => [$id => ['quantity' => 20, 'unit_price' => '10']]])->assertSessionHasNoErrors();
+        $this->assertSame('-10.000', $p->inventory()->first()->quantity_on_hand);
+        $this->assertSame('10.000', $o->items()->first()->inventory_shortage_quantity);
         $this->amend($o, ['items' => [$id => ['quantity' => 0, 'unit_price' => '10']]])->assertSessionHasErrors('order');
-        $this->assertEquals(2, $o->items()->first()->quantity);
-        $this->assertSame('8.000', $p->inventory()->first()->quantity_on_hand);
+        $this->assertEquals(20, $o->items()->first()->quantity);
+        $this->assertSame('-10.000', $p->inventory()->first()->quantity_on_hand);
     }
 
     public function test_partial_collection_then_mark_paid_does_not_double_count(): void

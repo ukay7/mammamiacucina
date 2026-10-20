@@ -55,7 +55,7 @@ class CheckoutTest extends TestCase
         $this->get(route('admin.orders.show',$order))->assertNotFound();
         $p->update(['premium_marketing_name' => 'Changed Cake', 'total_selling_price_cad' => 999]);
         $this->get('/order-success')->assertOk()->assertSee('Order Cake')->assertSee('$21.40')->assertDontSee('Changed Cake');
-        $this->get('/order-print')->assertOk()->assertSee('Order Confirmation')->assertSee('Order Cake')->assertSee('logo.png');
+        $this->get('/order-print')->assertOk()->assertSee('Order Confirmation')->assertSee('Order Cake')->assertSee('data:image/', false);
         session()->forget(['last_order_id', 'last_order_token']);
         $this->get('/order-print')->assertNotFound();
         $this->get('/order-success')->assertRedirect('/cart');
@@ -152,16 +152,15 @@ class CheckoutTest extends TestCase
         $this->assertSame('10.000', $p->inventory()->first()->quantity_on_hand);
     }
 
-    public function test_stock_unavailable_and_wrong_token_do_not_place_orders(): void
+    public function test_short_stock_is_accepted_and_wrong_token_is_rejected(): void
     {
         [$p,$d] = $this->prepareOrder();
         $this->post('/checkout', array_merge($d, ['checkout_token' => (string) Str::uuid()]))->assertSessionHasErrors('cart');
         $p->inventory()->update(['quantity_on_hand' => 1]);
-        $this->post('/checkout', $d)->assertSessionHasErrors('cart');
-        $this->assertDatabaseCount('orders', 0);
-        $p->update(['is_active' => false]);
-        $this->post('/checkout', $d)->assertSessionHasErrors('cart');
-        $this->assertDatabaseCount('orders', 0);
+        $this->post('/checkout', $d)->assertRedirect('/order-success');
+        $this->assertDatabaseCount('orders', 1);
+        $this->assertSame('-1.000',$p->inventory()->first()->quantity_on_hand);
+        $this->assertDatabaseHas('order_items',['product_id'=>$p->id,'inventory_shortage_quantity'=>1]);
     }
 
     public function test_admin_orders_require_permission(): void

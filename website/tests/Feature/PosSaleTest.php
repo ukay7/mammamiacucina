@@ -98,18 +98,23 @@ class PosSaleTest extends TestCase
 
     }
 
-    public function test_zero_stock_and_insufficient_stock_block_checkout_without_partial_changes(): void
+    public function test_zero_and_insufficient_stock_accept_sales_and_record_shortages(): void
     {
         $this->staff();
         $product=$this->product();
         $quote=$this->quote($product);
         $product->inventory()->update(['quantity_on_hand'=>1]);
-        $this->sale($quote)->assertUnprocessable();
-        $this->assertSame('1.000',$product->inventory()->first()->quantity_on_hand);
-        $this->assertDatabaseCount('orders',0);
-        $this->assertDatabaseCount('inventory_movements',0);
-        $product->inventory()->update(['quantity_on_hand'=>0]);
-        $this->postJson(route('admin.pos.quote'),['customer_id'=>$this->customerId,'items'=>[['id'=>$product->id,'quantity'=>1]],'fulfillment'=>'pickup'])->assertUnprocessable();
+        $this->sale($quote)->assertOk();
+        $this->assertSame('-1.000',$product->inventory()->first()->quantity_on_hand);
+        $this->assertDatabaseHas('order_items',['product_id'=>$product->id,'inventory_shortage_quantity'=>1]);
+        $this->assertDatabaseCount('orders',1);
+        $this->assertDatabaseCount('inventory_movements',1);
+
+        $zero=$this->product('ZERO',0);
+        $zeroQuote=$this->quote($zero,'pickup',1);
+        $this->sale($zeroQuote)->assertOk();
+        $this->assertSame('-1.000',$zero->inventory()->first()->quantity_on_hand);
+        $this->assertDatabaseHas('order_items',['product_id'=>$zero->id,'inventory_shortage_quantity'=>1]);
     }
 
     public function test_prices_settings_and_expired_quotes_require_review_again(): void

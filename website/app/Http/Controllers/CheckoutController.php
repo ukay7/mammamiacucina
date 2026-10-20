@@ -114,9 +114,6 @@ class CheckoutController extends Controller
                     throw ValidationException::withMessages(['cart' => 'Your cart or a price changed. Return to checkout from your cart to review the updated amount.']);
                 }
                 $inventory = Inventory::where('product_id', $p->id)->lockForUpdate()->first();
-                if ($inventory && $inventory->quantity_on_hand !== null && (float) $inventory->quantity_on_hand < $qty) {
-                    throw ValidationException::withMessages(['cart' => 'Not enough stock for '.$p->premium_marketing_name.'. Please update your cart.']);
-                }
                 $lines[] = [$p, $qty, $price, $inventory,$pricing];
                 $subtotal += $price * $qty;
             }
@@ -129,7 +126,9 @@ class CheckoutController extends Controller
             // The database-generated ID avoids collisions between simultaneous orders.
             $order->update(['number' => 'mmc-'.$order->id]);
             foreach ($lines as [$p,$qty,$price,$inventory,$pricing]) {
-                $order->items()->create(['original_unit_cents'=>$pricing['original_unit_cents'],'discount_bps'=>$pricing['discount_bps'],'product_id' => $p->id, 'name' => $p->premium_marketing_name, 'product_code' => $p->product_code, 'qr_code' => $p->qr_code, 'stock_deducted' => $inventory && $inventory->quantity_on_hand !== null, 'quantity' => $qty, 'unit_cents' => $price, 'line_cents' => $price * $qty]);
+                $tracked = $inventory && $inventory->quantity_on_hand !== null;
+                $shortage = $tracked ? max(0, $qty - max(0, (float) $inventory->quantity_on_hand)) : null;
+                $order->items()->create(['original_unit_cents'=>$pricing['original_unit_cents'],'discount_bps'=>$pricing['discount_bps'],'product_id' => $p->id, 'name' => $p->premium_marketing_name, 'product_code' => $p->product_code, 'qr_code' => $p->qr_code, 'stock_deducted' => $tracked, 'inventory_shortage_quantity' => $shortage, 'quantity' => $qty, 'unit_cents' => $price, 'line_cents' => $price * $qty]);
                 if ($inventory && $inventory->quantity_on_hand !== null) {
                     $before = $inventory->quantity_on_hand;
                     $after = ((int) round((float) $before * 1000) - $qty * 1000) / 1000;

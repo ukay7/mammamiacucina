@@ -53,28 +53,32 @@ class OrderAmendment
             $before = $items->map(fn ($i) => ['name' => $i->name, 'quantity' => $i->quantity, 'unit_cents' => $i->unit_cents])->values()->all();
             $stock = function ($productId, int $difference, string $name) use ($inventories, $order, $user) {
                 if (! $difference) {
-                    return;
+                    return null;
                 }
                 $inv = $inventories->get($productId);
                 if (! $inv || $inv->quantity_on_hand === null) {
-                    $this->fail('Inventory is no longer configured for '.$name.'. Resolve it before changing quantity.');
+                    return null;
                 }
                 $before = $inv->quantity_on_hand;
                 $after = (int) round((float) $before * 1000) - $difference * 1000;
-                if ($after < 0 || $after > 999999999000) {
-                    $this->fail('Insufficient stock or inventory limit for '.$name.'.');
+                if ($after < -999999999000 || $after > 999999999000) {
+                    $this->fail('Inventory limit exceeded for '.$name.'.');
                 }
                 $inv->update(['quantity_on_hand' => $after / 1000]);
                 InventoryMovement::create(['product_id' => $productId, 'quantity_change' => -$difference, 'quantity_before' => $before, 'quantity_after' => $after / 1000, 'reason' => 'Order amended '.$order->number, 'created_by' => $user, 'created_at' => now()]);
+                return ['before' => (float) $before, 'after' => $after / 1000];
             };
             foreach ($items as $id => $item) {
                 $row = $data['items'][$id];
                 $qty = (int) $row['quantity'];
                 $difference = $qty - (int) $item->quantity;
                 if ($item->stock_deducted) {
-                    $stock($item->product_id, $difference, $item->name);
-                } elseif ($difference && $inventories->get($item->product_id)?->quantity_on_hand !== null && $inventories->has($item->product_id)) {
-                    $this->fail('Stock tracking changed for '.$item->name.'. Resolve the original untracked reservation before changing quantity.');
+                    $movement = $stock($item->product_id, $difference, $item->name);
+                    if ($difference > 0 && $movement) {
+                        $item->inventory_shortage_quantity = (float) ($item->inventory_shortage_quantity ?? 0) + max(0, $difference - max(0, $movement['before']));
+                    } elseif ($difference < 0) {
+                        $item->inventory_shortage_quantity = max(0, (float) ($item->inventory_shortage_quantity ?? 0) + $difference);
+                    }
                 }
                 if (! $qty) {
                     $item->delete();
@@ -82,7 +86,7 @@ class OrderAmendment
                     continue;
                 }
                 $unit = self::cents($row['unit_price']);
-                $changes = ['quantity' => $qty, 'unit_cents' => $unit, 'line_cents' => $qty * $unit];
+                $changes = ['quantity' => $qty, 'unit_cents' => $unit, 'line_cents' => $qty * $unit, 'inventory_shortage_quantity' => $item->inventory_shortage_quantity];
                 // Price/contact changes do not invalidate a physical packing check.
                 if ($difference !== 0) {
                     $changes += ['packed' => false, 'packed_by' => null, 'packed_at' => null];
@@ -103,10 +107,12 @@ class OrderAmendment
                     $this->fail('Enter a selling price for '.$p->premium_marketing_name.'.');
                 }
                 $tracked = $inventories->has($p->id) && $inventories[$p->id]->quantity_on_hand !== null;
+                $shortage = null;
                 if ($tracked) {
-                    $stock($p->id, $qty, $p->premium_marketing_name);
+                    $movement = $stock($p->id, $qty, $p->premium_marketing_name);
+                    $shortage = max(0, $qty - max(0, $movement['before']));
                 }
-                $order->items()->create(['product_id' => $p->id, 'name' => $p->premium_marketing_name, 'product_code' => $p->product_code, 'qr_code' => $p->qr_code, 'stock_deducted' => $tracked, 'quantity' => $qty, 'unit_cents' => $unit, 'line_cents' => $qty * $unit]);
+                $order->items()->create(['product_id' => $p->id, 'name' => $p->premium_marketing_name, 'product_code' => $p->product_code, 'qr_code' => $p->qr_code, 'stock_deducted' => $tracked, 'inventory_shortage_quantity' => $shortage, 'quantity' => $qty, 'unit_cents' => $unit, 'line_cents' => $qty * $unit]);
             }
             if ($order->items()->count() > 100) {
                 $this->fail('An order can contain up to 100 different products.');

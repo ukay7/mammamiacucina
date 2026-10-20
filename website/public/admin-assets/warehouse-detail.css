@@ -27,3 +27,4 @@
  .warehouse-detail-page .warehouse-packing .table-responsive{overflow-x:visible}
  .warehouse-detail-page .wh-detail-navigation .btn{white-space:normal}
 }
+.wh-inventory-warning{display:flex;align-items:flex-start;gap:12px;margin:14px 0;border-left:5px solid #a70022;background:#fff0d7;color:#4d3420}.wh-inventory-warning>i{margin-top:3px;color:#a70022;font-size:20px}.wh-inventory-warning div{display:flex;flex-direction:column;gap:3px}
