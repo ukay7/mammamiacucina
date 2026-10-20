@@ -14,7 +14,7 @@ class StockCountController extends Controller {
  }
  public function create(){
   $users=User::where('is_active',true)->whereHas('role',fn($q)=>$q->where('name',Role::WAREHOUSE_USER))->orderBy('name')->get();
-  return view('admin.stock-counts.create',['warehouses'=>Warehouse::where('is_active',true)->orderByDesc('is_default')->orderBy('name')->get(),'users'=>$users,'products'=>Product::where('is_active',true)->orderBy('premium_marketing_name')->get(['id','premium_marketing_name','product_code','qr_code'])]);
+  return view('admin.stock-counts.create',['warehouses'=>Warehouse::where('is_active',true)->orderByDesc('is_default')->orderBy('name')->get(),'users'=>$users,'products'=>Product::where('is_active',true)->with(['media'=>fn($q)=>$q->coverImage()])->orderBy('premium_marketing_name')->get(['id','premium_marketing_name','product_code','qr_code'])]);
  }
  public function store(Request $r){
   $d=$r->validate(['scope'=>'required|in:full,specific','warehouse_id'=>'required|exists:warehouses,id','assigned_to'=>'required|exists:users,id','starts_at'=>'nullable|date','due_at'=>'nullable|date|after_or_equal:starts_at','instructions'=>'nullable|string|max:4000','product_ids'=>'nullable|array','product_ids.*'=>'integer|exists:products,id','excluded_product_ids'=>'nullable|array','excluded_product_ids.*'=>'integer|exists:products,id']);
