@@ -3,7 +3,10 @@ $sections = config('admin_navigation');
 $allowed = static fn($item) => \App\Services\AdminNavigation::allowed(auth()->user(), $item);
 $active = static fn($item) => str_starts_with($item['match'], 'path:')
     ? request()->is(substr($item['match'], 5))
-    : request()->routeIs($item['match']) && !($item['route'] === 'admin.customers.index' && request()->routeIs('admin.customers.business-requests')) && !($item['route'] === 'admin.orders.index' && request()->routeIs('admin.orders.completed','admin.orders.archived'));
+    : request()->routeIs($item['match'])
+        && !($item['route'] === 'admin.customers.index' && request()->routeIs('admin.customers.business-requests'))
+        && !($item['route'] === 'admin.orders.index' && request()->routeIs('admin.orders.completed','admin.orders.archived'))
+        && !($item['route'] === 'admin.reports.index' && request()->routeIs('admin.reports.inventory*','admin.reports.overdue-cheques'));
 @endphp
 @if(auth()->user()->isCustomer())
 <li><a href="{{ route('customer.orders') }}"><i class="fas fa-home" aria-hidden="true"></i><span>My Orders</span></a></li>
