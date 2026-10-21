@@ -12,3 +12,174 @@ body.mmc-admin,.mmc-admin .page-content{background:var(--theme-background);color
 .mmc-admin .btn-outline-primary{color:var(--theme-primary);border-color:var(--theme-accent)}
 .mmc-admin .btn-outline-primary:hover{background:var(--theme-primary);color:var(--theme-button_text)}
 .mmc-admin :is(.panel,.form-control,.page-header,.page-footer){border-color:var(--theme-accent)}
+.mmc-admin .breadcrumb{background:color-mix(in srgb,var(--theme-surface,#fffaf2) 92%,var(--theme-background,#f7f0e5));color:var(--theme-text)}
+.mmc-admin .table thead th{color:var(--theme-text);border-color:var(--admin-line,#dfcba5)}
+.mmc-admin .panel-hdr{background:var(--admin-softer,#f8f2e8);border-color:var(--admin-line,#dfcba5)}
+.mmc-admin input[type=checkbox]{accent-color:var(--theme-primary)}
+.mmc-admin :is(button,a,input,select,textarea,summary):focus-visible{outline-color:var(--theme-accent)}
+
+/* Shared tokens for feature-specific admin screens. The first value preserves the
+   classic palette in older browsers; color-mix lets saved palettes tint every
+   custom workspace without adding more settings. */
+.mmc-admin{
+ --admin-hero-start:#292016;
+ --admin-hero-end:#493522;
+ --admin-hero-text:#fff5df;
+ --admin-hero-muted:#ddcfb9;
+ --admin-soft:#f1e7d6;
+ --admin-softer:#f8f2e8;
+ --admin-line:#dfcba5;
+ --admin-shadow:rgba(49,32,16,.08);
+ --admin-overlay:rgba(23,15,8,.72);
+ --admin-chart-1:#b9914b;
+ --admin-chart-2:#8e1830;
+ --admin-chart-3:#648879;
+ --admin-chart-4:#718aa5;
+ --admin-chart-5:#b0a49a;
+ --admin-hero-start:color-mix(in srgb,var(--theme-header,#191209) 88%,var(--theme-accent,#b98c45));
+ --admin-hero-end:color-mix(in srgb,var(--theme-header,#191209) 68%,var(--theme-accent,#b98c45));
+ --admin-hero-text:var(--theme-nav_text,#fff4e5);
+ --admin-hero-muted:color-mix(in srgb,var(--theme-nav_text,#fff4e5) 76%,transparent);
+ --admin-soft:color-mix(in srgb,var(--theme-surface,#fffaf2) 86%,var(--theme-accent,#b98c45));
+ --admin-softer:color-mix(in srgb,var(--theme-surface,#fffaf2) 94%,var(--theme-accent,#b98c45));
+ --admin-line:color-mix(in srgb,var(--theme-surface,#fffaf2) 58%,var(--theme-accent,#b98c45));
+ --admin-shadow:color-mix(in srgb,var(--theme-header,#191209) 12%,transparent);
+ --admin-overlay:color-mix(in srgb,var(--theme-header,#191209) 72%,transparent);
+ --admin-chart-1:var(--theme-accent,#b98c45);
+ --admin-chart-2:var(--theme-primary,#8e0718);
+ --admin-chart-3:color-mix(in srgb,var(--theme-primary,#8e0718) 45%,#55a57d);
+ --admin-chart-4:color-mix(in srgb,var(--theme-primary,#8e0718) 38%,#63a5d8);
+ --admin-chart-5:color-mix(in srgb,var(--theme-text,#514231) 42%,var(--theme-surface,#fffaf2));
+ --mmc-surface:var(--theme-surface,#fffaf2);
+ --paper:var(--theme-surface,#fffaf2);
+ --ink:var(--theme-text,#514231);
+ --muted:color-mix(in srgb,var(--theme-text,#514231) 72%,transparent);
+ --line:var(--admin-line,#dfcba5);
+ --gold:var(--theme-accent,#b98c45);
+}
+
+/* Feature hero panels */
+.mmc-admin :is(.desk-hero,.inv-hero,.inv-dashboard-hero,.sc-hero,.sc-create-header,.sc-detail-hero,.theme-intro){
+ background:
+  radial-gradient(circle at 82% 8%,color-mix(in srgb,var(--theme-accent,#b98c45) 24%,transparent) 0,transparent 34%),
+  linear-gradient(125deg,var(--admin-hero-start,#292016),var(--admin-hero-end,#493522));
+ color:var(--admin-hero-text,#fff5df);
+ border-color:color-mix(in srgb,var(--theme-accent,#b98c45) 42%,transparent);
+ box-shadow:0 12px 30px var(--admin-shadow,rgba(49,32,16,.08));
+}
+.mmc-admin :is(.desk-hero,.inv-hero,.inv-dashboard-hero,.sc-hero,.sc-create-header,.sc-detail-hero,.theme-intro) :is(h1,h2,h3){color:var(--admin-hero-text,#fff5df)}
+.mmc-admin :is(.desk-hero,.inv-hero,.inv-dashboard-hero,.sc-hero,.sc-create-header,.sc-detail-hero,.theme-intro) p,
+.mmc-admin :is(.desk-hero-side>span,.sc-create-header small,.sc-detail-progress span){color:var(--admin-hero-muted,#ddcfb9)}
+.mmc-admin :is(.desk-hero .desk-eyebrow,.inv-hero>div>span,.inv-dashboard-hero>div>span,.sc-hero>div>span,.sc-create-header>div>span,.sc-detail-hero>div:first-child>span){color:var(--theme-accent,#d7b76b)}
+.mmc-admin .desk-hero a:not(.desk-hero-action){color:var(--theme-accent,#f5d998)}
+.mmc-admin .desk-hero-action{background:var(--theme-surface,#fffaf2);color:var(--theme-heading,#402d16)!important}
+.mmc-admin .sc-header-note{border-color:color-mix(in srgb,var(--admin-hero-text,#fff5df) 22%,transparent);background:color-mix(in srgb,var(--admin-hero-text,#fff5df) 9%,transparent)}
+.mmc-admin .sc-header-note>i{background:var(--theme-accent,#d6aa55);color:var(--theme-header,#2a1c10)}
+
+/* Workspace and dashboard */
+.mmc-admin .desk a{color:var(--theme-link,#8e1830)}
+.mmc-admin :is(.desk-tabs,.desk-pill,.desk-pipeline a,.desk-table th,.desk-stock-bar){background:var(--admin-soft,#f1e7d6)}
+.mmc-admin .desk-tabs a{color:var(--theme-text,#695a45)}
+.mmc-admin .desk-tabs a.selected{background:var(--theme-surface,#fffdf8);color:var(--theme-primary,#812236)}
+.mmc-admin :is(.desk-dialog,.desk-empty,.desk-kpi,.desk-card){background:var(--theme-surface,#fffaf2);border-color:var(--admin-line,#dfcba5);color:var(--theme-text,#514231)}
+.mmc-admin :is(.desk-eyebrow,.desk-kpi-icon,.desk-details summary,.desk-rank){color:var(--theme-accent,#9c752f)}
+.mmc-admin .desk-pipeline a{color:var(--theme-text,#514231)}
+.mmc-admin .desk-pipeline a:hover{border-color:var(--theme-accent,#b9914b);background:var(--admin-softer,#fbf4e7)}
+.mmc-admin .desk-pipeline small{color:var(--theme-link,#8e1830)}
+.mmc-admin .desk-table :is(th,td){border-color:var(--admin-line,#eee6da)}
+.mmc-admin .desk-table th{color:var(--theme-text,#796b55)}
+.mmc-admin .desk-stock-bar span,.mmc-admin .desk-activity-dot{background:var(--theme-accent,#b88050)}
+.mmc-admin .desk-chart line{stroke:var(--admin-line,#e9e1d3)}
+.mmc-admin .desk-chart text{fill:var(--theme-text,#766752)}
+.mmc-admin .desk-chart rect{fill:var(--admin-chart-1,#b9914b)}
+.mmc-admin .desk-chart rect:last-of-type{fill:var(--admin-chart-2,#931127)}
+
+/* Inventory management and reporting */
+.mmc-admin :is(.inv-filter,.inv-table-card,.inv-modal-card,.inv-kpi,.inv-dash-card,.inv-dash-filter){background:var(--theme-surface,#fffaf2);border-color:var(--admin-line,#dfc8a2);color:var(--theme-text,#514231)}
+.mmc-admin :is(.inv-table thead th,.inv-report-table thead th){background:var(--admin-soft,#f4ead9);color:var(--theme-text,#795a26)}
+.mmc-admin :is(.inv-table td,.inv-report-table td,.inv-table-footer,.inv-trend){border-color:var(--admin-line,#eadcc6)}
+.mmc-admin .inv-product>span{background:var(--admin-soft,#efe3cf);color:var(--theme-accent,#987132)}
+.mmc-admin .inv-modal{background:var(--admin-overlay,rgba(25,17,10,.72))}
+.mmc-admin .inv-modal-icon{background:var(--admin-soft,#efe0c8);color:var(--theme-primary,#a60020)}
+.mmc-admin .inv-change-summary span{background:var(--theme-surface,#fff);border-color:var(--admin-line,#e0ccb0)}
+.mmc-admin .inv-dash-card header span,.mmc-admin .inv-help{color:var(--theme-accent,#a27123)}
+.mmc-admin .inv-help:hover,.mmc-admin .inv-help:focus{background:var(--admin-soft,#f0e2c8);color:var(--theme-primary,#8f001b)}
+.mmc-admin .inv-help:after{background:var(--theme-header,#25190f);color:var(--theme-nav_text,#fffaf0)}
+.mmc-admin :is(.inv-trend-legend .added,.inv-trend-day i.added){background:var(--theme-accent,#c39a4b)}
+.mmc-admin :is(.inv-trend-legend .used,.inv-trend-day i.used){background:var(--theme-primary,#a60020)}
+
+/* Stock counts and warehouse locations */
+.mmc-admin :is(.sc-panel,.sc-card,.sc-count-row,.sc-summary article,.sc-setup-card,.sc-create-layout>.sc-products,.sc-detail-meta,.sc-count-table-card,.sc-log-modal-card){background:var(--theme-surface,#fffdf8);border-color:var(--admin-line,#dfc9a5);color:var(--theme-text,#514231)}
+.mmc-admin .sc-create-layout{background:var(--admin-softer,#f6eddf)}
+.mmc-admin :is(.sc-icon,.sc-meta>*,.sc-product-list label>span,.sc-section-heading>span,.sc-selection-count,.sc-result span,.sc-table-product>span,.sc-log-total){background:var(--admin-soft,#f2e2c8);color:var(--theme-text,#6c5535)}
+.mmc-admin :is(.sc-icon,.sc-section-heading>span,.sc-selection-count b,.sc-form-actions p i,.sc-log-modal-card>header span,.sc-log-total strong){color:var(--theme-primary,#8e0718)}
+.mmc-admin :is(.sc-product-list label,.sc-create-form .sc-product-toolbar,.sc-count-toolbar,.sc-count-footer,.sc-log-modal-card>header,.sc-log-modal-card>footer){background:var(--theme-surface,#fff);border-color:var(--admin-line,#eadcc6)}
+.mmc-admin .sc-create-form .sc-product-list label:has(input:checked){border-color:var(--theme-accent,#c9a76c);background:var(--admin-softer,#fffaf0);box-shadow:inset 3px 0 var(--theme-primary,#a90022)}
+.mmc-admin .sc-create-form .sc-product-list input{accent-color:var(--theme-primary,#a90022)}
+.mmc-admin :is(.sc-progress i,.sc-detail-progress .sc-progress i){background:var(--theme-accent,#be9143)}
+.mmc-admin :is(.sc-count-table thead th,.sc-log-table th){background:var(--admin-soft,#f1e5d3);color:var(--theme-text,#795a26)}
+.mmc-admin .sc-log-modal{background:var(--admin-overlay,rgba(21,15,9,.62))}
+.mmc-admin .sc-detail-actions .btn-outline-light{border-color:var(--theme-accent,#d8bd8d);color:var(--admin-hero-text,#fff)}
+.mmc-admin .sc-detail-bottom-actions{background:color-mix(in srgb,var(--theme-surface,#fffaf2) 96%,transparent);border-color:var(--admin-line,#d8c19b)}
+.mmc-admin .sc-list-heading>div>span{color:var(--theme-accent,#a6792e)}
+
+/* Reports, POS and catalogue import */
+.mmc-admin :is(.report-kpi,.report-card,.report-filters,.report-table-panel,.report-chart,.report-dialog,.report-dialog-header,.pos-panel,#pos-checkout,#pos-success,.dna-summary,.dna-product,.dna-grid-panel,.dna-panel){background:var(--theme-surface,#fffaf2);border-color:var(--admin-line,#e7d4b2);color:var(--theme-text,#493524)}
+.mmc-admin :is(.report-eyebrow,.report-card>i,.pos-eyebrow,.dna-eyebrow){color:var(--theme-accent,#a47836)}
+.mmc-admin :is(.report-kpi strong,.report-card>span,.report-table button.report-link,.pos-result-price,.pos-link,.pos-subtotal strong,.pos-totals>div:last-child,.pos-success-body strong){color:var(--theme-primary,#940c24)}
+.mmc-admin .report-tabs a{border-color:var(--admin-line,#decbaa);color:var(--theme-text,#705432)}
+.mmc-admin .report-tabs a.current{background:var(--theme-primary,#910b20);border-color:var(--theme-primary,#910b20);color:var(--theme-button_text,#fff)}
+.mmc-admin :is(.report-table th,.dna-table thead,.dna-grid thead th,.dna-grid thead .dna-product-column){background:var(--admin-soft,#efe5d3);color:var(--theme-text,#72552e)}
+.mmc-admin .report-table tbody tr:hover{background:var(--admin-softer,#f9f1e5)}
+.mmc-admin .report-bar span{background:var(--theme-accent,#b88b45)}
+.mmc-admin #pos-app{--pos-gold:var(--theme-accent,#b28a45);--pos-line:var(--admin-line,#e6d9c3);--pos-muted:color-mix(in srgb,var(--theme-text,#514231) 72%,transparent)}
+.mmc-admin :is(.pos-badge,#pos-item-count,.pos-basket-footer,.pos-totals){background:var(--admin-soft,#eee4d2)}
+.mmc-admin :is(.pos-result,.pos-line-actions button,.pos-line-actions input,#pos-app .form-control){background:var(--theme-surface,#fff)}
+.mmc-admin #pos-video{background:var(--theme-header,#17130c)}
+.mmc-admin #pos-checkout::backdrop,.mmc-admin #pos-success::backdrop{background:var(--admin-overlay,#160e09b3)}
+.mmc-admin #pos-app :is(.btn:focus,.btn:active:focus){box-shadow:0 0 0 3px color-mix(in srgb,var(--theme-accent,#b28a45) 25%,transparent)!important}
+.mmc-admin #pos-app :is(button,input,select,textarea):focus-visible{outline-color:var(--theme-accent,#b28a45)}
+.mmc-admin :is(.dna-counts div,.dna-grid th,.dna-grid td,.dna-grid .dna-product-column){background:var(--theme-surface,#fffaf2);border-color:var(--admin-line,#e7d8bf)}
+.mmc-admin :is(.dna-badge,.dna-summary,.dna-results div){background:var(--admin-soft,#eee5d5)}
+.mmc-admin .dna-tabs button[aria-pressed=true]{border-color:var(--theme-primary,#aa0017);color:var(--theme-primary,#8e0013)}
+
+/* Remaining operational cards and controls */
+.mmc-admin :is(.wh-detail-summary,.wh-route-detail,.warehouse-order-card,.warehouse-empty,.warehouse-filters,.dr-card,.dr-option,.customer-section,.customer-workflow>div){background:var(--theme-surface,#fffaf2);border-color:var(--admin-line,#e6d5b9);color:var(--theme-text,#514231)}
+.mmc-admin :is(.wh-detail-title h1 i,.wh-product-placeholder,.warehouse-list-heading h1 i,.warehouse-empty>i,.dr-eyebrow,.customer-eyebrow){color:var(--theme-accent,#b98c45)}
+.mmc-admin :is(.warehouse-card-customer,.warehouse-card-meta>div+div,.wh-detail-info>div+div,.wh-customer-note){border-color:var(--admin-line,#e8dcc6)}
+.mmc-admin :is(.warehouse-source,.dr-stats>div,.dr-chip,.dr-postals>div){background:var(--admin-soft,#f2eadb)}
+.mmc-admin .warehouse-scanner{background:var(--admin-softer,#f7efe2);border-color:var(--admin-line,#e2cfad)}
+.mmc-admin .warehouse-scanner video{background:var(--theme-header,#18120c)}
+.mmc-admin .warehouse-detail-page .warehouse-table th{background:var(--admin-soft,#f2eadb);color:var(--theme-text,#514231)}
+.mmc-admin :is(.wh-product img,.wh-product-placeholder){background:var(--admin-softer,#f7efe2);border-color:var(--admin-line,#e2cfad)}
+.mmc-admin :is(.order-detail-metrics,.order-detail-metrics>div+div){border-color:var(--admin-line,#e2cfad)}
+.mmc-admin .dr-tabs a{border-color:var(--admin-line,#ddcaa8);color:var(--theme-text,#66491f)}
+.mmc-admin .dr-tabs .is-active,.mmc-admin .dr-matrix .dr-axis-selected{background:var(--theme-primary,#910b22)!important;border-color:var(--theme-primary,#910b22);color:var(--theme-button_text,#fff)}
+.mmc-admin .dr-matrix th{background:var(--admin-hero-start,#30281c)!important;color:var(--admin-hero-text,#fff3d9)!important}
+.mmc-admin :is(.dr-editor){border-color:var(--theme-primary,#970c23)}
+.mmc-admin :is(.dr-matrix td a:hover,.dr-matrix td a:focus-visible,.dr-matrix-wrap:focus-visible){outline-color:var(--theme-primary,#970c23)}
+.mmc-admin .customer-tab-panel>.nav-tabs .nav-link.active{color:var(--theme-link,#8e0718);border-bottom-color:var(--theme-link,#8e0718)}
+.mmc-admin .theme-preview{border-color:var(--admin-line,#ccb891)}
+
+/* Inline editors and dense data workspaces */
+.mmc-admin :is(.order-live-totals,.order-product-popup,.payment-metrics>div,.payment-entry,.product-column-picker,.about-item-editor,.gateway-box,.gateway-env,.quote-column-picker,.quotation-totals){
+ background:var(--theme-surface,#fffaf2);
+ border-color:var(--admin-line,#dfcba5);
+ color:var(--theme-text,#514231);
+}
+.mmc-admin .order-product-options button{color:var(--theme-text,#382a1b)}
+.mmc-admin .order-product-options button:hover,.mmc-admin .order-product-options button:focus{background:var(--admin-soft,#f1e3cb)}
+.mmc-admin .payment-metrics strong{color:var(--theme-heading,#44291d)}
+.mmc-admin [data-product-grid] th{background:var(--admin-soft,#f1e7d6)}
+.mmc-admin [data-product-grid] td:last-child{background:var(--theme-surface,#fffaf2)}
+.mmc-admin .product-column-options input{accent-color:var(--theme-primary,#a00018)}
+.mmc-admin :is(.about-image-preview,.gateway-env:has(input:checked),.gateway-url,.gateway-pill){background:var(--admin-soft,#f3eadb)}
+.mmc-admin .gateway-env:has(input:checked){border-color:var(--theme-accent,#a47b37)}
+.mmc-admin .gateway-env input,.mmc-admin .gateway-switch input:checked{accent-color:var(--theme-primary,#98091e)}
+.mmc-admin .gateway-switch input:checked{background:var(--theme-primary,#98091e)}
+.mmc-admin .gateway-switch input:focus-visible{outline-color:var(--theme-accent,#a47b37)}
+.mmc-admin .gateway-profile{border-color:var(--admin-line,#e6d8bf)}
+.mmc-admin .quote-table thead th{background:var(--admin-hero-start,#3d241b)!important;color:var(--admin-hero-text,#fff)!important}
+.mmc-admin .quote-table .quote-category th{background:var(--admin-soft,#eee4d4);color:var(--theme-heading,#3d241b)}
+.mmc-admin .quote-table .quote-product:nth-child(even){background:var(--admin-softer,#f8f3eb)}
+.mmc-admin .quotation-totals .quotation-total-final{border-color:var(--admin-line,#d9bd86);color:var(--theme-primary,#970b22)}
