@@ -273,10 +273,10 @@ $this->actingAs(User::factory()->create(['email'=>'jane@example.test','account_t
         $this->admin();
         $this->get('/admin/reports/payments')->assertOk()->assertViewHas('orders', fn ($orders) => $orders->total() === 0);
         $this->get('/admin/reports/payments?sandbox=1')->assertOk()->assertViewHas('summary', fn ($s) => $s['card']['gross'] === 2000);
-        $this->post(route('admin.payments.refund', $payment), ['confirm' => 'REFUND', 'expected_cents' => 2000])->assertSessionHasNoErrors();
+        $this->post(route('admin.payments.refund', $payment), ['confirm' => 'REFUND', 'expected_cents' => 2000, 'revision' => $payment->order->fresh()->revision, 'restock_inventory' => 1])->assertSessionHasNoErrors();
         $this->assertSame('refunded', $payment->order->fresh()->payment_status);
         $this->assertSame('10.000', $product->inventory()->first()->quantity_on_hand);
-        $this->post(route('admin.payments.refund', $payment), ['confirm' => 'REFUND', 'expected_cents' => 2000])->assertSessionHasNoErrors();
+        $this->post(route('admin.payments.refund', $payment), ['confirm' => 'REFUND', 'expected_cents' => 2000, 'revision' => $payment->order->fresh()->revision, 'restock_inventory' => 1])->assertSessionHasNoErrors();
         $this->assertSame('10.000', $product->inventory()->first()->quantity_on_hand);
         $this->get('/admin/reports/payments?sandbox=1')->assertViewHas('summary', fn ($s) => $s['card']['refunded'] === 2000);
         $this->get('/admin/reports/payments/export?sandbox=1')->assertOk()->assertDownload();
@@ -291,6 +291,44 @@ $this->actingAs(User::factory()->create(['email'=>'jane@example.test','account_t
         $this->post(route('admin.payments.refund', $order->payment), ['confirm' => 'REFUND', 'expected_cents' => 2000])->assertForbidden();
         $this->get(route('admin.orders.show', $order))->assertOk()->assertSee('Online payment');
         $this->assertSame('pending', $order->fresh()->payment_status);
+    }
+
+    public function test_admin_checkout_cancel_requires_choice_and_no_survives_later_syncs(): void
+    {
+        [$product] = $this->checkout();
+        $payment = Payment::firstOrFail();
+        $this->admin();
+        $url = route('admin.payments.cancel', $payment);
+        $revision = $payment->order->fresh()->revision;
+        $this->post($url, ['revision' => $revision])->assertSessionHasErrors('restock_inventory');
+        $this->assertSame('8.000', $product->inventory()->first()->quantity_on_hand);
+        $this->post($url, ['revision' => $revision, 'restock_inventory' => 0])->assertSessionHasNoErrors();
+        $this->assertSame('cancelled', $payment->order->fresh()->status);
+        $this->assertFalse($payment->order->fresh()->cancellation_restock);
+        $this->assertSame('8.000', $product->inventory()->first()->quantity_on_hand);
+        app(OnlinePayments::class)->sync($payment);
+        $this->assertSame('8.000', $product->inventory()->first()->quantity_on_hand);
+        $this->assertDatabaseCount('inventory_movements', 1);
+    }
+
+    public function test_admin_full_refund_requires_choice_and_no_does_not_return_products(): void
+    {
+        [$product] = $this->checkout();
+        $payment = Payment::firstOrFail();
+        $this->stripeState = 'complete';
+        $this->stripeEvent()->assertOk();
+        $this->admin();
+        $data = ['confirm' => 'REFUND', 'expected_cents' => 2000, 'revision' => $payment->order->fresh()->revision];
+        $this->post(route('admin.payments.refund', $payment), $data)->assertSessionHasErrors('restock_inventory');
+        Http::assertNotSent(fn ($request) => str_ends_with($request->url(), '/refunds'));
+        $this->post(route('admin.payments.refund', $payment), $data + ['restock_inventory' => 0])->assertSessionHasNoErrors();
+        $this->assertSame('cancelled', $payment->order->fresh()->status);
+        $this->assertSame('refunded', $payment->order->fresh()->payment_status);
+        $this->assertFalse($payment->order->fresh()->cancellation_restock);
+        $this->assertSame('8.000', $product->inventory()->first()->quantity_on_hand);
+        $this->stripeEvent()->assertOk();
+        $this->assertSame('8.000', $product->inventory()->first()->quantity_on_hand);
+        $this->assertDatabaseCount('inventory_movements', 1);
     }
 
     public function test_disabled_gateway_is_rejected_without_order_or_stock_change(): void

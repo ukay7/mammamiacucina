@@ -1,0 +1,7 @@
+#order-cancellation-dialog{width:calc(100% - 32px);max-width:520px;max-height:calc(100dvh - 32px);margin:auto;padding:26px;border:1px solid var(--admin-line,#dfcba5);border-radius:14px;background:var(--theme-surface,#fffaf2);color:var(--theme-text,#392a1c);box-shadow:0 20px 60px var(--admin-shadow,rgba(0,0,0,.15));overflow:auto}
+#order-cancellation-dialog::backdrop{background:var(--admin-overlay,rgba(23,15,8,.72))}
+#order-cancellation-dialog h2{font-size:23px;margin:0 0 14px;color:var(--theme-heading,#392a1c)}
+#order-cancellation-dialog p{line-height:1.6}
+#order-cancellation-dialog .order-cancellation-hint{font-size:13px}
+.order-cancellation-actions{display:grid;gap:10px;margin-top:22px}
+.order-cancellation-actions .btn{white-space:normal;min-height:42px}

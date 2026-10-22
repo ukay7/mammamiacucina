@@ -92,7 +92,7 @@ class PosSaleTest extends TestCase
             'province' => 'ON', 'postal_code' => 'M1M1M1', 'country' => 'Canada', 'payment_status' => 'paid'])->assertOk();
         $order = Order::firstOrFail();
         $this->assertSame('warehouse_pending', $order->status);
-        $payload = ['status'=>'cancelled','payment_status'=>'refunded','revision'=>0,'delivery'=>'5.00','tax'=>number_format($order->tax_cents/100,2,'.','')];
+        $payload = ['status'=>'cancelled','payment_status'=>'refunded','restock_inventory'=>1,'revision'=>0,'delivery'=>'5.00','tax'=>number_format($order->tax_cents/100,2,'.','')];
         $this->patch(route('admin.orders.update',$order),$payload)->assertSessionHasNoErrors();
         $this->assertSame('10.000',$product->inventory()->first()->quantity_on_hand);
 
@@ -134,7 +134,7 @@ class PosSaleTest extends TestCase
     public function test_untracked_stock_is_supported_and_card_payment_is_disabled(): void
     {
         $this->staff();$product=$this->product('UNTRACKED',null);$quote=$this->quote($product);
-        $this->sale($quote,['payment_status'=>'unpaid'])->assertUnprocessable();
+        $this->sale($quote,['payment_status'=>'refunded'])->assertUnprocessable();
         $this->sale($quote,['payment_method'=>'card'])->assertUnprocessable();
         $response=$this->sale($quote)->assertOk();
         $this->assertNull($product->inventory()->first()->quantity_on_hand);
@@ -208,5 +208,76 @@ class PosSaleTest extends TestCase
         $this->assertSame('ready_to_dispatch', $order->status);
         $this->assertTrue((bool) $order->items()->first()->packed);
         $this->assertNotNull($order->invoice);
+    }
+
+    public function test_unpaid_cash_order_reserves_stock_and_enters_the_warehouse_without_recording_payment(): void
+    {
+        $this->staff();
+        $product = $this->product('UNPAID-CASH');
+        $quote = $this->quote($product);
+        $response = $this->sale($quote, ['payment_status' => 'unpaid'])->assertOk()->assertJsonPath('payment_status', 'unpaid');
+        $order = Order::firstOrFail();
+        $this->assertSame('warehouse_pending', $order->status);
+        $this->assertSame('unpaid', $order->payment_status);
+        $this->assertNull($order->paid_at);
+        $this->assertSame(0, $order->net_received_cents);
+        $this->assertSame($order->final_total_cents, $order->balance_cents);
+        $this->assertSame('8.000', $product->inventory()->first()->quantity_on_hand);
+        $this->get($response->json('print_url'))->assertOk()->assertSee('Order Confirmation')->assertDontSee('<strong>Payment Receipt</strong>', false);
+        $this->sale($quote, ['payment_status' => 'unpaid'])->assertOk()->assertJsonPath('number', $order->number);
+        $this->assertDatabaseCount('orders', 1);
+        $this->assertDatabaseCount('inventory_movements', 1);
+        $this->patch(route('admin.orders.update', $order), ['revision' => $order->revision, 'status' => 'warehouse_pending', 'payment_status' => 'paid', 'delivery' => '0', 'tax' => number_format($order->tax_cents / 100, 2, '.', '')])->assertSessionHasNoErrors();
+        $this->assertSame('paid', $order->fresh()->payment_status);
+        $this->assertSame(0, $order->fresh()->balance_cents);
+        $this->assertSame('8.000', $product->inventory()->first()->quantity_on_hand);
+    }
+
+    public function test_unpaid_cash_delivery_keeps_the_balance_due_and_requires_the_address(): void
+    {
+        $this->staff();
+        $product = $this->product('UNPAID-DELIVERY');
+        $quote = $this->quote($product, 'delivery');
+        $this->sale($quote, ['payment_status' => 'unpaid'])->assertUnprocessable();
+        $this->sale($quote, ['payment_status' => 'unpaid', 'phone' => '555123', 'address' => '10 Test Street', 'city' => 'Toronto', 'province' => 'ON', 'postal_code' => 'M1M1M1', 'country' => 'Canada'])->assertOk();
+        $order = Order::firstOrFail();
+        $this->assertSame('warehouse_pending', $order->status);
+        $this->assertNull($order->paid_at);
+        $this->assertSame($order->final_total_cents, $order->balance_cents);
+    }
+
+    public function test_pos_search_and_review_include_source_name_and_subtitle(): void
+    {
+        $this->staff();
+        $product = $this->product('BOTH-NAMES');
+        $product->update(['italian_subtitle' => 'Torta al limone', 'original_description' => 'Supplier lemon dessert carton']);
+        foreach (['Torta al limone', 'Supplier lemon dessert'] as $term) {
+            $this->getJson(route('admin.pos.products', ['customer_id' => $this->customerId, 'q' => $term]))
+                ->assertOk()->assertJsonCount(1, 'products')->assertJsonPath('products.0.name', $product->premium_marketing_name)
+                ->assertJsonPath('products.0.subtitle', 'Torta al limone')->assertJsonPath('products.0.source_name', 'Supplier lemon dessert carton');
+        }
+        $this->getJson(route('admin.pos.products', ['customer_id' => $this->customerId, 'q' => 'Torta al limone', 'scan' => 1]))->assertOk()->assertJsonCount(0, 'products');
+        $quote = $this->quote($product);
+        $this->assertSame('Torta al limone', $quote['items'][0]['subtitle']);
+        $this->assertSame('Supplier lemon dessert carton', $quote['items'][0]['source_name']);
+    }
+
+    public function test_warehouse_staff_can_record_unpaid_cash_without_inventing_a_collection(): void
+    {
+        $this->staff();
+        $product = $this->product('WAREHOUSE-UNPAID');
+        $warehouseRole = Role::where('name', Role::WAREHOUSE_USER)->firstOrFail();
+        $warehouseRole->update(['permissions' => ['pos.manage', 'warehouse.pack']]);
+        $this->actingAs(User::factory()->create(['role_id' => $warehouseRole->id, 'is_active' => true]));
+        $quote = $this->quote($product);
+        $this->sale($quote, ['payment_status' => 'unpaid'])->assertOk()->assertJsonPath('payment_status', 'unpaid');
+        $order = Order::firstOrFail();
+        $this->assertSame('ready_to_dispatch', $order->status);
+        $this->assertTrue((bool) $order->items()->first()->packed);
+        $this->assertSame('unpaid', $order->payment_status);
+        $this->assertNull($order->paid_at);
+        $this->assertSame(0, $order->net_received_cents);
+        $this->assertSame($order->final_total_cents, $order->balance_cents);
+        $this->assertSame('8.000', $product->inventory()->first()->quantity_on_hand);
     }
 }

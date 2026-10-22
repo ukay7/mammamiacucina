@@ -9,7 +9,7 @@ class Order extends Model
 {
     protected $guarded = ['id'];
 
-    protected function casts(): array { return ['ordered_at'=>'datetime','archived_at'=>'datetime']; }
+    protected function casts(): array { return ['ordered_at'=>'datetime','archived_at'=>'datetime','cancellation_restock'=>'boolean']; }
     public function assertEditable(): void {
         if ($this->archived_at) throw \Illuminate\Validation\ValidationException::withMessages(['order'=>'This order is archived and read-only.']);
     }

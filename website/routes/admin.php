@@ -168,6 +168,7 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         }
         Route::delete('/categories/{category}', [CategoryController::class, 'destroy'])->middleware(AdminAccess::class.':categories.manage')->name('categories.destroy');
         Route::post('/products/bulk-category', [ProductController::class, 'bulkCategory'])->middleware(AdminAccess::class.':products.manage')->name('products.bulk-category');
+        Route::patch('/products/{product}/active', [ProductController::class, 'active'])->middleware(AdminAccess::class.':products.manage')->name('products.active');
         Route::get('/products/{product}/documents/{document}', [ProductController::class,'document'])->middleware(AdminAccess::class.':products.view')->name('products.document');
         Route::get('/products/{product}/media/{media}', [ProductController::class, 'media'])->middleware(AdminAccess::class.':products.view')->name('products.media');
         Route::get('/products/{product}', [ProductController::class, 'show'])->middleware(AdminAccess::class.':products.view')->name('products.show');
@@ -183,6 +184,8 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         Route::get('/inventory/{product}', [InventoryController::class, 'show'])->middleware(AdminAccess::class.':inventory.view')->name('inventory.show');
         Route::post('/inventory/{product}', [InventoryController::class, 'adjust'])->middleware(AdminAccess::class.':inventory.manage')->name('inventory.adjust');
         Route::get('/reports/inventory', InventoryDashboardController::class)->middleware(AdminAccess::class.':inventory.view')->name('reports.inventory');
+        Route::get('/reports/inventory-valuation', [\App\Http\Controllers\Admin\InventoryValuationController::class, 'index'])->middleware(AdminAccess::class.':inventory.view')->name('reports.inventory-valuation');
+        Route::get('/reports/inventory-valuation/export', [\App\Http\Controllers\Admin\InventoryValuationController::class, 'export'])->middleware(AdminAccess::class.':inventory.view')->name('reports.inventory-valuation.export');
         Route::get('/reports/inventory/export/{report}', [InventoryDashboardController::class, 'export'])->middleware(AdminAccess::class.':inventory.view')->name('reports.inventory.export');
         Route::get('/warehouses', [WarehouseController::class,'index'])->middleware(AdminAccess::class.':warehouses.view')->name('warehouses.index');
         Route::get('/warehouses/create', [WarehouseController::class,'create'])->middleware(AdminAccess::class.':warehouses.manage')->name('warehouses.create');

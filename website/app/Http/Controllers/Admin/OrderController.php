@@ -259,6 +259,7 @@ class OrderController extends Controller
         $d = $r->validate(['revision' => 'required|integer|min:0', 'status' => 'required|in:'.implode(',', array_keys(Order::STATUSES)), 'q' => 'nullable|string|max:200', 'page' => 'nullable|integer|min:1', 'from' => 'nullable|date_format:Y-m-d', 'to' => 'nullable|date_format:Y-m-d']);
         $service->update($order, [
             'revision' => $d['revision'], 'status' => $d['status'],
+            'restock_inventory' => $r->input('restock_inventory'),
             'payment_status' => $order->payment_status,
             'delivery' => $order->delivery_cents === null ? '' : number_format($order->delivery_cents / 100, 2, '.', ''),
             'tax' => $order->tax_cents === null ? '' : number_format($order->tax_cents / 100, 2, '.', ''),
@@ -278,7 +279,7 @@ class OrderController extends Controller
     public function update(Request $r, Order $order, OrderManagement $service)
     {
         $d = $r->validate(['revision' => 'required|integer|min:0', 'status' => 'required|in:'.implode(',', array_keys(Order::STATUSES)), 'payment_status' => 'required|in:unpaid,pending,paid,partially_refunded,refunded', 'delivery' => ['nullable', 'regex:/^\d{1,7}(\.\d{1,2})?$/'], 'tax' => ['nullable', 'regex:/^\d{1,7}(\.\d{1,2})?$/'], 'reason' => 'nullable|string|max:1000']);
-        $service->update($order, $d, $r->user()->id);
+        $service->update($order, $d + ['restock_inventory' => $r->input('restock_inventory')], $r->user()->id);
 
         return redirect()->route('admin.orders.show', $order)->with('status', 'Order updated.');
     }

@@ -7,7 +7,7 @@
     const money = cents => new Intl.NumberFormat('en-CA', {style:'currency',currency:'CAD'}).format(cents / 100);
     const checkout = $('#pos-checkout'), success = $('#pos-success'), form = $('#complete-sale');
     const customerForm=$('#pos-customer-form');
-    let customerId=null, customerVersion=0, customerReady=false, frozenReceipt=null;
+    let customerId=null, customerVersion=0, customerReady=false, frozenReceipt=null, cashPaymentStatus='paid';
     let quote = null, submitting = false, reviewing = false, pendingScans = 0, frozenPayload = null;
     let quoteSerial=0, deliverySerial=0, deliveryTimer;
     const matrixDelivery=()=>app.dataset.matrix==='1' && $('#fulfillment').value==='delivery';
@@ -18,6 +18,17 @@
         if (className) node.className = className;
         return node;
     };
+    function appendAlternateNames(container, product) {
+        const seen = new Set([String(product.name || '').trim().toLocaleLowerCase()]);
+        [['Subtitle', product.subtitle], ['Source', product.source_name]].forEach(([label, value]) => {
+            const name = String(value || '').trim();
+            if (!name || seen.has(name.toLocaleLowerCase())) return;
+            seen.add(name.toLocaleLowerCase());
+            const text = make('small', label+': '+name, 'pos-alternate-name');
+            text.title = name;
+            container.append(text);
+        });
+    }
     function feedback(message, error = false) {
         const node = $('#pos-feedback');
         node.textContent = message; node.hidden = false; node.classList.toggle('error', error);
@@ -106,6 +117,7 @@
             else photo.append(make('span','No image'));
             const description = make('div',undefined,'pos-line-description');
             description.append(make('h3',line.name));
+            appendAlternateNames(description, line);
             if(line.barcode) description.append(make('small','Barcode: '+line.barcode));
             const controls = make('div',undefined,'pos-line-controls');
             controls.append(make('small',money(line.unit_cents)+' each'+(line.uom?' · '+line.uom:'')));
@@ -162,7 +174,9 @@
             const card=make('article',undefined,'pos-result');
             if(product.image){const img=document.createElement('img');img.src=product.image;img.alt=product.name;img.loading='lazy';card.append(img);}
             else card.append(make('span','No image','pos-image-empty'));
-            card.append(make('h3',product.name),make('small',product.barcode),
+            card.append(make('h3',product.name));
+            appendAlternateNames(card, product);
+            card.append(make('small',product.barcode),
                 make('small',product.stock === null ? 'Stock not tracked' : 'Available: '+MMCNumber.decimal(product.stock,'quantity')+(product.uom ? ' '+product.uom : '')),
                 make('span',product.unit_cents === null ? 'Price on request' : money(product.unit_cents),'pos-result-price'));
             const button=make('button','Add to sale','btn btn-outline-primary');button.type='button';
@@ -229,13 +243,13 @@
     function fillQuote(data) {
         quote=data.quote;
         const current=form.elements.payment_method.value;form.elements.payment_method.replaceChildren();
-        const labels={cash:'Cash received',etransfer:'E-transfer',cheque:'Cheque',credit:'Customer Credit'};
+        const labels={cash:'Cash',etransfer:'E-transfer',cheque:'Cheque',credit:'Customer Credit'};
         (data.allowed_methods||[]).forEach(m=>form.elements.payment_method.add(new Option(labels[m]||m,m)));
         if((data.allowed_methods||[]).includes(current))form.elements.payment_method.value=current;
         $('#pos-credit-warning').dataset.projected=data.credit_order_warning||'';$('#pos-credit-warning').dataset.current=data.credit_warning||'';configurePayment();
         if(data.delivery_route?.delivery_service_name && form.elements.delivery_service.selectedOptions[0])form.elements.delivery_service.selectedOptions[0].textContent=data.delivery_route.delivery_service_name+(form.elements.delivery_service.selectedOptions[0].dataset.description?' ('+form.elements.delivery_service.selectedOptions[0].dataset.description+')':'')+' — '+money(data.delivery);
         const lines=$('#quote-lines');lines.replaceChildren();
-        data.items.forEach(line=>{const row=make('div',undefined,'pos-quote-line'),amount=make('strong');if(line.discount_bps){const before=make('del',money(line.original_unit_cents*line.quantity)),hint=make('abbr',' * '+(line.discount_bps/100)+'%');hint.title='Admin special discount for this customer';hint.tabIndex=0;amount.append(before,document.createTextNode(' '),hint,document.createElement('br'));}amount.append(document.createTextNode(money(line.unit_cents*line.quantity)));row.append(make('span',line.name+' × '+line.quantity),amount);lines.append(row);});
+        data.items.forEach(line=>{const row=make('div',undefined,'pos-quote-line'),amount=make('strong'),description=make('span',line.name+' × '+line.quantity);appendAlternateNames(description,line);if(line.discount_bps){const before=make('del',money(line.original_unit_cents*line.quantity)),hint=make('abbr',' * '+(line.discount_bps/100)+'%');hint.title='Admin special discount for this customer';hint.tabIndex=0;amount.append(before,document.createTextNode(' '),hint,document.createElement('br'));}amount.append(document.createTextNode(money(line.unit_cents*line.quantity)));row.append(description,amount);lines.append(row);});
         const totals=$('#quote-totals');totals.replaceChildren();
         [['Product subtotal before overall discount',data.subtotal+(data.order_discount_cents||0)],['Admin special order discount *',-(data.order_discount_cents||0)],['Discounted subtotal',data.subtotal],[($('#fulfillment').value==='pickup'?'Pick up':'Delivery')+(data.delivery_route?.delivery_service_name?' · '+data.delivery_route.delivery_service_name:''),data.delivery],['Tax ('+MMCNumber.decimal(data.tax_percent)+'%)',data.tax],['Total (CAD)',data.total]].forEach(([label,value])=>{
             const row=make('div');row.append(make('span',label),make('span',money(value)));totals.append(row);
@@ -246,14 +260,15 @@
     }
     function configurePayment(){
         const method=form.elements.payment_method.value,manual=['etransfer','cheque'].includes(method),credit=method==='credit';
-        form.elements.payment_status.disabled=true;
+        form.elements.payment_status.disabled=method!=='cash';
         form.elements.payment_status.querySelector('[value=unpaid]').disabled=false;
-        form.elements.payment_status.querySelector('[value=unpaid]').textContent=credit?'Unpaid · On Credit':'Unpaid · Awaiting Admin Verification';
-        form.elements.payment_status.value=manual||credit?'unpaid':'paid';
+        form.elements.payment_status.querySelector('[value=unpaid]').textContent=credit?'Unpaid · On Credit':manual?'Unpaid · Awaiting Admin Verification':'Unpaid · collect on '+($('#fulfillment').value==='pickup'?'pickup':'delivery');
+        form.elements.payment_status.value=method==='cash'?cashPaymentStatus:'unpaid';
         $('#pos-transfer-upload').hidden=!manual;
         $('#pos-credit-warning').textContent=credit?($('#pos-credit-warning').dataset.projected||''):($('#pos-credit-warning').dataset.current||'');
     }
     form.elements.payment_method.addEventListener('change',configurePayment);
+    form.elements.payment_status.addEventListener('change',()=>{if(form.elements.payment_method.value==='cash')cashPaymentStatus=form.elements.payment_status.value;});
     function configureDelivery(){
         const delivery=$('#fulfillment').value==='delivery';
         $('#delivery-fields').hidden=!delivery;
@@ -264,7 +279,7 @@
         $('#pos-delivery-choice').hidden=!matrixDelivery();
         form.elements.delivery_service.disabled=!matrixDelivery();form.elements.delivery_service.required=matrixDelivery();
     }
-    function clearQuote(){quote=null;$('#quote-lines').replaceChildren();cart.forEach(line=>{const row=make('div',undefined,'pos-quote-line');row.append(make('span',line.name+' × '+line.quantity),make('strong',money(line.unit_cents*line.quantity)));$('#quote-lines').append(row);});$('#complete-button').disabled=true;$('#complete-button').textContent='Complete sale';$('#quote-totals').textContent='Select a delivery service to calculate the total.';}
+    function clearQuote(){quote=null;$('#quote-lines').replaceChildren();cart.forEach(line=>{const row=make('div',undefined,'pos-quote-line'),description=make('span',line.name+' × '+line.quantity);appendAlternateNames(description,line);row.append(description,make('strong',money(line.unit_cents*line.quantity)));$('#quote-lines').append(row);});$('#complete-button').disabled=true;$('#complete-button').textContent='Complete sale';$('#quote-totals').textContent='Select a delivery service to calculate the total.';}
     async function refreshDelivery(){
         if(!matrixDelivery()||frozenPayload||submitting)return;
         const serial=++deliverySerial;quoteSerial++;clearQuote();
@@ -306,12 +321,12 @@
     function lockForm(lock){
         form.querySelectorAll('input,select,textarea').forEach(input=>input.disabled=lock || !!input.closest('[data-business-fields][hidden]') || (input.closest('#delivery-fields') && $('#fulfillment').value!=='delivery') || (input.name==='delivery_service'&&!matrixDelivery()));
         $('#close-checkout').disabled=lock;
-        if(!lock)form.elements.payment_status.disabled=true;
+        if(!lock)configurePayment();
     }
     form.onsubmit=async event=>{
         event.preventDefault();if(submitting||!quote)return;
         if(!window.confirm('Are you sure you want to proceed with the order?'))return;
-        if(!frozenPayload){frozenPayload={...Object.fromEntries(new FormData(form)),customer_id:customerId,payment_status:form.elements.payment_method.value==='cash'?'paid':'unpaid',quote};frozenReceipt=$('#pos-transfer-file').files[0]||null;}
+        if(!frozenPayload){frozenPayload={...Object.fromEntries(new FormData(form)),customer_id:customerId,payment_status:form.elements.payment_method.value==='cash'?form.elements.payment_status.value:'unpaid',quote};frozenReceipt=$('#pos-transfer-file').files[0]||null;}
         submitting=true;lockForm(true);$('#complete-button').disabled=true;$('#checkout-error').hidden=true;$('#refresh-quote').hidden=true;
         try{
             const data=await request(app.dataset.store,frozenPayload);
@@ -324,9 +339,9 @@
             frozenReceipt=null;frozenPayload=null;cart.clear();quote=null;checkout.close();renderCart();
             $('#success-number').textContent=data.number;$('#success-total').textContent=money(data.total);
             $('#success-heading').textContent=data.status==='Completed'?'Sale completed':'Order saved';
-            $('#success-status').textContent=uploadMessage||data.status;
+            $('#success-status').textContent=uploadMessage||data.status+' · '+data.payment_status_label;
             $('#saved-order-link').href=data.order_url;
-            $('#receipt-link').href=data.print_url;success.showModal();form.reset();customerForm.reset();customerId=null;customerVersion++;customerGate(false);$('#pos-new-customer').hidden=true;$('#pos-new-customer').querySelectorAll('input,select,textarea').forEach(el=>el.disabled=true);$('#pos-customer-summary').textContent='Select a customer to start the next sale.';$('#pos-results').replaceChildren();
+            $('#receipt-link').href=data.print_url;$('#receipt-link').textContent=data.payment_status==='paid'?'Print receipt / PDF':'Print order / PDF';success.showModal();form.reset();cashPaymentStatus='paid';customerForm.reset();customerId=null;customerVersion++;customerGate(false);$('#pos-new-customer').hidden=true;$('#pos-new-customer').querySelectorAll('input,select,textarea').forEach(el=>el.disabled=true);$('#pos-customer-summary').textContent='Select a customer to start the next sale.';$('#pos-results').replaceChildren();
             $('#product-search').value='';$('#pos-feedback').hidden=true;
         }catch(error){
             const certain=[401,403,419,422].includes(error.status);

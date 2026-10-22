@@ -1,0 +1,1 @@
+<noscript><label>Return items to inventory when cancelling?<select class="form-control" name="restock_inventory"><option value="">Choose Yes or No when cancelling</option><option value="1">Yes, return deducted items to inventory</option><option value="0">No, keep stock unchanged</option></select></label></noscript>

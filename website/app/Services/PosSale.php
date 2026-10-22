@@ -63,6 +63,7 @@ class PosSale
         return ['credit_order_warning'=>app(CustomerTerms::class)->warning($profile,$subtotal+$delivery+$tax),'allowed_methods'=>app(CustomerTerms::class)->allowed($profile,'pos'),'credit_warning'=>app(CustomerTerms::class)->warning($profile),'order_discount_cents'=>$discount,'order_discount_bps'=>$profile->order_discount_bps,'delivery_route'=>$route,'quote' => Crypt::encryptString(json_encode($data)), 'subtotal' => $subtotal, 'delivery' => $delivery,
             'tax' => $tax, 'total' => $subtotal + $delivery + $tax, 'tax_percent' => $settings->tax_basis_points / 100,
             'items' => array_map(fn ($line) => ['id'=>$line['product']->id,'name' => $line['product']->premium_marketing_name, 'quantity' => $line['quantity'],
+                'subtitle' => $line['product']->italian_subtitle, 'source_name' => $line['product']->original_description,
                 'unit_cents' => $line['unit_cents'],'original_unit_cents'=>$line['original_unit_cents'],'discount_bps'=>$line['discount_bps']], $lines)];
     }
 
@@ -117,7 +118,7 @@ class PosSale
             }
             $transfer = in_array($customer['payment_method'],['etransfer','cheque','credit']);
             $customer['payment_status'] = $transfer ? 'unpaid' : $customer['payment_status'];
-            if (!$transfer && $customer['payment_status'] !== 'paid') $this->fail('Confirm cash received before finalizing this sale.');
+            if (!in_array($customer['payment_status'], ['paid', 'unpaid'], true)) $this->fail('Choose Paid or Unpaid for this sale.');
             if($profile && !$pickup)$profile->update(\Illuminate\Support\Arr::only($customer,['address','city','province','postal_code','country']));
             $details = [];
             foreach (['first_name','last_name','email','phone','address','city','province','postal_code','country'] as $field) {

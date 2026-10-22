@@ -6,6 +6,7 @@ $active = static fn($item) => str_starts_with($item['match'], 'path:')
     : request()->routeIs($item['match'])
         && !($item['route'] === 'admin.customers.index' && request()->routeIs('admin.customers.business-requests'))
         && !($item['route'] === 'admin.orders.index' && request()->routeIs('admin.orders.completed','admin.orders.archived'))
+        && !($item['route'] === 'admin.reports.inventory' && request()->routeIs('admin.reports.inventory-valuation*'))
         && !($item['route'] === 'admin.reports.index' && request()->routeIs('admin.reports.inventory*','admin.reports.overdue-cheques'));
 @endphp
 @if(auth()->user()->isCustomer())

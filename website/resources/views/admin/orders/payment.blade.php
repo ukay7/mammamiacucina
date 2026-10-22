@@ -7,7 +7,7 @@
 <p>Online payment status and totals are verified with the gateway. For a stuck payment, check your merchant dashboard or bank and record the decision below.</p>
 @if(auth()->user()->hasAdminPermission('payments.manage'))
 @if(in_array($order->status,['awaiting_payment','payment_review']) || ($payment->manual_resolution==='paid' && $order->status==='warehouse_pending'))
-<form method="post" action="{{ route('admin.payments.resolve',$payment) }}" class="mb-3">
+<form method="post" action="{{ route('admin.payments.resolve',$payment) }}" data-cancellation-kind="resolution" data-order-number="{{ $order->number }}" class="mb-3">
 @csrf<input type="hidden" name="revision" value="{{ $order->revision }}">
 <h3>Record manual payment decision</h3>
 <p>Check the merchant dashboard or bank first. These actions only update our records; they do not charge or refund money.</p>
@@ -21,15 +21,18 @@
 </select>
 <label for="manual-payment-reason" class="mt-2">Merchant / bank reference and note</label><textarea id="manual-payment-reason" class="form-control" name="reason" required maxlength="1000"></textarea>
 <label class="mt-2"><input type="checkbox" name="confirmed" value="1" required> I checked the bank / merchant records. For a refund, I have already returned the full payment externally.</label>
+@include('admin.orders.cancellation-fallback')
 <button type="submit" class="btn btn-primary">Save payment decision</button>
 </form>
 @endif
 @if($payment->manual_resolution)<p>Payment is managed manually. Any refund must be completed externally and recorded here before warehouse processing starts.</p>@else
 <div class="d-flex flex-wrap" style="gap:12px">
 <form method="post" action="{{ route('admin.payments.reconcile',$payment) }}">@csrf<button class="btn btn-outline-primary">Reconcile payment</button></form>
-@if(!$payment->paid_at && !$payment->released_at)<form method="post" action="{{ route('admin.payments.cancel',$payment) }}">@csrf<button class="btn btn-outline-primary">Cancel unpaid checkout</button></form>@endif
+@if(!$payment->paid_at && !$payment->released_at)<form method="post" action="{{ route('admin.payments.cancel',$payment) }}" data-cancellation-kind="checkout" data-order-number="{{ $order->number }}">@csrf<input type="hidden" name="revision" value="{{ $order->revision }}">@include('admin.orders.cancellation-fallback')<button class="btn btn-outline-primary">Cancel unpaid checkout</button></form>@endif
 @if($payment->paid_at && $payment->refunded_cents < $payment->amount_cents && auth()->user()->hasAdminPermission('payments.refund'))
-<form method="post" action="{{ route('admin.payments.refund',$payment) }}" data-confirm="Send this refund to the customer through the payment gateway? This moves real money in live mode.">@csrf
+<form method="post" action="{{ route('admin.payments.refund',$payment) }}" data-cancellation-kind="refund" data-order-number="{{ $order->number }}" data-refund-remaining="{{ $payment->amount_cents-$payment->refunded_cents }}" data-cancellation-eligible="{{ !in_array($order->status,['cancelled','completed','delivered','out_for_delivery']) ? 1 : 0 }}" data-confirm="Send this refund to the customer through the payment gateway? This moves real money in live mode.">@csrf
+<input type="hidden" name="revision" value="{{ $order->revision }}">
+@include('admin.orders.cancellation-fallback')
 <input type="hidden" name="expected_cents" value="{{ $payment->amount_cents-$payment->refunded_cents }}">
 @if($payment->provider==='helcim')<label>Refund amount (CAD)<input type="number" data-number-display="decimal" class="form-control" name="amount" min="0.01" step="0.01" max="{{ ($payment->amount_cents-$payment->refunded_cents)/100 }}" value="{{ number_format(min($payment->amount_cents-$payment->refunded_cents,$order->balance_cents<0?abs($order->balance_cents):$payment->amount_cents-$payment->refunded_cents)/100,2,'.','') }}" required></label>@endif
 <label><input type="checkbox" name="confirm" value="REFUND" required> Confirm refund (available CAD {{ number_format(($payment->amount_cents-$payment->refunded_cents)/100,2) }})</label>

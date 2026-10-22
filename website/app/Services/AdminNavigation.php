@@ -88,6 +88,8 @@ class AdminNavigation
             $target='admin.customers.business-requests';
         } elseif($route==='admin.reports.overdue-cheques') {
             $target='admin.reports.overdue-cheques';
+        } elseif(Str::startsWith($route,'admin.reports.inventory-valuation')) {
+            $target='admin.reports.inventory-valuation';
         } elseif(Str::startsWith($route,'admin.reports.inventory')) {
             $target='admin.reports.inventory';
         } elseif(Str::startsWith($route,'admin.inventory.')) {

@@ -25,10 +25,11 @@ class PosController extends Controller
                 $q->where('qr_code', $term)->orWhere('product_code', $term);
             });
         } else {
-            $query->searchTerm($term);
+            $query->searchTerm($term, false, true);
         }
         return response()->json(['products' => $query->orderBy('premium_marketing_name')->limit(20)->get()->map(function ($product) use ($profile) {
             return ['id' => $product->id, 'name' => $product->premium_marketing_name, 'barcode' => $product->barcode_number,
+                'subtitle' => $product->italian_subtitle, 'source_name' => $product->original_description,
                 'qr_code' => $product->qr_code, 'code' => $product->product_code, 'active' => $product->is_active,
                 'unit_cents' => app(\App\Services\PosCustomer::class)->price($product, $profile),
                 'stock' => $product->inventory?->quantity_on_hand, 'uom' => $product->uom,
@@ -53,7 +54,7 @@ class PosController extends Controller
             'payment_method' => 'required|in:cash,etransfer,cheque,credit', 'payment_status' => 'required|in:paid,unpaid'] + \App\Services\BusinessDetails::rules(!$request->filled('customer_id') && $request->input('account_type')==='business'));
         $order = $service->complete($data['quote'], $data, $request->user()->id)->refresh();
         return response()->json(['number' => $order->number, 'total' => $order->final_total_cents,
-            'receipt_url'=>route('orders.transfer-receipt.store',$order),'revision'=>$order->revision,'status'=>$order->status_label,'payment_method'=>$order->payment_method,'order_url'=>route('admin.pos.order',$order),'print_url' => route('admin.pos.receipt', $order)]);
+            'receipt_url'=>route('orders.transfer-receipt.store',$order),'revision'=>$order->revision,'status'=>$order->status_label,'payment_method'=>$order->payment_method,'payment_status'=>$order->payment_status,'payment_status_label'=>$order->payment_status_label,'order_url'=>route('admin.pos.order',$order),'print_url' => route('admin.pos.receipt', $order)]);
     }
 
     public function customer(Request $request, \App\Services\PosCustomer $service)

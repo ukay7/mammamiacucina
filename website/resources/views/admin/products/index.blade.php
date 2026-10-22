@@ -16,6 +16,9 @@
 <a data-product-modal data-action-label="Edit" class="btn btn-outline-primary" href="{{ route('admin.products.edit',[$product,'modal'=>1]) }}" title="Edit product" aria-label="Edit {{ $product->premium_marketing_name }}"><i class="fas fa-edit" aria-hidden="true"></i></a>
 @endif
 <a class="btn btn-outline-primary" target="_blank" rel="noopener" href="{{ route('admin.products.labels', ['product_ids'=>[$product->id]]) }}" title="Print barcode / PDF" aria-label="Print barcode for {{ $product->premium_marketing_name }}"><i class="fas fa-barcode" aria-hidden="true"></i></a>
+@if(auth()->user()->hasAdminPermission('products.manage'))
+<button type="button" class="mmc-product-toggle" role="switch" aria-checked="{{ $product->is_active ? 'true' : 'false' }}" aria-label="Active status for {{ $product->premium_marketing_name }}" title="{{ $product->is_active ? 'Deactivate' : 'Activate' }} product" data-product-active="{{ route('admin.products.active',$product) }}"><span class="mmc-toggle-track" aria-hidden="true"></span><small>{{ $product->is_active ? 'Active' : 'Inactive' }}</small></button>
+@endif
 </div></td></tr>@empty<tr><td colspan="{{ count($columnLabels)+2 }}">No matching products.</td></tr>@endforelse</tbody></table></div>
 @if(auth()->user()->hasAdminPermission('products.manage'))<div class="mmc-filters"><label>Category for selected products<select class="form-control" name="category_id" required><option value="">Choose category</option>@foreach($categories as $category)<option value="{{ $category->id }}">{{ $category->name }}</option>@endforeach</select></label><label>Action<select class="form-control" name="mode"><option value="add">Add category (keep existing)</option><option value="replace">Replace all categories</option></select></label><button class="btn btn-primary">Apply Categories</button><button class="btn btn-outline-primary" type="button" data-print-barcodes="{{ route('admin.products.labels') }}">Print Selected Barcodes</button></div>@endif
 {{ $products->links('pagination::bootstrap-4') }}</div></div></div></form>
@@ -31,4 +34,5 @@ document.querySelector('[data-print-barcodes]')?.addEventListener('click', funct
 });
 </script>
 <script src="{{ asset('admin-assets/product-columns.js') }}?v={{ filemtime(public_path('admin-assets/product-columns.js')) }}"></script>
+<script src="{{ asset('admin-assets/product-status.js') }}?v={{ filemtime(public_path('admin-assets/product-status.js')) }}"></script>
 @endsection

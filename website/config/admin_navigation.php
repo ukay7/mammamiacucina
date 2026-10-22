@@ -23,6 +23,7 @@ return [
     'Reports' => [
         $link('orders.view', 'admin.reports.overdue-cheques', 'admin.reports.overdue-cheques', 'Overdue Cheques', 'money-check'),
         $link('inventory.view', 'admin.reports.inventory', 'admin.reports.inventory*', 'Inventory Dashboard', 'boxes'),
+        $link('inventory.view', 'admin.reports.inventory-valuation', 'admin.reports.inventory-valuation*', 'Inventory Valuation', 'calculator'),
         $link('orders.view', 'admin.reports.index', 'admin.reports.*', 'Reporting Centre', 'chart-bar'),
     ],
     'Products & Stock' => [

@@ -17,7 +17,11 @@
 @endforeach
 </div>
 <p class="report-note">Order value excludes cancelled orders and unconfirmed totals. Collections use recorded payment dates, including payments for older orders. Net collected means receipts minus recorded refunds, before provider fees; it is not a bank payout or profit figure.</p>
-<div class="report-cards">@foreach(\App\Services\BusinessReports::TYPES as $kind=>[$title,$description,$icon])
+<div class="report-cards">
+@if(\App\Services\AdminNavigation::allowed(auth()->user(),collect(\App\Services\AdminNavigation::nodes())->firstWhere('route','admin.reports.inventory-valuation')) && auth()->user()->hasAdminPermission('inventory.view'))
+<a class="report-card" href="{{ route('admin.reports.inventory-valuation') }}"><i class="fas fa-calculator" aria-hidden="true"></i><h2>Inventory Valuation</h2><p>Supplier unit prices × on-hand stock, with warehouse filters and EUR totals.</p><span>Open report →</span></a>
+@endif
+@foreach(\App\Services\BusinessReports::TYPES as $kind=>[$title,$description,$icon])
 <a class="report-card" href="{{ route('admin.reports.business',$kind) }}"><i class="fas fa-{{ $icon }}" aria-hidden="true"></i><h2>{{ $title }}</h2><p>{{ $description }}</p><span>Open report →</span></a>
 @endforeach</div>
 @endsection

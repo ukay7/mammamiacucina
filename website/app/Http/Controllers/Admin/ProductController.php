@@ -59,7 +59,8 @@ class ProductController extends Controller
             }
         };
         if ($r->input('format') !== 'xlsx') {
-            return view('admin.products.print', ['headers' => $headers, 'rows' => $rows(), 'pdf' => $r->input('format') === 'pdf']);
+            $doc = ['brand' => app(\App\Services\DocumentTheme::class)->brand(), 'title' => 'Product catalogue', 'number' => '', 'date' => now()->format('d M Y H:i').' '.config('app.timezone')];
+            return view('admin.products.print', ['headers' => $headers, 'selectedColumns' => $selected, 'rows' => $rows(), 'doc' => $doc, 'pdf' => $r->input('format') === 'pdf']);
         }
 
         return response()->streamDownload(function () use ($headers, $rows, $selected) {
@@ -118,6 +119,22 @@ class ProductController extends Controller
     public function update(Request $r, Product $product)
     {
         return $this->saveProduct($r, $product);
+    }
+
+    public function active(Request $request, Product $product)
+    {
+        $data = $request->validate(['is_active' => 'required|boolean', 'expected_active' => 'required|boolean']);
+        DB::transaction(function () use ($data, $product) {
+            $current = Product::whereKey($product->id)->lockForUpdate()->firstOrFail();
+            if ($current->is_active !== (bool) $data['expected_active']) {
+                throw ValidationException::withMessages(['is_active' => 'This product status changed. Reload before trying again.']);
+            }
+            $current->is_active = (bool) $data['is_active'];
+            $current->editor_revision++;
+            $current->save();
+        });
+
+        return response()->json(['is_active' => (bool) $data['is_active'], 'message' => 'Product '.($data['is_active'] ? 'activated.' : 'deactivated.')]);
     }
 
     private function saveProduct(Request $r, Product $product)

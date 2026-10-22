@@ -50,15 +50,16 @@ class Product extends Model
         return $this->hasMany(ProductDocument::class);
     }
 
-    public function scopeSearchTerm($query, string $term, bool $supplier = false)
+    public function scopeSearchTerm($query, string $term, bool $supplier = false, bool $alternateNames = false)
     {
         $term = trim(mb_substr($term, 0, 200));
         if ($term === '') return $query;
-        return $query->where(function ($q) use ($term, $supplier) {
+        return $query->where(function ($q) use ($term, $supplier, $alternateNames) {
             $q->where('premium_marketing_name', 'like', '%'.$term.'%')
                 ->orWhere('product_code', 'like', '%'.$term.'%')->orWhere('qr_code', 'like', '%'.$term.'%');
             if (ctype_digit(ltrim($term, '#'))) $q->orWhere('products.id', (int) ltrim($term, '#'));
             if ($supplier) $q->orWhere('supplier', 'like', '%'.$term.'%');
+            if ($alternateNames) $q->orWhere('italian_subtitle', 'like', '%'.$term.'%')->orWhere('original_description', 'like', '%'.$term.'%');
         });
     }
 

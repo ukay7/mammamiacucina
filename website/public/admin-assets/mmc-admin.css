@@ -146,3 +146,11 @@ body.mmc-admin .nav-menu li.active>a{-webkit-box-shadow:inset 3px 0 0 var(--them
 
 /* Pending customer verification or business approval. */
 .mmc-admin .table tbody tr.customer-needs-review > td {background-color:#fff0ef!important;}
+
+/* Product status is independent of the editable source-status field. */
+.mmc-product-toggle{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:5px 7px;min-width:58px;border:0;border-radius:7px;background:transparent;color:var(--theme-text,#514231);cursor:pointer;vertical-align:middle}
+.mmc-product-toggle:disabled{opacity:.5;cursor:wait}.mmc-product-toggle small{font-size:10px;line-height:1.2}
+.mmc-toggle-track{display:block;position:relative;width:36px;height:20px;border-radius:12px;background:#787878;transition:background .15s}
+.mmc-toggle-track:after{content:"";position:absolute;left:3px;top:3px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform .15s}
+.mmc-product-toggle[aria-checked=true] .mmc-toggle-track{background:var(--theme-primary,#284f79)}
+.mmc-product-toggle[aria-checked=true] .mmc-toggle-track:after{transform:translateX(16px)}

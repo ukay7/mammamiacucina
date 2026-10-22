@@ -9,28 +9,25 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Models\Warehouse;
 use App\Models\WarehouseInventory;
+use App\Models\Category;
+use App\Services\InventoryProducts;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class InventoryController extends Controller
 {
-    public function index(Request $r)
+    public function index(Request $r, InventoryProducts $inventoryProducts)
     {
-        $r->validate(['stock' => 'nullable|in:tracked,unset,healthy,low,out,shortage', 'per_page' => 'nullable|in:10,20,50,100','warehouse'=>'nullable|exists:warehouses,id']);
+        $filters = $inventoryProducts->filters($r);
         $warehouses=Warehouse::where('is_active',true)->orderByDesc('is_default')->orderBy('name')->get();
         $selectedWarehouse=$warehouses->firstWhere('id',(int)$r->input('warehouse'))??$warehouses->firstWhere('is_default',true)??$warehouses->first();
-        $products = Product::with(['inventory','warehouseInventories'=>fn($q)=>$q->where('warehouse_id',$selectedWarehouse?->id), 'categories', 'media' => fn ($q) => $q->coverImage()])
-            ->when($r->filled('q'), fn ($q) => $q->searchTerm((string)$r->input('q')))
-            ->when($r->input('stock') === 'tracked', fn ($q) => $q->whereHas('inventory', fn ($i) => $i->whereNotNull('quantity_on_hand')))
-            ->when($r->input('stock') === 'unset', fn ($q) => $q->whereHas('inventory', fn ($i) => $i->whereNull('quantity_on_hand')))
-            ->when($r->input('stock') === 'healthy', fn ($q) => $q->whereHas('inventory', fn ($i) => $i->whereColumn('quantity_on_hand', '>', 'low_stock_threshold')))
-            ->when($r->input('stock') === 'low', fn ($q) => $q->whereHas('inventory', fn ($i) => $i->where('quantity_on_hand', '>', 0)->whereColumn('quantity_on_hand', '<=', 'low_stock_threshold')))
-            ->when($r->input('stock') === 'out', fn ($q) => $q->whereHas('inventory', fn ($i) => $i->where('quantity_on_hand', 0)))
-            ->when($r->input('stock') === 'shortage', fn ($q) => $q->whereHas('inventory', fn ($i) => $i->where('quantity_on_hand', '<', 0)))
-            ->orderBy('premium_marketing_name')->paginate((int)$r->input('per_page', 20))->withQueryString();
+        $products = $inventoryProducts->query($filters, $selectedWarehouse?->id)
+            ->with(['inventory', 'categories', 'media' => fn ($q) => $q->coverImage()])
+            ->paginate((int)$r->input('per_page', 20))->withQueryString();
+        $categories = Category::orderBy('name')->get();
 
-        return view('admin.inventory.index', compact('products','warehouses','selectedWarehouse'));
+        return view('admin.inventory.index', compact('products','warehouses','selectedWarehouse','categories'));
     }
 
     public function show(Product $product)

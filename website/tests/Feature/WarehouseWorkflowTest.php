@@ -113,9 +113,11 @@ class WarehouseWorkflowTest extends TestCase
         return [$o, $p, $admin, $worker];
     }
 
-    private function moveStatus($o, $status)
+    private function moveStatus($o, $status, ?bool $returnStock = null)
     {
-        return $this->patchJson(route('admin.orders.status', $o), ['revision' => $o->fresh()->revision, 'status' => $status]);
+        $data = ['revision' => $o->fresh()->revision, 'status' => $status];
+        if ($returnStock !== null) $data['restock_inventory'] = $returnStock;
+        return $this->patchJson(route('admin.orders.status', $o), $data);
     }
 
     private function pack($o, $action, $packed = 1, $note = '')
@@ -189,9 +191,9 @@ class WarehouseWorkflowTest extends TestCase
         $this->assertEquals(1000, $o->fresh()->final_total_cents);
         $this->assertSame('warehouse_issue', $o->fresh()->status);
         $this->assertEquals(0, $o->items()->first()->packed);
-        $this->moveStatus($o, 'cancelled')->assertOk();
+        $this->moveStatus($o, 'cancelled', true)->assertOk();
         $this->assertSame('10.000', $p->inventory()->first()->quantity_on_hand);
-        $this->moveStatus($o, 'cancelled')->assertOk();
+        $this->moveStatus($o, 'cancelled', true)->assertOk();
         $this->assertSame('10.000', $p->inventory()->first()->quantity_on_hand);
     }
 
@@ -236,7 +238,7 @@ class WarehouseWorkflowTest extends TestCase
         $o->update(['payment_status' => 'paid']);
         $this->amend($o)->assertSessionHasNoErrors();
         $this->post(route('admin.orders.settlement', $o), ['revision' => 1, 'direction' => 'refund', 'method' => 'cash', 'amount' => '15', 'note' => 'Partial refund', 'received' => 1])->assertSessionHasNoErrors();
-        $this->patch(route('admin.orders.update', $o), ['revision' => 2, 'status' => 'cancelled', 'payment_status' => 'refunded', 'delivery' => '0', 'tax' => '0'])->assertSessionHasNoErrors();
+        $this->patch(route('admin.orders.update', $o), ['revision' => 2, 'status' => 'cancelled', 'payment_status' => 'refunded', 'delivery' => '0', 'tax' => '0', 'restock_inventory' => 1])->assertSessionHasNoErrors();
         $this->assertEquals(0, $o->fresh()->net_received_cents);
         $this->assertEquals(0, $o->fresh()->balance_cents);
         $this->get('/admin/reports/payments')->assertViewHas('summary', fn ($s) => $s['cash']['gross'] === 2500 && $s['cash']['refunded'] === 2500);

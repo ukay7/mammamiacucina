@@ -174,12 +174,12 @@ class HelcimPaymentsTest extends TestCase
         $this->assertSame('partially_refunded', $payment->order->fresh()->payment_status);
         $this->assertDatabaseCount('payment_refunds', 1);
         $this->refundTimeout = true;
-        $this->post(route('admin.payments.refund', $payment), ['confirm' => 'REFUND', 'expected_cents' => 1600, 'amount' => '16.00'])->assertSessionHasErrors('payment');
+        $this->post(route('admin.payments.refund', $payment), ['confirm' => 'REFUND', 'expected_cents' => 1600, 'amount' => '16.00', 'revision' => $payment->order->fresh()->revision, 'restock_inventory' => 1])->assertSessionHasErrors('payment');
         $this->refundTimeout = false;
         app(OnlinePayments::class)->sync($payment);
         $this->assertSame(2100, $payment->fresh()->refunded_cents);
         $this->assertSame('refunded', $payment->order->fresh()->payment_status);
-        $this->post(route('admin.payments.refund', $payment), ['confirm' => 'REFUND', 'expected_cents' => 1600, 'amount' => '16.00'])->assertSessionHasNoErrors();
+        $this->post(route('admin.payments.refund', $payment), ['confirm' => 'REFUND', 'expected_cents' => 1600, 'amount' => '16.00', 'revision' => $payment->order->fresh()->revision, 'restock_inventory' => 1])->assertSessionHasNoErrors();
         $this->assertDatabaseCount('payment_refunds', 2);
         $refunds = Http::recorded(fn ($request) => str_ends_with($request->url(), '/payment/refund'))->values();
         $this->assertCount(2, $refunds);
@@ -305,6 +305,7 @@ class HelcimPaymentsTest extends TestCase
         $this->assertEquals(8,$product->inventory->fresh()->quantity_on_hand);
         $data['revision']=$p->order->fresh()->revision;
         $data['resolution']='refunded';
+        $data['restock_inventory']=1;
         $data['reason']='Full refund completed at bank REF123';
         $this->post(route('admin.payments.resolve',$p),$data)->assertSessionHasNoErrors();
         $this->assertSame('refunded',$p->order->fresh()->payment_status);
@@ -319,7 +320,7 @@ class HelcimPaymentsTest extends TestCase
         [$product]=$this->checkout();
         $p=Payment::firstOrFail();
         $this->admin();
-        $this->post(route('admin.payments.resolve',$p),['revision'=>$p->order->revision,'resolution'=>'unpaid','reason'=>'Merchant confirms no funds','confirmed'=>1])->assertSessionHasNoErrors();
+        $this->post(route('admin.payments.resolve',$p),['revision'=>$p->order->revision,'resolution'=>'unpaid','restock_inventory'=>1,'reason'=>'Merchant confirms no funds','confirmed'=>1])->assertSessionHasNoErrors();
         $this->assertSame('cancelled',$p->order->fresh()->status);
         $this->assertSame('unpaid',$p->order->fresh()->payment_status);
         $this->assertEquals(10,$product->inventory->fresh()->quantity_on_hand);
@@ -327,6 +328,43 @@ class HelcimPaymentsTest extends TestCase
         app(OnlinePayments::class)->sync($p);
         $this->assertSame('payment_review',$p->order->fresh()->status);
         $this->assertSame('paid',$p->order->fresh()->payment_status);
+    }
+
+    public function test_admin_no_choice_is_kept_until_helcim_expiry_and_later_refund(): void
+    {
+        [$product] = $this->checkout();
+        $p = Payment::firstOrFail();
+        $this->admin();
+        $this->post(route('admin.payments.cancel', $p), ['revision' => $p->order->fresh()->revision, 'restock_inventory' => 0])->assertSessionHasNoErrors();
+        $this->assertSame('awaiting_payment', $p->order->fresh()->status);
+        $this->assertFalse($p->order->fresh()->cancellation_restock);
+        $this->assertSame('8.000', $product->inventory->fresh()->quantity_on_hand);
+        $this->travel(71)->minutes();
+        app(OnlinePayments::class)->sync($p);
+        $this->assertSame('cancelled', $p->order->fresh()->status);
+        $this->assertSame('8.000', $product->inventory->fresh()->quantity_on_hand);
+        // A late payment and its eventual provider refund cannot change the saved No.
+        $this->transactions = [$this->row(), $this->row('refund', '21.00', '202')];
+        app(OnlinePayments::class)->sync($p);
+        $this->assertSame('refunded', $p->order->fresh()->payment_status);
+        $this->assertSame('8.000', $product->inventory->fresh()->quantity_on_hand);
+        $this->assertDatabaseCount('inventory_movements', 1);
+        $this->travelBack();
+    }
+
+    public function test_manual_unpaid_resolution_no_leaves_inventory_unchanged(): void
+    {
+        [$product] = $this->checkout();
+        $p = Payment::firstOrFail();
+        $this->admin();
+        $data = ['revision' => $p->order->fresh()->revision, 'resolution' => 'unpaid', 'reason' => 'Merchant confirms no payment; goods cannot be returned', 'confirmed' => 1];
+        $this->post(route('admin.payments.resolve', $p), $data)->assertSessionHasErrors('restock_inventory');
+        $this->assertSame('awaiting_payment', $p->order->fresh()->status);
+        $this->post(route('admin.payments.resolve', $p), $data + ['restock_inventory' => 0])->assertSessionHasNoErrors();
+        $this->assertSame('cancelled', $p->order->fresh()->status);
+        $this->assertFalse($p->order->fresh()->cancellation_restock);
+        $this->assertSame('8.000', $product->inventory->fresh()->quantity_on_hand);
+        $this->assertDatabaseCount('inventory_movements', 1);
     }
 
     public function test_manual_resolution_requires_permission_confirmation_and_available_stock(): void

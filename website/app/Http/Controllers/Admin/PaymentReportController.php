@@ -90,7 +90,7 @@ class PaymentReportController extends Controller
 
     public function resolve(Request $request, Payment $payment, OnlinePayments $payments)
     {
-        $data = $request->validate(['revision'=>'required|integer|min:0','resolution'=>'required|in:paid,unpaid,refunded','reason'=>'required|string|max:1000','confirmed'=>'accepted|required']);
+        $data = $request->validate(['revision'=>'required|integer|min:0','resolution'=>'required|in:paid,unpaid,refunded','reason'=>'required|string|max:1000','confirmed'=>'accepted|required','restock_inventory'=>'sometimes|boolean']);
         if ($data['resolution'] === 'refunded') abort_unless($request->user()->hasAdminPermission('payments.refund'),403);
         $payments->resolveManually($payment,$data,$request->user()->id);
         return back()->with('status','Manual payment decision saved. No money was moved by this action.');
@@ -110,13 +110,13 @@ class PaymentReportController extends Controller
         return back()->with('status', 'Payment checked with provider.');
     }
 
-    public function cancel(Payment $payment, OnlinePayments $payments)
+    public function cancel(Request $request, Payment $payment, OnlinePayments $payments)
     {
+        $data = $request->validate(['revision' => 'required|integer|min:0', 'restock_inventory' => 'required|boolean']);
         try {
-            if (! $payment->provider_order_id && ! $payment->expires_at->isPast()) {
-                $payment = $payments->start($payment);
-            }
-            $payments->sync($payment, false, true);
+            $payments->cancelByAdmin($payment, $data, $request->user()->id);
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Throwable $e) {
             return back()->withErrors(['payment' => 'Cancellation is not confirmed. Reserved stock remains held until reconciliation succeeds.']);
         }
@@ -126,9 +126,11 @@ class PaymentReportController extends Controller
 
     public function refund(Request $request, Payment $payment, OnlinePayments $payments)
     {
-        $data = $request->validate(['confirm' => 'required|in:REFUND', 'expected_cents' => 'required|integer|min:1', 'amount' => ['nullable', 'regex:/^\d{1,7}(?:\.\d{1,2})?$/D']]);
+        $data = $request->validate(['confirm' => 'required|in:REFUND', 'expected_cents' => 'required|integer|min:1', 'revision' => 'sometimes|integer|min:0', 'restock_inventory' => 'sometimes|boolean', 'amount' => ['nullable', 'regex:/^\d{1,7}(?:\.\d{1,2})?$/D']]);
         try {
-            $payments->refund($payment, $request->user()->id, (int) $data['expected_cents'], isset($data['amount']) ? app(\App\Services\PaymentGateway::class)->cents($data['amount']) : null);
+            $payments->refund($payment, $request->user()->id, (int) $data['expected_cents'], isset($data['amount']) ? app(\App\Services\PaymentGateway::class)->cents($data['amount']) : null, $data);
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Throwable $e) {
             return back()->withErrors(['payment' => 'Refund not yet confirmed. Reconcile this payment and check the provider dashboard before retrying.']);
         }

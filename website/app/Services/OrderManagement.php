@@ -2,8 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Inventory;
-use App\Models\InventoryMovement;
 use App\Models\Order;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -93,7 +91,9 @@ class OrderManagement
             if ($status === 'cancelled' && $payment === 'paid') {
                 $fail('Return the collected payment and select Refunded when cancelling this order.');
             }
+            $stockDecision = null;
             if ($status === 'cancelled' && $order->status !== 'cancelled') {
+                app(OrderCancellationStock::class)->choose($order, $d);
                 if (! $order->payment && $payment === 'refunded') {
                     if ($order->manual_collected_cents === null) {
                         $order->manual_collected_cents = $order->collected_cents;
@@ -104,28 +104,13 @@ class OrderManagement
                         $order->settlements()->create(['amount_cents' => -$remaining, 'method' => $order->payment_method, 'note' => 'Admin confirmed remaining collected money returned on cancellation', 'user_id' => $userId]);
                     }
                 }
-                foreach ($order->items()->orderBy('product_id')->get() as $item) {
-                    if (! $item->stock_deducted || ! $item->product_id) {
-                        continue;
-                    }
-                    $inventory = Inventory::where('product_id', $item->product_id)->lockForUpdate()->first();
-                    if (! $inventory || $inventory->quantity_on_hand === null) {
-                        $fail('Stock is no longer configured for '.$item->name.'. Set its inventory before cancelling.');
-                    }
-                    $before = $inventory->quantity_on_hand;
-                    $after = ((int) round((float) $before * 1000) + $item->quantity * 1000) / 1000;
-                    if ($after > 999999999) {
-                        $fail('Restoring stock would exceed the inventory limit.');
-                    }
-                    $inventory->update(['quantity_on_hand' => $after]);
-                    $item->update(['stock_deducted' => false, 'inventory_shortage_quantity' => 0]);
-                    InventoryMovement::create(['product_id' => $item->product_id, 'quantity_change' => $item->quantity, 'quantity_before' => $before, 'quantity_after' => $after, 'reason' => 'Cancelled order '.$order->number, 'created_by' => $userId, 'created_at' => now()]);
-                }
+                $stockDecision = app(OrderCancellationStock::class)->apply($order, 'Cancelled order', $userId);
             }
             if (! $order->payment && $payment === 'paid' && $order->payment_status !== 'paid') {
                 $order->manual_collected_cents = max(0, $order->subtotal_cents + ($delivery ?? 0) + ($tax ?? 0) - (int) $order->settlements()->sum('amount_cents'));
             }
             $description = 'Status: '.$order->status.' → '.$status.'; payment: '.$order->payment_status.' → '.$payment.'; delivery: '.($delivery === null ? 'pending' : number_format($delivery / 100, 2)).'; tax: '.($tax === null ? 'pending' : number_format($tax / 100, 2));
+            if ($stockDecision) $description .= ' · '.$stockDecision;
             if($order->payment_method==='credit' && $status!=='cancelled') {
                 $profile=\App\Models\Customer::lockForUpdate()->findOrFail($order->customer_id);
                 $increase=max(0,($delivery??0)+($tax??0)-(int)$order->delivery_cents-(int)$order->tax_cents);

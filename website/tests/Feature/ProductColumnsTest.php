@@ -70,4 +70,28 @@ class ProductColumnsTest extends TestCase
             unlink($path);
         }
     }
+
+    public function test_print_and_pdf_views_render_product_images_instead_of_url_text(): void
+    {
+        $product = $this->setupProduct();
+        \Illuminate\Support\Facades\Storage::fake('local');
+        \Illuminate\Support\Facades\Storage::disk('local')->put('products/catalogue.png', base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aU1cAAAAASUVORK5CYII='));
+        $media = $product->media()->create(['path' => 'products/catalogue.png', 'original_name' => 'catalogue.png', 'mime_type' => 'image/png', 'kind' => 'image']);
+        $url = route('admin.products.media', [$product, $media]);
+        foreach (['print', 'pdf'] as $format) {
+            $this->get(route('admin.products.export', ['format' => $format, 'columns' => 'image,qr_code,premium_marketing_name']))
+                ->assertOk()->assertSee('class="catalogue-product-image" src="'.$url.'"', false)
+                ->assertSee('loading="eager"', false)->assertSee('product-print.js')->assertSee('size:A4 landscape', false)
+                ->assertDontSee('<td>'.$url.'</td>', false);
+        }
+        $this->get($url)->assertOk()->assertHeader('Content-Type', 'image/png');
+        $this->get(route('admin.products.export', ['format' => 'print', 'columns' => 'premium_marketing_name']))->assertOk()->assertDontSee('class="catalogue-product-image"', false);
+    }
+
+    public function test_print_view_explains_missing_images_without_a_broken_thumbnail(): void
+    {
+        $this->setupProduct();
+        $this->get(route('admin.products.export', ['format' => 'print', 'columns' => 'image,premium_marketing_name']))
+            ->assertOk()->assertSee('No image')->assertDontSee('class="catalogue-product-image"', false);
+    }
 }

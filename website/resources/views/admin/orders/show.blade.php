@@ -9,6 +9,9 @@
 @include('admin.orders.detail-header',['printLabel'=>'Print Order / PDF','showFinancialSummary'=>true,'showOrderLinks'=>true])
 
 <div class="order-detail-notices">
+    @if($order->status === 'cancelled' && $order->cancellation_restock !== null)
+        <div class="alert alert-info" role="status"><strong>Cancellation stock decision:</strong> {{ $order->cancellation_restock ? 'Yes — quantities previously deducted were returned to inventory.' : 'No — inventory was left unchanged.' }}</div>
+    @endif
     @include('partials.order-commercial')
     @include('partials.transfer-receipt')
     @include('admin.orders.payment')
@@ -47,10 +50,11 @@
 
         <section class="order-detail-control-card">
             <div class="order-detail-card-title"><i class="fas fa-tasks" aria-hidden="true"></i><div><h3>Status &amp; payment</h3><p>Record an operational or payment decision.</p></div></div>
-            <form method="post" action="{{ route('admin.orders.update',$order) }}">@csrf @method('PATCH')
+            <form method="post" action="{{ route('admin.orders.update',$order) }}" data-cancellation-kind="status" data-current-status="{{ $order->status }}" data-order-number="{{ $order->number }}">@csrf @method('PATCH')
                 @if($order->payment)<input type="hidden" name="payment_status" value="{{ $order->payment_status }}">@endif
                 <input type="hidden" name="revision" value="{{ $order->revision }}">
                 <div class="order-detail-form-grid"><label>Status<select class="form-control" name="status">@foreach(($order->status_options + (!$order->payment && !in_array($order->status,['completed','delivered','out_for_delivery','cancelled']) ? ['cancelled'=>'Cancelled'] : [])) as $key=>$label)<option value="{{ $key }}" @selected(old('status',$order->status)===$key)>{{ $label }}</option>@endforeach</select></label><label>Payment status<select class="form-control" name="payment_status" @if($order->payment) disabled @endif>@foreach(($order->payment?['pending'=>'Pending gateway confirmation','partially_refunded'=>'Partially refunded']:[])+['unpaid'=>'Unpaid','paid'=>'Paid — payment received','refunded'=>'Refunded — payment returned'] as $key=>$label)<option value="{{ $key }}" @selected(old('payment_status',$order->payment_status)===$key)>{{ $label }}</option>@endforeach</select></label><label>Delivery charge (CAD)<input class="form-control" type="number" data-number-display="decimal" min="0" max="9999999.99" step="0.01" name="delivery" @readonly($order->payment || $order->delivery_service) value="{{ old('delivery',$order->delivery_cents===null?'':number_format($order->delivery_cents/100,2,'.','')) }}"></label><label>Tax amount (CAD)<input class="form-control" type="number" data-number-display="decimal" min="0" max="9999999.99" step="0.01" name="tax" @readonly($order->payment) value="{{ old('tax',$order->tax_cents===null?'':number_format($order->tax_cents/100,2,'.','')) }}"></label></div>
+                @include('admin.orders.cancellation-fallback')
                 <details class="order-detail-note-toggle"><summary>Add an internal change note</summary><textarea class="form-control" name="reason" maxlength="1000" placeholder="Reason for this change">{{ old('reason') }}</textarea></details>
                 <div class="order-detail-card-footer"><small>Confirm money was received before marking Paid. Return collected funds before cancelling a paid order.</small><button class="btn btn-primary" type="submit">Save order</button></div>
             </form>

@@ -28,8 +28,15 @@ document.addEventListener('change', async event => {
  const form=select.closest('form'), feedback=form.querySelector('.mmc-status-feedback');
  const previous=form.dataset.savedStatus;
  if(select.value===previous)return;
- if(!window.confirm('Change order status to '+select.selectedOptions[0].textContent+'?')){select.value=previous;select.dispatchEvent(new Event('status:sync'));return;}
+ let stockChoice=null;
+ if(select.value==='cancelled'){
+  select.disabled=true;select.dispatchEvent(new Event('status:sync'));
+  stockChoice=await window.mmcCancellationChoice(form.dataset.orderNumber);
+  select.disabled=false;
+  if(stockChoice===null){select.value=previous;select.dispatchEvent(new Event('status:sync'));return;}
+ }else if(!window.confirm('Change order status to '+select.selectedOptions[0].textContent+'?')){select.value=previous;select.dispatchEvent(new Event('status:sync'));return;}
  const payload=new FormData(form);
+ if(stockChoice!==null)payload.set('restock_inventory',stockChoice);
  select.disabled=true;select.dispatchEvent(new Event('status:sync'));form.setAttribute('aria-busy','true');feedback.textContent='Saving…';feedback.dataset.state='saving';
  try{
   const response=await fetch(form.action,{method:'POST',headers:{Accept:'application/json','X-Requested-With':'XMLHttpRequest'},body:payload});

@@ -227,31 +227,14 @@ class OnlinePayments
             return;
         }
         $late = (bool) $p->released_at || $order->status === 'cancelled';
-        $p->update(['transaction_id' => $transaction, 'status' => 'paid', 'paid_at' => now(), 'attention' => $late ? 'Payment arrived after stock was released. Refund or review before fulfilling.' : null]);
+        $p->update(['transaction_id' => $transaction, 'status' => 'paid', 'paid_at' => now(), 'attention' => $late ? 'Payment arrived after checkout cancellation. Review stock and refund or confirm the order before fulfilling.' : null]);
         $order->update(['payment_status' => 'paid', 'paid_at' => now(), 'status' => $late ? 'payment_review' : 'warehouse_pending', 'warehouse_round' => $late ? $order->warehouse_round : 1, 'warehouse_sent_at' => $late ? $order->warehouse_sent_at : now(), 'revision' => $order->revision + 1]);
-        $order->events()->create(['description' => $late ? 'Late gateway payment confirmed; stock is not reserved. Staff review required.' : 'Payment confirmed by '.ucfirst($p->provider).'; automatically sent to warehouse.', 'created_at' => now()]);
+        $order->events()->create(['description' => $late ? 'Late gateway payment confirmed after cancellation. Stock follows the saved cancellation decision; staff review required.' : 'Payment confirmed by '.ucfirst($p->provider).'; automatically sent to warehouse.', 'created_at' => now()]);
     }
 
-    private function restock(Order $order, string $reason): void
+    private function restock(Order $order, string $reason): string
     {
-        foreach ($order->items()->orderBy('product_id')->get() as $item) {
-            if (! $item->stock_deducted || ! $item->product_id) {
-                continue;
-            }
-            $inventory = Inventory::where('product_id', $item->product_id)->lockForUpdate()->first();
-            if (! $inventory || $inventory->quantity_on_hand === null) {
-                throw new RuntimeException('Cannot release stock: inventory configuration changed.');
-            }
-            $before = $inventory->quantity_on_hand;
-            $after = ((int) round((float) $before * 1000) + $item->quantity * 1000) / 1000;
-            if ($after > 999999999) {
-                throw new RuntimeException('Stock release exceeds inventory limit.');
-            }
-            $inventory->update(['quantity_on_hand' => $after]);
-            InventoryMovement::create(['product_id' => $item->product_id, 'quantity_change' => $item->quantity,
-                'quantity_before' => $before, 'quantity_after' => $after, 'reason' => $reason.' '.$order->number, 'created_by' => null, 'created_at' => now()]);
-            $item->update(['stock_deducted' => false, 'inventory_shortage_quantity' => 0]);
-        }
+        return app(OrderCancellationStock::class)->apply($order, $reason);
     }
 
     private function release(Payment $p, Order $order, string $reason): void
@@ -259,10 +242,10 @@ class OnlinePayments
         if ($p->paid_at || $p->released_at) {
             return;
         }
-        $this->restock($order, $reason);
+        $stockDecision = $this->restock($order, $reason);
         $p->update(['status' => 'expired', 'released_at' => now(), 'checkout_url' => null]);
         $order->update(['status' => 'cancelled', 'payment_status' => 'unpaid', 'cancelled_at' => now(), 'revision' => $order->revision + 1]);
-        $order->events()->create(['description' => $reason.'; reserved stock released.', 'created_at' => now()]);
+        $order->events()->create(['description' => $reason.'; '.$stockDecision, 'created_at' => now()]);
     }
 
     private function refunded(Payment $p, Order $order, int $amount): void
@@ -274,10 +257,11 @@ class OnlinePayments
             return;
         }
         $full = $amount === $p->amount_cents;
+        $stockDecision = null;
         $p->update(['refunded_cents' => $amount, 'attention' => null, 'status' => $full ? 'refunded' : 'partially_refunded']);
-        // Refunds do not imply physical returns. Only unfulfilled orders are automatically restocked.
+        // Only unfulfilled cancellations may return stock, following the saved admin choice.
         if ($full && ! in_array($order->status, ['delivered', 'out_for_delivery', 'completed'], true)) {
-            $this->restock($order, 'Refunded order');
+            $stockDecision = $this->restock($order, 'Refunded order');
             $p->update(['released_at' => $p->released_at ?? now()]);
             $order->status = 'cancelled';
             $order->cancelled_at = now();
@@ -285,7 +269,7 @@ class OnlinePayments
         $order->payment_status = $full ? 'refunded' : 'partially_refunded';
         $order->revision++;
         $order->save();
-        $order->events()->create(['description' => 'Gateway confirmed refund total CAD '.number_format($amount / 100, 2).'.', 'created_at' => now()]);
+        $order->events()->create(['description' => 'Gateway confirmed refund total CAD '.number_format($amount / 100, 2).'.'.($stockDecision ? ' '.$stockDecision : ''), 'created_at' => now()]);
     }
 
 
@@ -298,6 +282,8 @@ class OnlinePayments
             if (!in_array($order->status, ['awaiting_payment','payment_review']) && !($p->manual_resolution === 'paid' && $order->status === 'warehouse_pending' && $data['resolution'] === 'refunded')) $fail('This action is only available for unresolved payments or an unprocessed manually confirmed order.');
             $action = $data['resolution'];
             if ($action === 'unpaid' && ($p->paid_at || $p->refunded_cents > 0)) $fail('Payment was already recorded. Return the money and record a manual refund instead.');
+            if (in_array($action, ['unpaid', 'refunded'], true)) app(OrderCancellationStock::class)->choose($order, $data);
+            $stockDecision = null;
             if ($action === 'paid') {
                 if ($p->refunded_cents > 0) $fail('A refunded payment cannot be released to the warehouse.');
                 foreach ($order->items()->orderBy('product_id')->get() as $item) {
@@ -313,23 +299,54 @@ class OnlinePayments
                     $item->update(['stock_deducted'=>true,'inventory_shortage_quantity'=>$shortage]);
                 }
                 $p->update(['status'=>'paid','paid_at'=>$p->paid_at ?? now(),'manual_resolution'=>'paid','attention'=>null,'released_at'=>null,'checkout_url'=>null]);
-                $order->update(['payment_status'=>'paid','paid_at'=>$p->paid_at,'status'=>'warehouse_pending','warehouse_round'=>$order->warehouse_round+1,'warehouse_sent_at'=>now(),'cancelled_at'=>null,'revision'=>$order->revision+1]);
+                $order->update(['payment_status'=>'paid','paid_at'=>$p->paid_at,'status'=>'warehouse_pending','warehouse_round'=>$order->warehouse_round+1,'warehouse_sent_at'=>now(),'cancelled_at'=>null,'cancellation_restock'=>null,'revision'=>$order->revision+1]);
             } elseif ($action === 'refunded') {
-                $this->restock($order, 'Manually refunded order');
+                $stockDecision = $this->restock($order, 'Manually refunded order');
                 $p->update(['status'=>'refunded','paid_at'=>$p->paid_at ?? now(),'refunded_cents'=>$p->amount_cents,'manual_resolution'=>'refunded','attention'=>null,'released_at'=>$p->released_at ?? now(),'checkout_url'=>null]);
                 $order->update(['payment_status'=>'refunded','paid_at'=>$p->paid_at,'status'=>'cancelled','cancelled_at'=>now(),'revision'=>$order->revision+1]);
             } else {
                 $this->release($p,$order,'Admin confirmed no payment');
                 // Already released orders can enter review after an ambiguous gateway result.
                 if ($order->status !== 'cancelled') $order->update(['status'=>'cancelled','payment_status'=>'unpaid','cancelled_at'=>now(),'revision'=>$order->revision+1]);
+                // release() can be a no-op when a previously released payment enters review.
+                $order->save();
                 $p->update(['attention'=>null]);
             }
-            $order->events()->create(['description'=>'Admin #'.$userId.' manually recorded '.$action.'. Reference / reason: '.$data['reason'],'created_at'=>now()]);
+            $order->events()->create(['user_id'=>$userId,'description'=>'Admin #'.$userId.' manually recorded '.$action.'. Reference / reason: '.$data['reason'].($stockDecision ? ' · '.$stockDecision : ($action==='unpaid' ? ' · Return stock: '.($order->cancellation_restock ? 'Yes.' : 'No; inventory unchanged.') : '')),'created_at'=>now()]);
         });
     }
 
-    public function refund(Payment $payment, int $userId, ?int $expectedCents = null, ?int $refundCents = null): void
+    /** Persist the admin's choice before contacting a gateway, which may complete later. */
+    private function rememberCancellationStock(Payment $payment, array $data, int $userId, bool $refund = false): void
     {
+        $this->locked($payment, function ($p, $order) use ($data, $userId, $refund) {
+            $order->assertEditable();
+            $validated = \Illuminate\Support\Facades\Validator::make($data, ['revision' => 'required|integer|min:0'])->validate();
+            $fail = fn ($message) => throw ValidationException::withMessages(['payment' => $message]);
+            if ((int) $order->revision !== (int) $validated['revision']) $fail('This order changed. Reload before cancelling.');
+            if (in_array($order->status, ['cancelled', 'completed', 'delivered', 'out_for_delivery'], true)) $fail('This order is already closed or dispatched. Reload its current status.');
+            if (!$refund && ($p->paid_at || $p->released_at || $p->manual_resolution)) $fail('This checkout cannot be cancelled here. Reload and use the appropriate payment action.');
+            if ($refund && (!$p->paid_at || $p->manual_resolution || (int)($data['expected_cents'] ?? -1) !== $p->amount_cents - $p->refunded_cents)) $fail('Refund amount or payment status changed. Reload the order.');
+            app(OrderCancellationStock::class)->choose($order, $data);
+            $order->revision++;
+            $order->save();
+            $order->events()->create(['user_id' => $userId, 'description' => 'Admin requested '.($refund ? 'a full refund and cancellation' : 'checkout cancellation').'. Return stock: '.($order->cancellation_restock ? 'Yes.' : 'No; inventory must remain unchanged.'), 'created_at' => now()]);
+        });
+    }
+
+    public function cancelByAdmin(Payment $payment, array $data, int $userId): void
+    {
+        $this->rememberCancellationStock($payment, $data, $userId);
+        if (!$payment->provider_order_id && !$payment->expires_at->isPast()) $this->start($payment);
+        $this->sync($payment, false, true);
+    }
+
+    public function refund(Payment $payment, int $userId, ?int $expectedCents = null, ?int $refundCents = null, array $stockChoice = []): void
+    {
+        $current = $payment->fresh();
+        if ($current->status !== 'refunded' && ($refundCents ?? ($current->amount_cents - $current->refunded_cents)) === $current->amount_cents - $current->refunded_cents && !in_array($current->order->status, ['cancelled', 'completed', 'delivered', 'out_for_delivery'], true)) {
+            $this->rememberCancellationStock($current, $stockChoice + ['expected_cents' => $expectedCents], $userId, true);
+        }
         $this->sync($payment);
         $this->locked($payment, function ($p, $order) use ($userId, $expectedCents, $refundCents) {
             $order->assertEditable();
