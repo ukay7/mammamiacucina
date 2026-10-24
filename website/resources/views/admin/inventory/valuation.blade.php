@@ -8,6 +8,7 @@
     @foreach($summary['currencies'] as $currency=>$group)
     <div class="valuation-currency-card"><span>Grand total ({{ $currency }})</span><strong>{{ $currency==='EUR'?'€':'C$' }}{{ number_format((float)$group['total'],2) }}</strong><small>{{ $group['products'] }} {{ \Illuminate\Support\Str::plural('product',$group['products']) }} @if($group['needs_setup']) · {{ $group['needs_setup'] }} excluded (needs setup) @endif</small></div>
     @endforeach
+    <div class="valuation-estimate-card"><span>Stock quantity × C$5</span><strong data-valuation-stock-estimate>C${{ number_format((float)$summary['stock_estimate_cad'],2) }}</strong><small>{{ \App\Support\NumberDisplay::quantity($summary['stock_quantity']) }} × C$5 · Additional estimate</small></div>
     <aside class="valuation-health" aria-label="Report data checks">
         <div><span>Matching products</span><strong>{{ $summary['records'] }}</strong></div>
         <div><span>Missing supplier price</span><strong>{{ $summary['missing_prices'] }}</strong></div>

@@ -56,8 +56,10 @@ class InventoryValuationTest extends TestCase
 
         $this->get(route('admin.reports.inventory-valuation'))->assertOk()
             ->assertViewHas('summary', fn ($s) => $s['currencies']['EUR']['total'] === '35.00' && $s['records'] === 1)
+            ->assertViewHas('summary', fn ($s) => (float) $s['stock_quantity'] === 14.0 && $s['stock_estimate_cad'] === '70.00')
             ->assertSee('All warehouses combined');
         $this->get(route('admin.reports.inventory-valuation', ['warehouse' => $other->id, 'category' => $category->id]))->assertOk()
+            ->assertViewHas('summary', fn ($s) => (float) $s['stock_quantity'] === 4.0 && $s['stock_estimate_cad'] === '20.00')
             ->assertViewHas('summary', fn ($s) => $s['currencies']['EUR']['total'] === '10.00' && $s['records'] === 1);
     }
 
@@ -100,6 +102,34 @@ class InventoryValuationTest extends TestCase
         $emptyWarehouse = Warehouse::create(['name' => 'Unconfigured freezer', 'storage_type' => 'freezer']);
         $this->get(route('admin.inventory.index', ['warehouse' => $emptyWarehouse->id, 'stock' => 'unset']))->assertOk()
             ->assertViewHas('products', fn ($p) => $p->total() === 1);
+    }
+
+    public function test_fixed_cad_estimate_uses_all_matching_stock_without_changing_supplier_totals(): void
+    {
+        for ($i = 0; $i < 12; $i++) {
+            $this->product('Estimate cake '.$i, '2', 1.2);
+        }
+        $this->product('Estimate shortage', '3', -2.4, ['currency' => 'CAD']);
+        $this->product('Estimate not set', '17', null);
+        $this->product('Estimate needs setup', '999', 0.001, ['purchase_basis' => 'pack']);
+        $this->product('Unrelated product', '999', 1000);
+        $this->actingAs($this->staff());
+
+        $response = $this->get(route('admin.reports.inventory-valuation', ['product' => 'Estimate', 'per_page' => 10, 'page' => 2]))->assertOk()
+            ->assertViewHas('products', fn ($p) => $p->count() === 5)
+            ->assertSee('Stock quantity × C$5')->assertSee('C$60.01')->assertSee('Additional estimate');
+        $summary = $response->viewData('summary');
+        $this->assertSame(12.001, (float) $summary['stock_quantity']);
+        $this->assertSame('60.01', $summary['stock_estimate_cad']);
+        $this->assertSame('28.80', $summary['currencies']['EUR']['total']);
+        $this->assertSame('-7.20', $summary['currencies']['CAD']['total']);
+
+        $this->get(route('admin.reports.inventory-valuation', ['product' => 'Estimate', 'currency' => 'CAD']))->assertOk()
+            ->assertViewHas('summary', fn ($s) => $s['stock_estimate_cad'] === '-12.00' && $s['records'] === 1);
+        $this->get(route('admin.reports.inventory-valuation', ['product' => 'Estimate', 'setup' => 'needs_setup']))->assertOk()
+            ->assertViewHas('summary', fn ($s) => $s['stock_estimate_cad'] === '0.01' && $s['currencies']['EUR']['total'] === '0.00');
+        $this->get(route('admin.reports.inventory-valuation', ['product' => 'No matching product']))->assertOk()
+            ->assertViewHas('summary', fn ($s) => $s['stock_estimate_cad'] === '0.00' && $s['records'] === 0);
     }
 
     public function test_piece_and_carton_costs_use_quoted_currency_and_discount_without_conversion(): void

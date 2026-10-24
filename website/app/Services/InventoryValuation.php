@@ -111,6 +111,7 @@ class InventoryValuation
     private function emptySummary(): array
     {
         return ['records' => 0, 'missing_prices' => 0, 'unset_quantities' => 0, 'needs_setup' => 0,
+            'stock_quantity' => BigDecimal::zero(),
             'currencies' => array_fill_keys(['EUR', 'CAD'], ['products' => 0, 'total' => BigDecimal::zero(), 'needs_setup' => 0])];
     }
 
@@ -121,6 +122,8 @@ class InventoryValuation
         $summary['missing_prices'] += (int) $value['missing_price'];
         $summary['unset_quantities'] += (int) ($product->stock_quantity === null);
         $summary['needs_setup'] += (int) ! empty($value['issues']);
+        // The fixed CAD estimate uses physical stock even when supplier pricing needs setup.
+        $summary['stock_quantity'] = $summary['stock_quantity']->plus((string) ($product->stock_quantity ?? '0'));
         if (isset($summary['currencies'][$value['currency']])) {
             $group = &$summary['currencies'][$value['currency']];
             $group['products']++;
@@ -133,6 +136,8 @@ class InventoryValuation
 
     private function finishSummary(array $summary): array
     {
+        $summary['stock_estimate_cad'] = (string) $summary['stock_quantity']->multipliedBy(5)->toScale(2, RoundingMode::HalfUp);
+        $summary['stock_quantity'] = (string) $summary['stock_quantity'];
         foreach ($summary['currencies'] as &$group) {
             $group['total'] = (string) $group['total']->toScale(2);
         }
