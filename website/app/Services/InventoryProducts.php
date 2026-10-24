@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\Product;
+use App\Support\NumberDisplay;
+use Brick\Math\BigDecimal;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -99,6 +101,18 @@ class InventoryProducts
         }
 
         return $query->orderBy('products.premium_marketing_name')->orderBy('products.id');
+    }
+
+    public function stockSummary(Builder $query): array
+    {
+        $row = DB::query()->fromSub((clone $query)->reorder()->toBase(), 'matching_stock')
+            ->selectRaw('COUNT(*) as records, COALESCE(SUM(stock_quantity), 0) as quantity, SUM(CASE WHEN stock_quantity IS NULL THEN 1 ELSE 0 END) as unset_quantities')
+            ->first();
+        $quantity = BigDecimal::of((string) $row->quantity);
+
+        return ['records' => (int) $row->records, 'unset_quantities' => (int) $row->unset_quantities,
+            'quantity' => NumberDisplay::quantity((string) $quantity),
+            'quantity_times_five' => NumberDisplay::quantity((string) $quantity->multipliedBy(5))];
     }
 
     public function summary(Builder $query): array

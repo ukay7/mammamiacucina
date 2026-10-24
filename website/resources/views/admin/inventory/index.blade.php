@@ -11,6 +11,11 @@
 <label><span>Stock condition</span><select name="stock" class="form-control"><option value="">All inventory</option>@foreach(['tracked'=>'Tracked stock','unset'=>'Opening stock not set','healthy'=>'Healthy','low'=>'Low stock','out'=>'Out of stock','shortage'=>'Inventory shortage'] as $key=>$label)<option value="{{ $key }}" @selected(request('stock')===$key)>{{ $label }}</option>@endforeach</select></label>
 <label><span>Rows</span><select name="per_page" class="form-control">@foreach([10,20,50,100] as $size)<option value="{{ $size }}" @selected((int)request('per_page',20)===$size)>{{ $size }}</option>@endforeach</select></label>
 <button class="btn btn-primary"><i class="fas fa-search"></i> Filter</button><a class="btn btn-outline-primary" href="{{ route('admin.inventory.index') }}">Reset</a></form>
+<section class="inv-summary" data-stock-summary data-summary-url="{{ route('admin.inventory.summary') }}" aria-label="Filtered inventory totals" aria-live="polite">
+    <div><span>Total stock quantity</span><strong data-summary-quantity>{{ $stockSummary['quantity'] }}</strong><small>All matching products · {{ $selectedWarehouse?->name ?? 'All warehouses combined' }}</small></div>
+    <div><span>Quantity × 5</span><strong data-summary-quantity-times-five>{{ $stockSummary['quantity_times_five'] }}</strong><small>Total stock quantity multiplied by 5</small></div>
+    <aside><span><b data-summary-records>{{ $stockSummary['records'] }}</b> matching products</span><span><b data-summary-unset>{{ $stockSummary['unset_quantities'] }}</b> quantities not set</span><small data-summary-status>Totals cover all pages. Unset quantities contribute 0; shortages retain their sign.</small></aside>
+</section>
 <div class="inv-legend"><span><i class="inv-dot healthy"></i>Healthy</span><span><i class="inv-dot low"></i>Low stock</span><span><i class="inv-dot out"></i>Out of stock</span><span><i class="inv-dot shortage"></i>Shortage / oversold</span><span><i class="inv-dot unset"></i>Not configured</span></div>
 <section class="inv-table-card"><div class="table-responsive"><table class="table table-hover inv-table"><thead><tr><th>Product</th><th>Category / UoM</th><th>Current stock</th><th>New quantity</th><th>Warning below</th><th>Actions</th></tr>
 <tr class="inv-column-filters">

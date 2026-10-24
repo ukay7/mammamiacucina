@@ -7,8 +7,9 @@
     function apply() {
         const selected = checks.filter(input => input.checked).map(input => input.value);
         const columns = selected.join(',');
+        document.querySelector('.valuation-table').classList.toggle('valuation-base-only', selected.length === 0);
         document.querySelectorAll('[data-valuation-column]').forEach(cell => cell.hidden = !selected.includes(cell.dataset.valuationColumn));
-        document.querySelector('[data-valuation-column-count]').textContent = 6 + selected.length;
+        document.querySelector('[data-valuation-column-count]').textContent = Number(picker.dataset.baseCount) + selected.length;
         document.querySelector('[data-valuation-filters] [name="columns"]').value = columns;
         document.querySelectorAll('[data-valuation-export], .pagination a').forEach(link => {
             const url = new URL(link.href, location.href);

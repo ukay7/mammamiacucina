@@ -180,6 +180,7 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         Route::post('/imports/{import}/commit', [ProductImportController::class, 'commit'])->middleware(AdminAccess::class.':imports.manage')->name('imports.commit');
         Route::post('/imports/{import}/cancel', [ProductImportController::class, 'cancel'])->middleware(AdminAccess::class.':imports.manage')->name('imports.cancel');
         Route::get('/inventory', [InventoryController::class, 'index'])->middleware(AdminAccess::class.':inventory.view')->name('inventory.index');
+        Route::get('/inventory/summary', [InventoryController::class, 'summary'])->middleware(AdminAccess::class.':inventory.view')->name('inventory.summary');
         Route::get('/inventory/{product}/orders', [InventoryController::class, 'orders'])->middleware(AdminAccess::class.':inventory.view')->name('inventory.orders');
         Route::get('/inventory/{product}', [InventoryController::class, 'show'])->middleware(AdminAccess::class.':inventory.view')->name('inventory.show');
         Route::post('/inventory/{product}', [InventoryController::class, 'adjust'])->middleware(AdminAccess::class.':inventory.manage')->name('inventory.adjust');
