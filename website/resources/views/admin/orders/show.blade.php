@@ -67,10 +67,10 @@
         <div class="order-detail-disclosure-body order-detail-timeline">@forelse($order->events as $event)<article><span aria-hidden="true"></span><div><strong>{{ $event->created_at->format('d M Y H:i') }} · {{ $event->author?->name ?? 'System' }}</strong><p>{{ $event->description }}</p></div></article>@empty<p>No changes recorded yet.</p>@endforelse</div>
     </details>
 
-    @if(auth()->user()->hasAdminPermission('orders.manage'))
+    @if(auth()->user()->isSuper())
     <details class="order-detail-disclosure order-detail-secondary">
-        <summary><span><i class="fas fa-archive" aria-hidden="true"></i><strong>Archive order</strong><small>Available after the order is settled and closed</small></span><i class="fas fa-chevron-down order-detail-chevron" aria-hidden="true"></i></summary>
-        <div class="order-detail-disclosure-body order-detail-archive">@include('admin.orders.archive-action')</div>
+        <summary><span><i class="fas fa-trash-alt" aria-hidden="true"></i><strong>Delete order</strong><small>Super Admin only · retained records become view-only</small></span><i class="fas fa-chevron-down order-detail-chevron" aria-hidden="true"></i></summary>
+        <div class="order-detail-disclosure-body order-detail-deletion">@include('admin.orders.delete-action')</div>
     </details>
     @endif
 </section>

@@ -1,0 +1,8 @@
+.payment-controls details { border-top: 1px solid var(--admin-line, #dfcba5); padding: 18px 0 0; margin-top: 18px; }
+.payment-controls summary { font-weight: 600; font-size: 16px; }
+.payment-controls form { max-width: 760px; margin-top: 18px; }
+.payment-controls form > label, .payment-controls form > div > label { display: block; margin: 16px 0; }
+.payment-controls .form-control { margin-top: 6px; width: 100%; }
+.payment-controls textarea { resize: vertical; }
+.payment-controls label.payment-control-confirm { display: flex; gap: 10px; align-items: flex-start; line-height: 1.6; }
+.payment-control-confirm input { flex-shrink: 0; margin-top: 4px; }

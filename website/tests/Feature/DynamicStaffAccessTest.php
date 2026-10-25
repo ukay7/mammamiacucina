@@ -73,6 +73,7 @@ class DynamicStaffAccessTest extends TestCase
         $user=$this->staff([...array_keys(AdminNavigation::nodes()),...array_keys(config('admin.permissions'))]);
         foreach(app('router')->getRoutes() as $route) {
             if(!in_array(\App\Http\Middleware\AdminAccess::class,$route->gatherMiddleware(),true)) continue;
+            if(in_array(\App\Http\Middleware\SuperAdminOnly::class,$route->gatherMiddleware(),true)) continue;
             $uri=preg_replace('/\{[^}]+\}/','1',$route->uri());
             $uri=str_replace('admin/content/1','admin/content/policies',$uri);
             $request=\Illuminate\Http\Request::create('/'.$uri,$route->methods()[0]);

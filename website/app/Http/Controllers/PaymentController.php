@@ -13,6 +13,7 @@ class PaymentController extends Controller
 {
     private function owned(Payment $payment): void
     {
+        abort_if($payment->superseded_at, 410, 'This checkout was replaced. View the order for its current payment method.');
         abort_unless((int) session('last_order_id') === $payment->order_id || (auth()->check() && (int) $payment->order->created_by === auth()->id()), 404);
     }
 
@@ -164,7 +165,7 @@ class PaymentController extends Controller
             if (! $payment && is_string($transaction)) {
                 $payment = (clone $query)->where('transaction_id', $transaction)->first();
             }
-            if ($payment) {
+            if ($payment && $payment->order()->exists()) {
                 if (! $payment->provider_order_id && $providerId) {
                     Payment::whereKey($payment->id)->whereNull('provider_order_id')->update(['provider_order_id' => $providerId]);
                     $payment->refresh();

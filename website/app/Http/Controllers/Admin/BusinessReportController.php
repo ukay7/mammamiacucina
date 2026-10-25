@@ -25,7 +25,7 @@ class BusinessReportController extends Controller
         abort_unless(isset(BusinessReports::TYPES[$kind]), 404);
         $f = $request->validate([
             'from' => 'nullable|date_format:Y-m-d', 'to' => 'nullable|date_format:Y-m-d|after_or_equal:from',
-            'method' => ['nullable', Rule::in(['cash', 'card', 'paypal', 'etransfer'])], 'source' => 'nullable|in:website,pos',
+            'method' => ['nullable', Rule::in(['cash', 'card', 'paypal', 'etransfer', 'cheque', 'credit'])], 'source' => 'nullable|in:website,pos',
             'provider' => 'nullable|in:manual,helcim,stripe,paypal', 'q' => 'nullable|string|max:120', 'customer' => ['nullable', 'string', 'max:300', 'regex:/^(id:[1-9][0-9]*|email:.+)$/'],
             'balance' => 'nullable|in:due,refund', 'fulfillment' => 'nullable|in:pickup,delivery',
             'schedule' => 'nullable|in:scheduled,overdue,unscheduled',
@@ -97,7 +97,7 @@ class BusinessReportController extends Controller
             $out = fopen('php://output', 'w');
             $headers = match ($kind) {
                 'payments' => ['Order', 'Customer', 'Recorded at', 'Method', 'Provider', 'Entry', 'Amount CAD', 'Reference'],
-                'methods' => ['Method', 'Provider', 'Transactions', 'Orders', 'Received CAD', 'Refunded CAD', 'Net CAD'],
+                'methods' => ['Method', 'Provider', 'Transactions', 'Orders', 'Received CAD', 'Refunded CAD', 'Net CAD', 'Reversed CAD', 'Method adjustments CAD'],
                 'customers' => ['Customer', 'Email', 'Orders', 'Order value CAD', 'Net received CAD', 'Due CAD', 'Refund due CAD', 'Unconfirmed totals'],
                 default => ['Order', 'Customer', 'Email', 'Order date', 'Status', 'Method', 'Source', 'Fulfillment', 'Planned date', 'Order total CAD', 'Net received CAD', 'Amount due CAD', 'Refund due CAD'],
             };
@@ -106,7 +106,7 @@ class BusinessReportController extends Controller
             foreach ($query->cursor() as $r) {
                 $values = match ($kind) {
                     'payments' => [$r->number, $r->first_name.' '.$r->last_name, $r->occurred_at, $r->method, $r->provider, $r->entry_type, $money($r->amount_cents), $r->reference],
-                    'methods' => [$r->method, $r->provider, $r->transactions, $r->orders, $money($r->received), $money($r->refunded), $money($r->net)],
+                    'methods' => [$r->method, $r->provider, $r->transactions, $r->orders, $money($r->received), $money($r->refunded), $money($r->net), $money($r->reversed), $money($r->adjustments)],
                     'customers' => [$r->first_name.' '.$r->last_name, $r->email, $r->orders, $money($r->value), $money($r->received), $money($r->due), $money($r->refund_due), $r->unpriced],
                     default => [$r->number, $r->first_name.' '.$r->last_name, $r->email, $r->ordered_at, Order::STATUSES[$r->status] ?? $r->status, $r->payment_method, $r->source, $r->fulfillment, $r->fulfillment_date, $money($r->total_cents), $money($r->net_cents), $money($r->balance_cents === null ? null : max(0, $r->balance_cents)), $money($r->balance_cents === null ? null : max(0, -$r->balance_cents))],
                 };

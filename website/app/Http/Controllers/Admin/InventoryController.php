@@ -91,7 +91,7 @@ class InventoryController extends Controller
 
     public function orders(Product $product)
     {
-        $rows = DB::table('order_items as oi')->join('orders as o', 'o.id', '=', 'oi.order_id')
+        $rows = DB::table('order_items as oi')->join('orders as o', 'o.id', '=', 'oi.order_id')->whereNull('o.deleted_at')
             ->leftJoin('users as u', 'u.id', '=', 'o.created_by')
             ->where('oi.product_id', $product->id)
             ->orderByDesc('o.ordered_at')->orderByDesc('o.id')->limit(50)

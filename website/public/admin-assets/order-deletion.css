@@ -1,0 +1,36 @@
+#order-delete-dialog {
+    width: calc(100% - 32px);
+    max-width: 620px;
+    max-height: calc(100vh - 32px);
+    max-height: calc(100dvh - 32px);
+    margin: auto;
+    padding: 26px;
+    overflow: auto;
+    border: 1px solid var(--admin-line, #dfcba5);
+    border-radius: 14px;
+    background: var(--theme-surface, #fffaf2);
+    color: var(--theme-text, #392a1c);
+    box-shadow: 0 20px 60px var(--admin-shadow, rgba(0, 0, 0, .15));
+}
+#order-delete-dialog::backdrop { background: var(--admin-overlay, rgba(23, 15, 8, .72)); }
+.order-delete-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.order-delete-header small { color: var(--theme-accent, #b98c45); font-size: 11px; font-weight: 700; letter-spacing: .08em; }
+#order-delete-dialog h2 { margin: 5px 0 0; font-size: 24px; overflow-wrap: anywhere; }
+.order-delete-header > button { flex-shrink: 0; font-size: 20px; line-height: 1; }
+#order-delete-dialog p { line-height: 1.6; }
+.order-delete-hint, .order-delete-stock small { font-size: 12px; }
+.order-delete-reason { margin-top: 6px; font-weight: 600; }
+#order-delete-reason { width: 100%; resize: vertical; }
+.order-delete-stock { margin: 22px 0; }
+.order-delete-stock legend { margin-bottom: 12px; font-size: 15px; font-weight: 600; }
+.order-delete-stock label { display: flex; align-items: center; gap: 10px; min-height: 44px; margin-bottom: 8px; padding: 10px 12px; border: 1px solid var(--admin-line, #dfcba5); border-radius: 8px; cursor: pointer; }
+.order-delete-stock input { flex-shrink: 0; accent-color: var(--theme-primary, #812236); }
+.order-delete-stock small { display: block; line-height: 1.6; }
+.order-delete-confirm { display: flex; align-items: flex-start; gap: 10px; line-height: 1.6; cursor: pointer; }
+.order-delete-confirm input { flex-shrink: 0; margin-top: 4px; }
+.order-delete-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--admin-line, #dfcba5); }
+@media (max-width: 480px) {
+    #order-delete-dialog { width: calc(100% - 20px); padding: 20px 16px; }
+    #order-delete-dialog h2 { font-size: 21px; }
+    .order-delete-actions .btn { flex: 1; }
+}

@@ -8,10 +8,10 @@
 <div>Net received (CAD)<strong>${{ number_format($order->net_received_cents/100,2) }}</strong></div>
 <div>{{ $order->balance_cents<0?'Refund due':'Amount due' }} (CAD)<strong>${{ number_format(abs($order->balance_cents)/100,2) }}</strong></div>
 </div>
-<p>Positive entries are money received; negative entries are money refunded. Changing an order total changes the balance, without recording a refund until money is actually returned.</p>
+<p>Payment history distinguishes collections, actual refunds, reversals and method corrections. Corrections do not move money. Changing an order total changes the balance without recording a refund.</p>
 <div class="panel panel-content table-responsive"><h2>Payment history</h2><table class="table"><thead><tr><th>Date</th><th>Entry / Method</th><th>Reference / Notes</th><th>Recorded by</th><th>Amount (CAD)</th><th>Receipt</th></tr></thead><tbody>
 @if($order->collected_cents>0)
-<tr><td>{{ $order->paid_at ?? $order->ordered_at }}</td><td>Original payment · {{ $order->payment_label }}</td><td>{{ $order->payment?->transaction_id ?: 'Original recorded collection' }}</td><td>Order payment</td><td class="payment-positive">+${{ number_format($order->collected_cents/100,2) }}</td><td>@if($order->transfer_receipt_path)<a href="{{ route('orders.transfer-receipt',$order) }}" target="_blank" rel="noopener">View receipt</a>@elseif($order->payment)<a href="{{ route('admin.orders.print',$order) }}" target="_blank" rel="noopener">Invoice / receipt</a>@else — @endif</td></tr>
+<tr><td>{{ $order->paid_at ?? $order->ordered_at }}</td><td>Original payment · {{ ucfirst($order->original_payment_method ?: $order->payment_method) }}</td><td>{{ $order->payment?->transaction_id ?: 'Original recorded collection' }}</td><td>Order payment</td><td class="payment-positive">+${{ number_format($order->collected_cents/100,2) }}</td><td><a href="{{ route('admin.orders.initial-payment-document',$order) }}" target="_blank" rel="noopener">Original receipt</a>@if($order->transfer_receipt_path)<br><a href="{{ route('orders.transfer-receipt',$order) }}" target="_blank" rel="noopener">View proof</a>@endif</td></tr>
 @endif
 @php($originalRefund=$order->payment ? (int)$order->payment->refunded_cents : ($order->manual_refunded_cents ?? ($order->payment_status==='refunded'?$order->collected_cents:0)))
 @foreach($gatewayRefunds as $refund)
@@ -19,13 +19,14 @@
 @endforeach
 @if($originalRefund>0 && $gatewayRefunds->isEmpty())<tr><td>—</td><td>Original payment refund · {{ $order->payment_label }}</td><td>Previously recorded refund</td><td>Order payment</td><td class="payment-negative">−${{ number_format($originalRefund/100,2) }}</td><td>—</td></tr>@endif
 @foreach($order->settlements->sortBy('id') as $entry)
-<tr><td>{{ $entry->created_at->format('d M Y H:i') }}</td><td>{{ $entry->amount_cents<0?'Refund':'Payment received' }} · {{ ucfirst($entry->method) }}</td><td>{{ $entry->reference }}<small class="d-block">{{ $entry->note }}</small></td><td>{{ $entry->author?->name ?? 'Former user' }}</td><td class="{{ $entry->amount_cents<0?'payment-negative':'payment-positive' }}">{{ $entry->amount_cents<0?'−':'+' }}${{ number_format(abs($entry->amount_cents)/100,2) }}</td><td>@if($entry->receipt_path)<a href="{{ route('admin.orders.payment-receipt',[$order,$entry]) }}" target="_blank" rel="noopener">View receipt</a>@elseif($order->payment)<a href="{{ route('admin.orders.print',$order) }}" target="_blank" rel="noopener">Invoice / receipt</a>@else — @endif</td></tr>
+<tr><td>{{ $entry->created_at->format('d M Y H:i') }}</td><td>{{ $entry->entry_label }} · {{ ucfirst($entry->method) }}</td><td>{{ $entry->reference }}<small class="d-block">{{ $entry->note }}</small>@if($entry->related_original)<small>Against original payment</small>@elseif($entry->related_settlement_id)<small>Against entry #{{ $entry->related_settlement_id }}</small>@endif</td><td>{{ $entry->author?->name ?? 'Former user' }}</td><td class="{{ $entry->amount_cents<0?'payment-negative':'payment-positive' }}">{{ $entry->amount_cents<0?'−':'+' }}${{ number_format(abs($entry->amount_cents)/100,2) }}</td><td><a href="{{ route('admin.orders.payment-document',[$order,$entry]) }}" target="_blank" rel="noopener">View document</a>@if($entry->receipt_path)<br><a href="{{ route('admin.orders.payment-receipt',[$order,$entry]) }}" target="_blank" rel="noopener">View proof</a>@endif</td></tr>
 @endforeach
 @if(!$order->collected_cents && !$order->settlements->count())<tr><td colspan="6">No verified payments recorded.</td></tr>@endif
 </tbody></table></div>
 @include('admin.orders.payment')
-@unless($order->archived_at)@include('partials.transfer-receipt')@endunless
-@if(!$order->archived_at && auth()->user()->hasAdminPermission('orders.manage') && $order->balance_cents!==0 && $order->final_total_cents!==null && (!$order->payment || ($order->payment->paid_at && $order->balance_cents>0)))
+@include('admin.orders.payment-controls')
+@unless($order->trashed())@include('partials.transfer-receipt')@endunless
+@if(!$order->trashed() && auth()->user()->hasAdminPermission('orders.manage') && $order->balance_cents!==0 && $order->final_total_cents!==null && (!$order->payment || ($order->payment->paid_at && $order->balance_cents>0)))
 <form method="post" enctype="multipart/form-data" action="{{ route('admin.orders.settlement',$order) }}" class="payment-entry">@csrf
 <h2>Record {{ $order->balance_cents<0?'a refund':'a payment' }}</h2>
 @if($order->payment_method==='etransfer')
@@ -33,9 +34,10 @@
 @endif
 <p>Record a completed transaction. This form does not charge a card or initiate a bank transfer.</p>
 <input type="hidden" name="revision" value="{{ $order->revision }}"><input type="hidden" name="direction" value="{{ $order->balance_cents<0?'refund':'collect' }}">
-<div class="fields"><label>Amount (CAD)<input class="form-control" name="amount" type="number" data-number-display="decimal" min="0.01" step="0.01" max="{{ abs($order->balance_cents)/100 }}" value="{{ old('amount',number_format(abs($order->balance_cents)/100,2,'.','')) }}" required></label><label>Method<select class="form-control" name="method">@foreach(['cash'=>'Cash','card'=>'Card','etransfer'=>'E-transfer','paypal'=>'PayPal'] as $value=>$label)<option value="{{ $value }}" @selected(old('method',$order->payment_method)===$value)>{{ $label }}</option>@endforeach</select></label><label>Transaction reference (required except cash)<input class="form-control" name="reference" maxlength="255" value="{{ old('reference') }}"></label><label>Receipt (JPG, PNG, WebP or PDF; max 5 MB)<input class="form-control" type="file" name="receipt" accept="image/jpeg,image/png,image/webp,application/pdf"></label></div>
+<div class="fields"><label>Amount (CAD)<input class="form-control" name="amount" type="number" data-number-display="decimal" min="0.01" step="0.01" max="{{ abs($order->balance_cents)/100 }}" value="{{ old('amount',number_format(abs($order->balance_cents)/100,2,'.','')) }}" required></label><label>Method<select class="form-control" name="method">@foreach(['cash'=>'Cash','card'=>'Card','etransfer'=>'E-transfer','paypal'=>'PayPal','cheque'=>'Cheque'] as $value=>$label)<option value="{{ $value }}" @selected(old('method',$order->payment_method)===$value)>{{ $label }}</option>@endforeach</select></label><label>Transaction reference (required except cash)<input class="form-control" name="reference" maxlength="255" value="{{ old('reference') }}"></label><label>Receipt (JPG, PNG, WebP or PDF; max 5 MB)<input class="form-control" type="file" name="receipt" accept="image/jpeg,image/png,image/webp,application/pdf"></label></div>
 <label class="mt-3">Notes<textarea class="form-control" name="note" maxlength="1000" required>{{ old('note') }}</textarea></label>
 <label class="my-3"><input type="checkbox" name="received" value="1" required> I confirm this money has actually been {{ $order->balance_cents<0?'refunded':'received' }}.</label><button class="btn btn-primary">Record {{ $order->balance_cents<0?'refund':'payment' }}</button>
 </form>
 @endif
+<details class="panel panel-content"><summary>Order &amp; payment audit history</summary>@foreach($order->events as $event)<p class="mt-3"><strong>{{ $event->created_at->format('d M Y H:i') }} · {{ $event->author?->name ?? 'System' }}</strong><br>{{ $event->description }}</p>@endforeach</details>
 @endsection

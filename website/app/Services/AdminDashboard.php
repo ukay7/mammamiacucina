@@ -10,7 +10,7 @@ class AdminDashboard {
   $collected="(CASE WHEN p.id IS NOT NULL THEN CASE WHEN p.paid_at IS NOT NULL THEN p.amount_cents ELSE 0 END ELSE COALESCE(o.manual_collected_cents, CASE WHEN o.payment_status IN ('paid','refunded') THEN COALESCE($total,0) ELSE 0 END) END)";
   $refund="(CASE WHEN p.id IS NOT NULL THEN p.refunded_cents ELSE COALESCE(o.manual_refunded_cents, CASE WHEN o.payment_status = 'refunded' THEN $collected ELSE 0 END) END)";
   $net="(CAST($collected AS SIGNED) - CAST(COALESCE($refund,0) AS SIGNED) + COALESCE(s.settled,0))";
-  return DB::table('orders as o')->leftJoin('payments as p','p.order_id','=','o.id')->leftJoinSub($settlements,'s','s.order_id','=','o.id')
+  return DB::table('orders as o')->whereNull('o.deleted_at')->leftJoin('payments as p',fn($join)=>$join->on('p.order_id','=','o.id')->whereNull('p.superseded_at'))->leftJoinSub($settlements,'s','s.order_id','=','o.id')
    ->where('o.currency','CAD')->where(fn($q)=>$q->whereNull('p.id')->orWhere('p.mode','live'))
    ->select('o.id','o.number','o.first_name','o.last_name','o.status','o.payment_method','o.ordered_at','o.created_at')
    ->selectRaw("$total AS total_cents, $net AS net_cents, CASE WHEN o.status = 'cancelled' THEN -$net WHEN o.payment_status = 'refunded' AND $net = 0 THEN 0 WHEN $total IS NULL THEN NULL ELSE $total - $net END AS balance_cents");

@@ -56,14 +56,14 @@ class StaffPermissions
 
     public static function normalize(array $submitted): array
     {
-        $nodes = AdminNavigation::nodes();
+        $nodes = array_filter(AdminNavigation::nodes(), fn ($node) => !($node['super_only']??false));
         $result = array_values(array_intersect($submitted, array_keys($nodes)));
         if (in_array('orders.scope.restricted', $submitted, true)) $result[] = 'orders.scope.restricted';
         foreach (self::actions() as $route => $actions) {
             $chosen = array_values(array_intersect($submitted, array_keys($actions)));
             if ($chosen) $result = [...$result, 'access.'.$route, ...$chosen];
         }
-        $orderPages = ['access.admin.orders.index', 'access.admin.orders.completed', 'access.admin.orders.archived'];
+        $orderPages = ['access.admin.orders.index', 'access.admin.orders.completed'];
         $orderActions = array_values(array_intersect($submitted, array_keys(self::orderActions())));
         if ($orderActions && !array_intersect($result, $orderPages)) $result[] = $orderPages[0];
         $result = [...$result, ...$orderActions];
@@ -82,7 +82,7 @@ class StaffPermissions
         foreach (self::actions() as $route => $actions) {
             if (in_array('access.'.$route, $selected, true)) $selected = [...$selected, ...array_intersect($old, array_keys($actions))];
         }
-        if (array_intersect($selected, ['access.admin.orders.index', 'access.admin.orders.completed', 'access.admin.orders.archived'])) {
+        if (array_intersect($selected, ['access.admin.orders.index', 'access.admin.orders.completed'])) {
             $selected = [...$selected, ...array_intersect($old, array_keys(self::orderActions()))];
         }
         return self::normalize($selected);

@@ -4,7 +4,7 @@
 @php
 $selected=old('permissions',$role->exists?\App\Services\StaffPermissions::upgrade($role->permissions??[]):[]);
 $actions=\App\Services\StaffPermissions::actions();
-$orderKeys=['access.admin.orders.index','access.admin.orders.completed','access.admin.orders.archived'];
+$orderKeys=['access.admin.orders.index','access.admin.orders.completed'];
 @endphp
 <style>
 .permission-module{border:1px solid #e6d5b8;border-radius:6px;padding:14px;margin-bottom:12px;background:var(--mmc-panel-bg,#fffaf2)}
@@ -20,7 +20,7 @@ $orderKeys=['access.admin.orders.index','access.admin.orders.completed','access.
 <p>Choose each module and its actions together. Actions select the required page automatically. Turning a page off removes its actions. Unselected pages are hidden and blocked.</p>
 <div class="row">
 @foreach(collect(\App\Services\AdminNavigation::nodes())->groupBy('group') as $group=>$nodes)
-@php($visible=$nodes->filter(fn($node)=>auth()->user()->hasAdminPermission(\App\Services\AdminNavigation::key($node))))
+@php($visible=$nodes->filter(fn($node)=>!($node['super_only']??false) && auth()->user()->hasAdminPermission(\App\Services\AdminNavigation::key($node))))
 @continue($visible->isEmpty())
 <fieldset class="col-lg-6 permission-group"><legend>{{ $group }}</legend>
 @foreach($visible as $node)
@@ -63,7 +63,7 @@ document.getElementById('staff-permissions').addEventListener('change',function(
   if(input.value==='payments.refund'&&input.checked){const manage=module.querySelector('[value="payments.manage"]');if(manage)manage.checked=true;}
   if(input.value==='payments.manage'&&!input.checked){const refund=module.querySelector('[value="payments.refund"]');if(refund)refund.checked=false;}
  }
- const pages=Array.from(this.querySelectorAll('.permission-page')).filter(el=>['access.admin.orders.index','access.admin.orders.completed','access.admin.orders.archived'].includes(el.value));
+ const pages=Array.from(this.querySelectorAll('.permission-page')).filter(el=>['access.admin.orders.index','access.admin.orders.completed'].includes(el.value));
  const orderActions=this.querySelector('#order-permission-actions');
  if(orderActions&&orderActions.contains(input)&&input.checked&&!pages.some(el=>el.checked)&&pages.length) pages[0].checked=true;
  if(pages.includes(input)&&!pages.some(el=>el.checked)&&orderActions) orderActions.querySelectorAll('input').forEach(el=>el.checked=false);

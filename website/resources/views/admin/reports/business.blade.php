@@ -4,7 +4,7 @@
 @php
 $cash = in_array($kind,['payments','methods']);
 $money = fn($value) => $value === null ? 'Unconfirmed' : ($value<0?'−':'').'$'.number_format(abs($value)/100,2);
-$labels = ['cash'=>'Cash','etransfer'=>'E-transfer','card'=>'Card','paypal'=>'PayPal'];
+$labels = ['cash'=>'Cash','etransfer'=>'E-transfer','card'=>'Card','paypal'=>'PayPal','cheque'=>'Cheque','credit'=>'Customer Credit'];
 $linkFilters = array_filter($filters,fn($v)=>$v!==null && $v!=='');
 @endphp
 <link rel="stylesheet" href="{{ asset('admin-assets/reports.css') }}">
@@ -36,7 +36,7 @@ $linkFilters = array_filter($filters,fn($v)=>$v!==null && $v!=='');
 @if($undated)<div class="alert alert-warning">{{ $undated }} historic payment/refund entries have no reliable date and are excluded from dated collections. Their amounts remain included in current order balances.</div>@endif
 @if(!$cash && ($summary['unpriced']??0))<div class="alert alert-warning">{{ $summary['unpriced'] }} orders have unconfirmed totals. They are not treated as zero-value sales or known outstanding balances.</div>@endif
 <div class="report-kpis">
-@foreach($cash?['transactions'=>'Transactions','received'=>'Received','refunded'=>'Refunded','net'=>'Net collected']:['orders'=>'Orders','value'=>'Order value','received'=>'Net received','due'=>'Amount due','refund_due'=>'Refund due'] as $key=>$label)
+@foreach($cash?['transactions'=>'Transactions','received'=>'Received','refunded'=>'Refunded','reversed'=>'Reversed','adjustments'=>'Method adjustments','net'=>'Net collected']:['orders'=>'Orders','value'=>'Order value','received'=>'Net received','due'=>'Amount due','refund_due'=>'Refund due'] as $key=>$label)
 <div class="report-kpi"><span>{{ $label }}</span><strong>{{ in_array($key,['orders','transactions'])?$summary[$key]:$money($summary[$key]) }}</strong><small>{{ in_array($key,['orders','transactions'])?'Matching filters':'CAD' }}</small></div>
 @endforeach
 </div>
@@ -47,7 +47,7 @@ $linkFilters = array_filter($filters,fn($v)=>$v!==null && $v!=='');
 @endif
 <div class="report-table-panel"><div style="overflow-x:auto"><table class="report-table"><thead><tr>
 @if($kind==='customers')<th>Customer</th><th>Orders</th><th>Order value</th><th>Net received</th><th>Amount due</th><th>Refund due</th>
-@elseif($kind==='methods')<th>Method / provider</th><th>Transactions</th><th>Orders</th><th>Received</th><th>Refunded</th><th>Net collected</th>
+@elseif($kind==='methods')<th>Method / provider</th><th>Transactions</th><th>Orders</th><th>Received</th><th>Refunded</th><th>Reversed</th><th>Method adjustments</th><th>Net collected</th>
 @elseif($kind==='payments')<th>Recorded date</th><th>Order / customer</th><th>Method / provider</th><th>Entry</th><th>Amount CAD</th><th>Reference</th>
 @else<th>Order / customer</th><th>{{ $kind==='fulfilment'?'Planned date':'Order date' }}</th><th>Status</th><th>Method / source</th><th>Order total</th><th>Net received</th><th>Amount due</th><th>Refund due</th>@endif
 </tr></thead><tbody>
@@ -55,7 +55,7 @@ $linkFilters = array_filter($filters,fn($v)=>$v!==null && $v!=='');
 @if($kind==='customers')
 <td><a href="{{ route('admin.reports.business',['kind'=>'sales']+array_replace($linkFilters,['customer'=>$row->customer_id?'id:'.$row->customer_id:'email:'.$row->guest_email])) }}">{{ $row->first_name }} {{ $row->last_name }}</a><small>{{ $row->email }}</small>@if($row->unpriced)<small>{{ $row->unpriced }} unconfirmed totals</small>@endif</td><td>{{ $row->orders }}</td><td>{{ $money($row->value) }}</td><td>{{ $money($row->received) }}</td><td>{{ $money($row->due) }}</td><td>{{ $money($row->refund_due) }}</td>
 @elseif($kind==='methods')
-<td><a href="{{ route('admin.reports.business',['kind'=>'payments']+array_replace($linkFilters,['method'=>$row->method,'provider'=>$row->provider])) }}">{{ $labels[$row->method]??$row->method }}</a><small>{{ ucfirst($row->provider) }}</small></td><td>{{ $row->transactions }}</td><td>{{ $row->orders }}</td><td>{{ $money($row->received) }}</td><td>{{ $money($row->refunded) }}</td><td>{{ $money($row->net) }}</td>
+<td><a href="{{ route('admin.reports.business',['kind'=>'payments']+array_replace($linkFilters,['method'=>$row->method,'provider'=>$row->provider])) }}">{{ $labels[$row->method]??$row->method }}</a><small>{{ ucfirst($row->provider) }}</small></td><td>{{ $row->transactions }}</td><td>{{ $row->orders }}</td><td>{{ $money($row->received) }}</td><td>{{ $money($row->refunded) }}</td><td>{{ $money($row->reversed) }}</td><td>{{ $money($row->adjustments) }}</td><td>{{ $money($row->net) }}</td>
 @elseif($kind==='payments')
 <td>{{ $row->occurred_at }}</td><td><button type="button" class="report-link" data-report-order="{{ route('admin.reports.order',$row->order_id) }}">{{ $row->number }}</button><small>{{ $row->first_name }} {{ $row->last_name }}</small></td><td>{{ $labels[$row->method]??$row->method }}<small>{{ ucfirst($row->provider) }}</small></td><td>{{ $row->entry_type }}</td><td>{{ $row->amount_cents>0?'+':'' }}{{ $money($row->amount_cents) }}</td><td>{{ $row->reference?:'—' }}</td>
 @else

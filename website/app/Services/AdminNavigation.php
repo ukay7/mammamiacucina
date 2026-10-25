@@ -31,6 +31,7 @@ class AdminNavigation
     public static function allowed(User $user, array $node): bool
     {
         if($user->isSuper()) return true;
+        if($node['super_only']??false) return false;
         if(in_array(self::MARKER,$user->permissions(),true)) return $user->hasAdminPermission(self::key($node));
         return $node['permission']==='' || collect(explode('|',$node['permission']))->contains(fn($p)=>$user->hasAdminPermission($p));
     }
@@ -79,7 +80,7 @@ class AdminNavigation
         if(Str::startsWith($route,'admin.orders.')) {
             $order=$request->route('order');
             $view=$route==='admin.orders.export'?$request->input('view'):null;
-            $target=($route==='admin.orders.archived' || $view==='archived' || ($order instanceof \App\Models\Order && $order->archived_at))?'admin.orders.archived':(($route==='admin.orders.completed' || $view==='completed' || ($order instanceof \App\Models\Order && $order->status==='completed'))?'admin.orders.completed':'admin.orders.index');
+            $target=Str::startsWith($route,'admin.orders.deleted.')?'admin.orders.deleted.index':(($route==='admin.orders.completed' || $view==='completed' || ($order instanceof \App\Models\Order && $order->status==='completed'))?'admin.orders.completed':'admin.orders.index');
         } elseif(Str::startsWith($route,'admin.invoices.')) {
             $target='admin.customers.index';
         } elseif(Str::startsWith($route,'admin.payments.')) {

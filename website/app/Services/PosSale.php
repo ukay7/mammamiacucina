@@ -80,8 +80,9 @@ class PosSale
             $settings = GeneralSetting::lockForUpdate()->findOrFail(1);
             $creator = User::with('role')->findOrFail($userId);
             $warehouseSale = $creator->isWarehouseUserType();
-            if ($existing = Order::where('checkout_token', $quote['token'])->first()) {
+            if ($existing = Order::withTrashed()->where('checkout_token', $quote['token'])->first()) {
                 if ($existing->source !== 'pos' || (int) $existing->created_by !== $userId) $this->fail('Invalid sale reference.');
+                $existing->assertEditable();
                 return $existing;
             }
             if ($quote['expires'] < now()->timestamp) $this->fail('Sale review expired. Review the sale again.');

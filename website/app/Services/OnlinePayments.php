@@ -32,9 +32,10 @@ class OnlinePayments
     private function locked(Payment $payment, callable $operation)
     {
         return DB::transaction(function () use ($payment, $operation) {
-            $order = Order::lockForUpdate()->findOrFail($payment->order_id);
+            $order = Order::withTrashed()->lockForUpdate()->findOrFail($payment->order_id);
             $current = Payment::lockForUpdate()->findOrFail($payment->id);
             $current->setRelation('order', $order);
+            if ($order->trashed()) return $current;
 
             return $operation($current, $order);
         }, 3);
@@ -44,6 +45,7 @@ class OnlinePayments
     {
         return $this->locked($payment, function ($p, $order) {
             $order->assertEditable();
+            if ($p->superseded_at) throw new RuntimeException('This checkout was replaced by a manual payment method.');
             if ($p->status !== 'creating') {
                 return $p;
             }
@@ -74,6 +76,8 @@ class OnlinePayments
     {
         return $this->locked($payment, function ($p, $order) use ($capture, $cancel) {
             if ($capture || $cancel) $order->assertEditable();
+            // Superseded checkouts may be inspected for late money, never captured again.
+            if ($p->superseded_at) { $capture = false; $cancel = false; }
             if ($p->manual_resolution) return $p;
             if ($p->provider === 'helcim' && $p->provider_order_id) {
                 return $this->syncHelcim($p, $order, $cancel);
@@ -166,7 +170,7 @@ class OnlinePayments
             else throw new RuntimeException('Unexpected Helcim transaction type; review required.');
         }
         if (count($purchases) > 1) {
-            $p->update(['attention' => 'Multiple approved payments found for this invoice. Review in Helcim before fulfillment.']);
+            $p->update(['superseded_at' => null, 'attention' => 'Multiple approved payments found for this invoice. Review in Helcim before fulfillment.']);
             $order->update(['status' => 'payment_review']);
             return $p->fresh();
         }
@@ -226,8 +230,14 @@ class OnlinePayments
         if ($p->paid_at) {
             return;
         }
-        $late = (bool) $p->released_at || $order->status === 'cancelled';
-        $p->update(['transaction_id' => $transaction, 'status' => 'paid', 'paid_at' => now(), 'attention' => $late ? 'Payment arrived after checkout cancellation. Review stock and refund or confirm the order before fulfilling.' : null]);
+        $replaced = (bool) $p->superseded_at;
+        $late = $replaced || (bool) $p->released_at || $order->status === 'cancelled';
+        $p->update(['transaction_id' => $transaction, 'status' => 'paid', 'paid_at' => now(), 'superseded_at' => null, 'attention' => $late ? 'Payment arrived after checkout cancellation or payment-method replacement. Review collected amounts, stock and any refund due before fulfilling.' : null]);
+        if ($replaced) {
+            $order->payment_method = $p->provider === 'paypal' ? 'paypal' : 'card';
+            $order->original_payment_method = $order->payment_method;
+            $order->unsetRelation('payment');
+        }
         $order->update(['payment_status' => 'paid', 'paid_at' => now(), 'status' => $late ? 'payment_review' : 'warehouse_pending', 'warehouse_round' => $late ? $order->warehouse_round : 1, 'warehouse_sent_at' => $late ? $order->warehouse_sent_at : now(), 'revision' => $order->revision + 1]);
         $order->events()->create(['description' => $late ? 'Late gateway payment confirmed after cancellation. Stock follows the saved cancellation decision; staff review required.' : 'Payment confirmed by '.ucfirst($p->provider).'; automatically sent to warehouse.', 'created_at' => now()]);
     }
@@ -239,7 +249,7 @@ class OnlinePayments
 
     private function release(Payment $p, Order $order, string $reason): void
     {
-        if ($p->paid_at || $p->released_at) {
+        if ($p->paid_at || $p->released_at || $p->superseded_at) {
             return;
         }
         $stockDecision = $this->restock($order, $reason);
@@ -277,6 +287,7 @@ class OnlinePayments
     {
         $this->locked($payment, function ($p, $order) use ($data, $userId) {
             $order->assertEditable();
+            if ($p->superseded_at) throw ValidationException::withMessages(['payment' => 'This checkout has been replaced. Use the order payment controls.']);
             $fail = fn($message) => throw ValidationException::withMessages(['payment' => $message]);
             if ((int)$order->revision !== (int)$data['revision']) $fail('This order changed. Reload before saving.');
             if (!in_array($order->status, ['awaiting_payment','payment_review']) && !($p->manual_resolution === 'paid' && $order->status === 'warehouse_pending' && $data['resolution'] === 'refunded')) $fail('This action is only available for unresolved payments or an unprocessed manually confirmed order.');
@@ -323,6 +334,7 @@ class OnlinePayments
             $order->assertEditable();
             $validated = \Illuminate\Support\Facades\Validator::make($data, ['revision' => 'required|integer|min:0'])->validate();
             $fail = fn ($message) => throw ValidationException::withMessages(['payment' => $message]);
+            if ($p->superseded_at) $fail('This checkout has been replaced. Use the current order payment controls.');
             if ((int) $order->revision !== (int) $validated['revision']) $fail('This order changed. Reload before cancelling.');
             if (in_array($order->status, ['cancelled', 'completed', 'delivered', 'out_for_delivery'], true)) $fail('This order is already closed or dispatched. Reload its current status.');
             if (!$refund && ($p->paid_at || $p->released_at || $p->manual_resolution)) $fail('This checkout cannot be cancelled here. Reload and use the appropriate payment action.');
@@ -343,6 +355,7 @@ class OnlinePayments
 
     public function refund(Payment $payment, int $userId, ?int $expectedCents = null, ?int $refundCents = null, array $stockChoice = []): void
     {
+        $payment->order()->withTrashed()->firstOrFail()->assertEditable();
         $current = $payment->fresh();
         if ($current->status !== 'refunded' && ($refundCents ?? ($current->amount_cents - $current->refunded_cents)) === $current->amount_cents - $current->refunded_cents && !in_array($current->order->status, ['cancelled', 'completed', 'delivered', 'out_for_delivery'], true)) {
             $this->rememberCancellationStock($current, $stockChoice + ['expected_cents' => $expectedCents], $userId, true);

@@ -75,7 +75,8 @@ class CheckoutController extends Controller
         }
         $order = DB::transaction(function () use ($d, $quantities, $quote) {
             $settings = GeneralSetting::lockForUpdate()->findOrFail(1);
-            if ($existing = Order::where('checkout_token', $d['checkout_token'])->first()) {
+            if ($existing = Order::withTrashed()->where('checkout_token', $d['checkout_token'])->first()) {
+                $existing->assertEditable();
                 return $existing;
             }
 

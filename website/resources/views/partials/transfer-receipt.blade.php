@@ -5,7 +5,7 @@
 @foreach(['receipt','revision','received','order'] as $errorKey) @error($errorKey)<p role="alert" style="color:#a00920">{{ $message }}</p>@enderror @endforeach
 @if($order->payment_status === 'paid')
 <p><strong>Paid — payment verified by administration.</strong></p>
-@elseif(!$order->archived_at && !in_array($order->status,['cancelled','completed']))
+@elseif(!$order->trashed() && !in_array($order->status,['cancelled','completed']))
 <p>Upload a receipt or cheque photo now or later. Administration will verify funds received or cheque clearance separately from fulfillment.</p>
 <p><strong>{{ $order->transfer_receipt_path ? 'Payment submitted — awaiting admin verification.' : 'Unpaid — awaiting admin verification. Proof pending.' }}</strong></p>
 @endif
@@ -15,7 +15,7 @@
 @endif
 <p><a class="btn btn-outline-primary mmc-text-link" href="{{ route('orders.transfer-receipt',$order) }}" target="_blank" rel="noopener">View uploaded receipt</a> · Submitted {{ $order->transfer_receipt_uploaded_at }}</p>
 @endif
-@if(!$order->archived_at && !in_array($order->status,['cancelled','completed']) && $order->payment_status === 'unpaid' && auth()->check() && (auth()->user()->isCustomer() || auth()->user()->hasAdminPermission('orders.manage') || ($order->source==='pos' && (int)$order->created_by===auth()->id() && auth()->user()->hasAdminPermission('pos.manage'))))
+@if(!$order->trashed() && !in_array($order->status,['cancelled','completed']) && $order->payment_status === 'unpaid' && auth()->check() && (auth()->user()->isCustomer() || auth()->user()->hasAdminPermission('orders.manage') || ($order->source==='pos' && (int)$order->created_by===auth()->id() && auth()->user()->hasAdminPermission('pos.manage'))))
 <form action="{{ route('orders.transfer-receipt.store',$order) }}" method="post" enctype="multipart/form-data">
 @csrf<input type="hidden" name="revision" value="{{ $order->revision }}">
 <label for="transfer-receipt">{{ $order->transfer_receipt_path ? 'Replace receipt' : 'Upload receipt' }}</label>

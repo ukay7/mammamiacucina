@@ -75,6 +75,9 @@ class OrderManagement
                 $fail('Charges cannot change after payment has been collected.');
             }
             if ($payment !== $order->payment_status) {
+                if ($payment === 'paid' && ($order->settlements()->whereIn('entry_kind', ['reversal', 'bounced_cheque', 'correction_debit', 'correction_credit'])->exists() || $order->paymentAttempts()->whereNotNull('superseded_at')->exists())) {
+                    $fail('Record the replacement payment on the Payments page. A status change cannot undo payment corrections or bounced cheques.');
+                }
                 if ($payment === 'paid' && ($order->payment_status !== 'unpaid' || $delivery === null || $tax === null || $status === 'cancelled')) {
                     $fail('Confirm delivery and tax before recording payment received.');
                 }

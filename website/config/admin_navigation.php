@@ -11,7 +11,7 @@ return [
         $group('Order Management', 'shopping-cart', [
             $link('orders.view|warehouse.pack', 'admin.orders.index', 'admin.orders.*', 'Pending Orders', 'shopping-cart'),
             $link('orders.view|warehouse.pack', 'admin.orders.completed', 'admin.orders.completed', 'Completed Orders', 'check-circle'),
-            $link('orders.view', 'admin.orders.archived', 'admin.orders.archived', 'Archived Orders', 'archive'),
+            ['super_only'=>true] + $link('', 'admin.orders.deleted.index', 'admin.orders.deleted.*', 'Deleted Orders', 'trash-alt'),
         ]),
         $group('Customer Management', 'address-book', [
             $link('orders.view', 'admin.customers.index', 'admin.customers.*', 'View Customer', 'users'),

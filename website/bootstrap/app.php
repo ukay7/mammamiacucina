@@ -17,7 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->web(append: [\App\Http\Middleware\ArchivedOrderReadOnly::class]);
+        $middleware->web(append: [\App\Http\Middleware\DeletedOrderReadOnly::class]);
         $middleware->validateCsrfTokens(except: ['payments/webhooks/stripe', 'payments/webhooks/paypal', 'payments/card-events']);
         $middleware->redirectGuestsTo(fn () => route('admin.login'));
     })

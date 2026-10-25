@@ -24,6 +24,7 @@ class EmailOutbox
             if (! $entry || ! $entry->event_key || ! in_array($entry->status, ['queued', 'retry', 'sending'])) {
                 return null;
             }
+            if ($entry->order_id && !\App\Models\Order::whereKey($entry->order_id)->exists()) return null;
             if ($entry->available_at && $entry->available_at->isFuture()) {
                 return null;
             }

@@ -14,7 +14,7 @@ class ReconcilePayments extends Command
 
     public function handle(OnlinePayments $payments): int
     {
-        $ids = Payment::where(function ($q) {
+        $ids = Payment::whereHas('order')->where(function ($q) {
             $q->whereIn('status', ['creating', 'pending'])->orWhere(function ($q) {
                 $q->whereIn('status', ['paid', 'partially_refunded'])->where('updated_at', '>=', now()->subDays(90))
                     ->where(fn ($q) => $q->whereNull('last_checked_at')->orWhere('last_checked_at', '<', now()->subHours(6)));
@@ -30,7 +30,7 @@ class ReconcilePayments extends Command
                 $payments->sync($payment, true);
             } catch (\Throwable $e) {
                 $failed++;
-                Payment::whereKey($id)->update(['attention' => 'Automatic reconciliation failed. Check provider configuration or reconcile from Orders.', 'last_checked_at' => now()]);
+                Payment::whereKey($id)->whereHas('order')->update(['attention' => 'Automatic reconciliation failed. Check provider configuration or reconcile from Orders.', 'last_checked_at' => now()]);
                 $this->warn('Payment '.$id.' requires reconciliation.');
             }
         }

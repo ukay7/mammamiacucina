@@ -42,15 +42,15 @@ class BusinessReports
     public function movements()
     {
         $gateway = DB::table('payments as p')->where('p.mode', 'live')->whereNotNull('p.paid_at')
-            ->selectRaw("p.order_id, p.paid_at AS occurred_at, CAST(p.amount_cents AS SIGNED) AS amount_cents, CASE WHEN p.provider = 'paypal' THEN 'paypal' ELSE 'card' END AS method, p.provider, p.transaction_id AS reference, 'Gateway payment' AS entry_type");
-        $manual = DB::table('orders as o')->whereNotExists(fn ($q) => $q->selectRaw('1')->from('payments as p')->whereColumn('p.order_id', 'o.id'))
-            ->selectRaw("o.id AS order_id, o.paid_at AS occurred_at, CAST(COALESCE(o.manual_collected_cents, CASE WHEN o.payment_status IN ('paid','refunded') THEN COALESCE(o.subtotal_cents + o.delivery_cents + o.tax_cents,0) ELSE 0 END) AS SIGNED) AS amount_cents, o.payment_method AS method, 'manual' AS provider, NULL AS reference, 'Original manual payment' AS entry_type");
-        $adjustments = DB::table('order_settlements as s')->selectRaw("s.order_id, s.created_at AS occurred_at, s.amount_cents, s.method, 'manual' AS provider, s.reference, CASE WHEN s.amount_cents < 0 THEN 'Refund' ELSE 'Payment received' END AS entry_type");
+            ->selectRaw("p.order_id, p.paid_at AS occurred_at, CAST(p.amount_cents AS SIGNED) AS amount_cents, CASE WHEN p.provider = 'paypal' THEN 'paypal' ELSE 'card' END AS method, p.provider, p.transaction_id AS reference, 'Gateway payment' AS entry_type, 'payment' AS entry_kind");
+        $manual = DB::table('orders as o')->whereNull('o.deleted_at')->whereNotExists(fn ($q) => $q->selectRaw('1')->from('payments as p')->whereColumn('p.order_id', 'o.id')->whereNull('p.superseded_at'))
+            ->selectRaw("o.id AS order_id, o.paid_at AS occurred_at, CAST(COALESCE(o.manual_collected_cents, CASE WHEN o.payment_status IN ('paid','refunded') THEN COALESCE(o.subtotal_cents + o.delivery_cents + o.tax_cents,0) ELSE 0 END) AS SIGNED) AS amount_cents, COALESCE(o.original_payment_method,o.payment_method) AS method, 'manual' AS provider, NULL AS reference, 'Original manual payment' AS entry_type, 'payment' AS entry_kind");
+        $adjustments = DB::table('order_settlements as s')->selectRaw("s.order_id, s.created_at AS occurred_at, s.amount_cents, s.method, 'manual' AS provider, s.reference, CASE s.entry_kind WHEN 'bounced_cheque' THEN 'Cheque bounced — payment reversed' WHEN 'reversal' THEN 'Payment reversal' WHEN 'correction_debit' THEN 'Method correction — removed' WHEN 'correction_credit' THEN 'Method correction — reassigned' ELSE CASE WHEN s.amount_cents < 0 THEN 'Refund' ELSE 'Payment received' END END AS entry_type, COALESCE(s.entry_kind,CASE WHEN s.amount_cents < 0 THEN 'refund' ELSE 'payment' END) AS entry_kind");
         $refunds = DB::table('payment_refunds as r')->join('payments as p', 'p.id', '=', 'r.payment_id')->where('p.mode', 'live')->whereIn('r.status', ['completed', 'succeeded'])
-            ->selectRaw("p.order_id, r.created_at AS occurred_at, -CAST(r.amount_cents AS SIGNED) AS amount_cents, CASE WHEN p.provider = 'paypal' THEN 'paypal' ELSE 'card' END AS method, p.provider, r.provider_refund_id AS reference, 'Gateway refund (entry recorded)' AS entry_type");
+            ->selectRaw("p.order_id, r.created_at AS occurred_at, -CAST(r.amount_cents AS SIGNED) AS amount_cents, CASE WHEN p.provider = 'paypal' THEN 'paypal' ELSE 'card' END AS method, p.provider, r.provider_refund_id AS reference, 'Gateway refund (entry recorded)' AS entry_type, 'refund' AS entry_kind");
         // Historic aggregate refunds have no reliable transaction timestamp; explicitly leave them undated.
-        $legacyRefunds = DB::table('orders as o')->whereNotExists(fn ($q) => $q->selectRaw('1')->from('payments as p')->whereColumn('p.order_id', 'o.id'))
-            ->selectRaw("o.id AS order_id, NULL AS occurred_at, -CAST(COALESCE(o.manual_refunded_cents, CASE WHEN o.payment_status = 'refunded' THEN COALESCE(o.manual_collected_cents,o.subtotal_cents + o.delivery_cents + o.tax_cents,0) ELSE 0 END) AS SIGNED) AS amount_cents, o.payment_method AS method, 'manual' AS provider, NULL AS reference, 'Historic refund — date unavailable' AS entry_type");
+        $legacyRefunds = DB::table('orders as o')->whereNull('o.deleted_at')->whereNotExists(fn ($q) => $q->selectRaw('1')->from('payments as p')->whereColumn('p.order_id', 'o.id')->whereNull('p.superseded_at'))
+            ->selectRaw("o.id AS order_id, NULL AS occurred_at, -CAST(COALESCE(o.manual_refunded_cents, CASE WHEN o.payment_status = 'refunded' THEN COALESCE(o.manual_collected_cents,o.subtotal_cents + o.delivery_cents + o.tax_cents,0) ELSE 0 END) AS SIGNED) AS amount_cents, COALESCE(o.original_payment_method,o.payment_method) AS method, 'manual' AS provider, NULL AS reference, 'Historic refund — date unavailable' AS entry_type, 'refund' AS entry_kind");
 
         return $gateway->unionAll($manual)->unionAll($adjustments)->unionAll($refunds)->unionAll($legacyRefunds);
     }
@@ -83,14 +83,16 @@ class BusinessReports
         $undated = 0;
         if ($cash) {
             $query = $this->cash($f);
-            $summary = (array) (clone $query)->selectRaw('COUNT(*) AS transactions, COALESCE(SUM(CASE WHEN m.amount_cents > 0 THEN m.amount_cents ELSE 0 END),0) AS received, COALESCE(SUM(CASE WHEN m.amount_cents < 0 THEN -m.amount_cents ELSE 0 END),0) AS refunded, COALESCE(SUM(m.amount_cents),0) AS net')->first();
+            $totals = "SUM(CASE WHEN m.entry_kind = 'payment' THEN m.amount_cents ELSE 0 END) AS received, SUM(CASE WHEN m.entry_kind = 'refund' THEN -m.amount_cents ELSE 0 END) AS refunded, SUM(CASE WHEN m.entry_kind IN ('reversal','bounced_cheque') THEN -m.amount_cents ELSE 0 END) AS reversed, SUM(CASE WHEN m.entry_kind IN ('correction_debit','correction_credit') THEN m.amount_cents ELSE 0 END) AS adjustments, SUM(m.amount_cents) AS net";
+            $summary = (array) (clone $query)->selectRaw('COUNT(*) AS transactions, '.$totals)->first();
+            foreach (['received','refunded','reversed','adjustments','net'] as $key) $summary[$key] ??= 0;
             $undated = $this->cash($f, false)->whereNull('m.occurred_at')->count();
             if ($kind === 'methods') {
-                $rows = (clone $query)->select('m.method', 'm.provider')->selectRaw('COUNT(*) AS transactions, COUNT(DISTINCT m.order_id) AS orders, SUM(CASE WHEN m.amount_cents > 0 THEN m.amount_cents ELSE 0 END) AS received, SUM(CASE WHEN m.amount_cents < 0 THEN -m.amount_cents ELSE 0 END) AS refunded, SUM(m.amount_cents) AS net')->groupBy('m.method', 'm.provider')->orderByDesc('received');
+                $rows = (clone $query)->select('m.method', 'm.provider')->selectRaw('COUNT(*) AS transactions, COUNT(DISTINCT m.order_id) AS orders, '.$totals)->groupBy('m.method', 'm.provider')->orderByDesc('received');
             } else {
                 $rows = (clone $query)->select('o.id', 'o.number', 'o.first_name', 'o.last_name', 'm.*')->orderByDesc('m.occurred_at')->orderByDesc('m.order_id')->orderBy('m.entry_type');
             }
-            $trend = (clone $query)->selectRaw('DATE(m.occurred_at) AS day, SUM(CASE WHEN m.amount_cents > 0 THEN m.amount_cents ELSE 0 END) AS amount')->groupByRaw('DATE(m.occurred_at)')->orderBy('day')->get();
+            $trend = (clone $query)->selectRaw("DATE(m.occurred_at) AS day, SUM(CASE WHEN m.entry_kind = 'payment' THEN m.amount_cents ELSE 0 END) AS amount")->groupByRaw('DATE(m.occurred_at)')->orderBy('day')->get();
         } else {
             $query = $this->orders($f);
             if (! empty($f['method'])) {

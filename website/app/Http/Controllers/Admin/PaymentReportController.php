@@ -41,7 +41,7 @@ class PaymentReportController extends Controller
         [$query,$from,$to] = $this->query($request);
         $summary = [];
         foreach (['cash', 'card', 'paypal', 'etransfer', 'cheque', 'credit'] as $method) {
-            $summary[$method] = ['count' => 0, 'gross' => 0, 'refunded' => 0, 'pending' => 0];
+            $summary[$method] = ['count' => 0, 'gross' => 0, 'refunded' => 0, 'reversed' => 0, 'adjustments' => 0, 'pending' => 0];
         }
         foreach ((clone $query)->lazyById(500) as $order) {
             $method = $order->payment_method;
@@ -49,11 +49,16 @@ class PaymentReportController extends Controller
                 continue;
             }
             $summary[$method]['count']++;
-            $summary[$method]['gross'] += $order->collected_cents;
-            $summary[$method]['refunded'] += $order->payment?->refunded_cents ?? ($order->manual_refunded_cents ?? ($order->payment_status === 'refunded' ? $order->collected_cents : 0));
+            $originalMethod = $order->payment ? $method : ($order->original_payment_method ?: $method);
+            $summary[$originalMethod]['gross'] += $order->collected_cents;
+            $summary[$originalMethod]['refunded'] += $order->payment?->refunded_cents ?? ($order->manual_refunded_cents ?? ($order->payment_status === 'refunded' ? $order->collected_cents : 0));
             $summary[$method]['pending'] += max(0, $order->balance_cents);
             foreach ($order->settlements as $entry) {
-                if ($entry->amount_cents > 0) {
+                if (in_array($entry->kind, ['correction_debit', 'correction_credit'], true)) {
+                    $summary[$entry->method]['adjustments'] += $entry->amount_cents;
+                } elseif (in_array($entry->kind, ['reversal', 'bounced_cheque'], true)) {
+                    $summary[$entry->method]['reversed'] -= $entry->amount_cents;
+                } elseif ($entry->amount_cents > 0) {
                     $summary[$entry->method]['gross'] += $entry->amount_cents;
                 } else {
                     $summary[$entry->method]['refunded'] -= $entry->amount_cents;
@@ -72,15 +77,14 @@ class PaymentReportController extends Controller
 
         return response()->streamDownload(function () use ($query) {
             $stream = fopen('php://output', 'w');
-            fputcsv($stream, ['Order', 'Order date', 'Source', 'Method', 'Gateway', 'Environment', 'Payment status', 'Total CAD', 'Refunded CAD', 'Net received CAD', 'Transaction'], ',', '"', '');
+            fputcsv($stream, ['Order', 'Order date', 'Source', 'Method', 'Gateway', 'Environment', 'Payment status', 'Total CAD', 'Refunded CAD', 'Net received CAD', 'Transaction', 'Reversed CAD'], ',', '"', '');
             foreach ($query->lazyById(500) as $order) {
                 $total = $order->final_total_cents;
-                $refund = ($order->payment?->refunded_cents ?? ($order->manual_refunded_cents ?? ($order->payment_status === 'refunded' ? $order->collected_cents : 0))) + abs((int) $order->settlements->where('amount_cents', '<', 0)->sum('amount_cents'));
-                $received = $order->collected_cents + (int) $order->settlements->where('amount_cents', '>', 0)->sum('amount_cents');
+                $refund = $order->refunded_cents;
                 $row = [$order->number, $order->ordered_at->toDateTimeString(), $order->source, $order->payment_method,
                     $order->payment?->provider ?? ($order->payment_method === 'card' ? 'External terminal' : 'Manual'),
                     $order->payment?->mode ?? 'live', $order->payment_status, $total === null ? 'Unconfirmed' : number_format($total / 100, 2, '.', ''),
-                    number_format($refund / 100, 2, '.', ''), number_format(($received - $refund) / 100, 2, '.', ''), $order->payment?->transaction_id ?? ''];
+                    number_format($refund / 100, 2, '.', ''), number_format($order->net_received_cents / 100, 2, '.', ''), $order->payment?->transaction_id ?? '', number_format($order->reversed_cents / 100, 2, '.', '')];
                 $row = array_map(fn ($value) => preg_match('/^[=+@\-\t\r]/', (string) $value) ? "'".$value : $value, $row);
                 fputcsv($stream, $row, ',', '"', '');
             }

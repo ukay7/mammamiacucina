@@ -104,8 +104,11 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         Route::get('/customers/business-requests', [\App\Http\Controllers\Admin\CustomerController::class, 'businessRequests'])->middleware(AdminAccess::class.':orders.view')->name('customers.business-requests');
         Route::get('/customers/{customer}', [\App\Http\Controllers\Admin\CustomerController::class, 'show'])->middleware(AdminAccess::class.':orders.view')->name('customers.show');
         Route::get('/orders/completed', [OrderController::class, 'index'])->middleware(AdminAccess::class.':orders.view|warehouse.pack')->name('orders.completed');
-        Route::get('/orders/archived', [OrderController::class, 'index'])->middleware(AdminAccess::class.':orders.view')->name('orders.archived');
-        Route::post('/orders/{order}/archive', [OrderController::class, 'archive'])->middleware(AdminAccess::class.':orders.manage')->name('orders.archive');
+        Route::middleware(\App\Http\Middleware\SuperAdminOnly::class)->group(function () {
+            Route::get('/orders/deleted', [\App\Http\Controllers\Admin\DeletedOrderController::class, 'index'])->name('orders.deleted.index');
+            Route::get('/orders/deleted/{deletedOrder}', [\App\Http\Controllers\Admin\DeletedOrderController::class, 'show'])->withTrashed()->whereNumber('deletedOrder')->name('orders.deleted.show');
+            Route::delete('/orders/{order}', [\App\Http\Controllers\Admin\DeletedOrderController::class, 'destroy'])->name('orders.destroy');
+        });
         Route::get('/orders/export', [OrderController::class, 'export'])->middleware(AdminAccess::class.':orders.view|warehouse.pack')->name('orders.export');
         Route::get('/orders/{order}/items/{item}/image', [OrderController::class, 'itemImage'])->middleware(AdminAccess::class.':orders.view|warehouse.pack')->name('orders.item-image');
         Route::get('/orders/{order}/print', [OrderController::class, 'printOrder'])->middleware(AdminAccess::class.':orders.view|warehouse.pack')->name('orders.print');
@@ -149,6 +152,10 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         Route::get('/orders/{order}/payments/{settlement}/document', [OrderController::class,'settlementDocument'])->middleware(AdminAccess::class.':orders.view|orders.manage')->name('orders.payment-document');
         Route::get('/orders/{order}/payments/{settlement}/receipt', [OrderController::class,'paymentReceipt'])->middleware(AdminAccess::class.':orders.view|orders.manage')->name('orders.payment-receipt');
         Route::post('/orders/{order}/settlement', [OrderController::class,'settlement'])->middleware(AdminAccess::class.':orders.manage')->name('orders.settlement');
+        Route::middleware(\App\Http\Middleware\SuperAdminOnly::class)->group(function () {
+            Route::patch('/orders/{order}/payment-method', [\App\Http\Controllers\Admin\ManualPaymentController::class, 'method'])->name('orders.payment-method');
+            Route::post('/orders/{order}/payment-adjustment', [\App\Http\Controllers\Admin\ManualPaymentController::class, 'adjust'])->name('orders.payment-adjustment');
+        });
         Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus'])->middleware(AdminAccess::class.':orders.manage')->name('orders.status');
         Route::patch('/orders/{order}', [OrderController::class, 'update'])->middleware(AdminAccess::class.':orders.manage')->name('orders.update');
         Route::get('/orders', [OrderController::class, 'index'])->middleware(AdminAccess::class.':orders.view|warehouse.pack')->name('orders.index');

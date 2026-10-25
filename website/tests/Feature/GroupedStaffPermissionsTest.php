@@ -22,7 +22,7 @@ class GroupedStaffPermissionsTest extends TestCase
         $super=User::factory()->create(['role_id'=>Role::where('is_super',true)->value('id'),'is_active'=>true]);
         $html=$this->actingAs($super)->get('/admin/user-types/create')->assertOk()->getContent();
         $html=preg_replace('/<script\b[^>]*>.*?<\/script>/s','',$html);
-        foreach(AdminNavigation::nodes() as $key=>$node) $this->assertSame(1,substr_count($html,'value="'.$key.'"'),$key);
+        foreach(AdminNavigation::nodes() as $key=>$node) $this->assertSame(($node['super_only']??false)?0:1,substr_count($html,'value="'.$key.'"'),$key);
         foreach(StaffPermissions::actions() as $actions) foreach($actions as $key=>$label) $this->assertSame(1,substr_count($html,'value="'.$key.'"'),$key);
         $this->assertSame(0,substr_count($html,'value="pos.manage"'));
         $this->assertStringNotContainsString('Actions &amp; order visibility',$html);

@@ -13,13 +13,20 @@ class CustomerEmails
 {
     public function queue(string $key, string $type, string $recipient, array $values, ?array $document = null): void
     {
+        $orderId = null;
+        if (preg_match('/^order-(?:created|status|paid):(\d+)(?::|$)/', $key, $match)) {
+            $orderId = $match[1];
+        } elseif (preg_match('/^(settlement|invoice-email):(\d+)$/', $key, $match)) {
+            $orderId = \Illuminate\Support\Facades\DB::table($match[1] === 'settlement' ? 'order_settlements' : 'customer_invoices')->where('id', $match[2])->value('order_id');
+        }
+        if ($orderId && !Order::whereKey($orderId)->exists()) return;
         if (! filter_var($recipient, FILTER_VALIDATE_EMAIL)) {
             return;
         }
         $message = EmailTemplate::renderMessage($type, $values + ['site_name' => 'Mamma Mia Cucina']);
         // Unique event key is the final concurrency guard; payload is encrypted at rest.
         EmailHistory::firstOrCreate(['event_key' => $key], [
-            'recipient' => $recipient, 'type' => $type, 'subject' => $message['subject'], 'status' => 'queued',
+            'order_id' => $orderId, 'recipient' => $recipient, 'type' => $type, 'subject' => $message['subject'], 'status' => 'queued',
             'available_at' => now(), 'payload' => ['body' => $message['body'], 'document' => $document, 'idempotency_key' => 'mmc-'.Str::uuid()],
         ]);
     }
@@ -41,7 +48,7 @@ class CustomerEmails
     public function order(Order $order, string $type, string $key, ?int $amount = null): void
     {
         $order = $order->fresh(['items', 'payment', 'settlements']);
-        if (! $order || ! $order->email) {
+        if (! $order || $order->trashed() || ! $order->email) {
             return;
         }
         $money = fn ($c) => $c === null ? 'To be confirmed' : ($c < 0 ? '-' : '').'$'.number_format(abs($c) / 100, 2).' '.($order->currency ?: 'CAD');

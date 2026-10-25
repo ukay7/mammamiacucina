@@ -19,7 +19,7 @@ class TransferReceiptController extends Controller
         } else {
             abort_unless($user->hasAdminPermission($write ? 'orders.manage' : 'orders.view') || ($order->source === 'pos' && (int)$order->created_by === $user->id && $user->hasAdminPermission('pos.manage')), 403);
         }
-        abort_unless(in_array($order->payment_method,['etransfer','cheque']), 404);
+        abort_unless(in_array($order->payment_method,['etransfer','cheque']) || (!$write && $order->transfer_receipt_path), 404);
     }
 
     public function store(Request $request, Order $order)

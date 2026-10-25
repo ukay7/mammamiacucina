@@ -2,41 +2,72 @@
 
 namespace App\Models;
 
+use App\Services\CustomerEmails;
+use App\Services\CustomerInvoicing;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class Order extends Model
 {
+    use SoftDeletes;
+
     protected $guarded = ['id'];
 
-    protected function casts(): array { return ['ordered_at'=>'datetime','archived_at'=>'datetime','cancellation_restock'=>'boolean']; }
-    public function assertEditable(): void {
-        if ($this->archived_at) throw \Illuminate\Validation\ValidationException::withMessages(['order'=>'This order is archived and read-only.']);
+    protected function casts(): array
+    {
+        return ['ordered_at' => 'datetime', 'deleted_at' => 'datetime', 'deletion_restock' => 'boolean', 'cancellation_restock' => 'boolean'];
     }
-    public function archiveBlockReason(): ?string {
-        if ($this->archived_at) return 'This order is already archived.';
-        if (!in_array($this->status,['completed','delivered','cancelled'],true)) return 'Complete or cancel the order before archiving it.';
-        if ($this->status !== 'cancelled' && $this->final_total_cents === null) return 'Confirm the order total before archiving it.';
-        if ($this->balance_cents !== 0) return 'Settle the outstanding payment or refund before archiving it.';
-        if ($this->payment && (!in_array($this->payment->status,['paid','refunded','cancelled','expired','failed'],true) || $this->payment->attention)) return 'Resolve the gateway payment before archiving it.';
-        if ($this->payment && \Illuminate\Support\Facades\DB::table('payment_refunds')->where('payment_id',$this->payment->id)->whereNotIn('status',['completed','failed'])->exists()) return 'Resolve the pending gateway refund before archiving it.';
+
+    public function assertEditable(): void
+    {
+        if ($this->trashed()) {
+            throw ValidationException::withMessages(['order' => 'This order is deleted and read-only.']);
+        }
+    }
+
+    public function deletionBlockReason(): ?string
+    {
+        if ($this->trashed()) {
+            return 'This order is already deleted.';
+        }
+        if ($this->payment && (! in_array($this->payment->status, ['paid', 'partially_refunded', 'refunded', 'cancelled', 'expired', 'failed'], true) || $this->payment->attention)) {
+            return 'Resolve the in-progress gateway payment before deleting this order.';
+        }
+        if ($this->payment && DB::table('payment_refunds')->where('payment_id', $this->payment->id)->whereNotIn('status', ['completed', 'succeeded', 'failed'])->exists()) {
+            return 'Resolve the pending gateway refund before deleting this order.';
+        }
+
         return null;
     }
 
     protected static function booted(): void
     {
+        static::updating(function ($order) {
+            if ($order->getRawOriginal('deleted_at')) {
+                $order->assertEditable();
+            }
+            if (!$order->original_payment_method && ((int) $order->manual_collected_cents > 0 || in_array($order->payment_status, ['paid', 'refunded'], true))) {
+                $order->original_payment_method = $order->getRawOriginal('payment_method') ?: $order->payment_method;
+            }
+        });
         static::updated(function ($order) {
-            if(in_array($order->status,\App\Services\CustomerInvoicing::ELIGIBLE)) app(\App\Services\CustomerInvoicing::class)->issue($order);
-            app(\App\Services\CustomerEmails::class)->changed($order);
+            if (in_array($order->status, CustomerInvoicing::ELIGIBLE)) {
+                app(CustomerInvoicing::class)->issue($order);
+            }
+            app(CustomerEmails::class)->changed($order);
         });
         static::creating(function ($order) {
+            if ((int) $order->manual_collected_cents > 0 || in_array($order->payment_status, ['paid', 'refunded'], true)) $order->original_payment_method ??= $order->payment_method;
             $order->tracking_token ??= Str::random(48);
             // created_at remains the audit timestamp; ordered_at is the business date.
             $order->ordered_at ??= $order->created_at ?? now();
         });
     }
 
-    public const STATUSES = ['parked_admin' => 'Parked to Admin','awaiting_payment' => 'Awaiting payment', 'payment_review' => 'Payment needs review', 'out_for_delivery' => 'Out for Delivery', 'delivered' => 'Delivered', 'completed' => 'Completed', 'warehouse_pending' => 'Sent to warehouse', 'packing' => 'Packing', 'warehouse_issue' => 'Warehouse issue — admin action needed', 'ready_to_dispatch' => 'Ready for dispatch', 'cancelled' => 'Cancelled'];
+    public const STATUSES = ['parked_admin' => 'Parked to Admin', 'awaiting_payment' => 'Awaiting payment', 'payment_review' => 'Payment needs review', 'out_for_delivery' => 'Out for Delivery', 'delivered' => 'Delivered', 'completed' => 'Completed', 'warehouse_pending' => 'Sent to warehouse', 'packing' => 'Packing', 'warehouse_issue' => 'Warehouse issue — admin action needed', 'ready_to_dispatch' => 'Ready for dispatch', 'cancelled' => 'Cancelled'];
 
     public function getStatusLabelAttribute(): string
     {
@@ -69,6 +100,22 @@ class Order extends Model
         return $this->collected_cents - $refund + (int) $this->settlements->sum('amount_cents');
     }
 
+    public function getRefundedCentsAttribute(): int
+    {
+        return (int) ($this->payment?->refunded_cents ?? $this->manual_refunded_cents ?? ($this->payment_status === 'refunded' ? $this->collected_cents : 0))
+            - (int) $this->settlements->filter(fn ($entry) => $entry->kind === 'refund')->sum('amount_cents');
+    }
+
+    public function getReversedCentsAttribute(): int
+    {
+        return -(int) $this->settlements->filter(fn ($entry) => in_array($entry->kind, ['reversal', 'bounced_cheque'], true))->sum('amount_cents');
+    }
+
+    public function getCorrectionCentsAttribute(): int
+    {
+        return (int) $this->settlements->filter(fn ($entry) => in_array($entry->kind, ['correction_debit', 'correction_credit'], true))->sum('amount_cents');
+    }
+
     public function getBalanceCentsAttribute(): int
     {
         if ($this->status === 'cancelled') {
@@ -83,7 +130,9 @@ class Order extends Model
 
     public function getStatusOptionsAttribute(): array
     {
-        if ($this->archived_at) return [$this->status=>$this->status_label];
+        if ($this->trashed()) {
+            return [$this->status => $this->status_label];
+        }
         $choices = match ($this->status) {
             'parked_admin' => ['warehouse_pending', 'cancelled'],
             'warehouse_pending' => ['warehouse_issue'],
@@ -103,25 +152,48 @@ class Order extends Model
 
     public function scopeVisibleToWarehouse($query, int $userId)
     {
-        return $query->whereNull('archived_at')->where(fn ($visible) => $visible
-            ->where(fn ($own) => $own->where('source','pos')->where('created_by', $userId))
-            ->orWhere(fn ($parked) => $parked->whereIn('source', ['website','pos'])
+        return $query->where(fn ($visible) => $visible
+            ->where(fn ($own) => $own->where('source', 'pos')->where('created_by', $userId))
+            ->orWhere(fn ($parked) => $parked->whereIn('source', ['website', 'pos'])
                 ->whereIn('status', ['warehouse_pending', 'packing', 'ready_to_dispatch'])));
     }
 
-    public function getPaymentStatusLabelAttribute(): string {
-        if ($this->payment_status === 'pending') return 'Unpaid · Bank Processing';
-        if($this->payment_status==='unpaid')return $this->payment_method==='credit'?'Unpaid · On Credit':(in_array($this->payment_method,['cheque','etransfer']) || ($this->source==='website'&&$this->payment_method==='cash')?'Unpaid · Awaiting Admin Verification':'Unpaid');
-        return ucfirst(str_replace('_',' ',$this->payment_status));
+    public function getPaymentStatusLabelAttribute(): string
+    {
+        if ($this->payment_status === 'pending') {
+            return 'Unpaid · Bank Processing';
+        }
+        if ($this->payment_status === 'unpaid') {
+            return $this->payment_method === 'credit' ? 'Unpaid · On Credit' : (in_array($this->payment_method, ['cheque', 'etransfer']) || ($this->source === 'website' && $this->payment_method === 'cash') ? 'Unpaid · Awaiting Admin Verification' : 'Unpaid');
+        }
+
+        return ucfirst(str_replace('_', ' ', $this->payment_status));
     }
+
     public function getPaymentLabelAttribute(): string
     {
-        if($this->payment_method==='credit')return 'Customer Credit';
+        if ($this->payment_method === 'credit') {
+            return 'Customer Credit';
+        }
+
         return $this->payment_method === 'etransfer' ? 'E-transfer' : ($this->payment_method === 'cash' ? ($this->fulfillment === 'pickup' ? 'Cash on pick up' : 'Cash on delivery') : ucfirst($this->payment_method));
     }
 
-    public function invoice(){return $this->hasOne(CustomerInvoice::class);}
-    public function customer(){return $this->belongsTo(Customer::class);}
+    public function invoice()
+    {
+        return $this->hasOne(CustomerInvoice::class);
+    }
+
+    public function deletedBy()
+    {
+        return $this->belongsTo(User::class, 'deleted_by');
+    }
+
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
@@ -129,7 +201,12 @@ class Order extends Model
 
     public function payment()
     {
-        return $this->hasOne(Payment::class);
+        return $this->hasOne(Payment::class)->whereNull('superseded_at');
+    }
+
+    public function paymentAttempts()
+    {
+        return $this->hasMany(Payment::class);
     }
 
     public function events()
