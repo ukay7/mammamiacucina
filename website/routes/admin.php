@@ -103,6 +103,7 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         Route::get('/customers', [\App\Http\Controllers\Admin\CustomerController::class, 'index'])->middleware(AdminAccess::class.':orders.view')->name('customers.index');
         Route::get('/customers/business-requests', [\App\Http\Controllers\Admin\CustomerController::class, 'businessRequests'])->middleware(AdminAccess::class.':orders.view')->name('customers.business-requests');
         Route::get('/customers/{customer}', [\App\Http\Controllers\Admin\CustomerController::class, 'show'])->middleware(AdminAccess::class.':orders.view')->name('customers.show');
+        Route::get('/customers/{customer}/file-cover', \App\Http\Controllers\Admin\CustomerFileCoverController::class)->middleware(AdminAccess::class.':orders.view')->name('customers.file-cover');
         Route::get('/orders/completed', [OrderController::class, 'index'])->middleware(AdminAccess::class.':orders.view|warehouse.pack')->name('orders.completed');
         Route::middleware(\App\Http\Middleware\SuperAdminOnly::class)->group(function () {
             Route::get('/orders/deleted', [\App\Http\Controllers\Admin\DeletedOrderController::class, 'index'])->name('orders.deleted.index');

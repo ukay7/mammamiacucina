@@ -71,6 +71,7 @@
 </div>
 </section>
 <aside>
+@include('admin.customers.file-cover')
 <section class="panel panel-content" id="customer-notes"><div class="d-flex justify-content-between align-items-center mb-3"><h3 class="mb-0">Notes <small>({{ $notes->total() }})</small></h3>@if(auth()->user()->hasAdminPermission('customers.manage'))<button class="btn btn-outline-primary btn-sm" type="button" title="Add Note" aria-label="Add Note" data-toggle="modal" data-target="#customer-note-modal"><i class="fas fa-plus" aria-hidden="true"></i></button>@endif</div>
 @forelse($notes as $note)<article class="customer-sticky"><p>{{ $note->body }}</p><small>{{ $note->author?->name ?? 'Former staff member' }} · {{ $note->created_at->format('d M Y H:i') }}</small></article>@empty<p class="text-muted mb-0">No notes yet. Add a description or follow-up for this customer.</p>@endforelse
 {{ $notes->fragment('customer-notes')->links() }}
