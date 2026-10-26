@@ -20,6 +20,7 @@ class InventoryProducts
             'category' => 'nullable|integer|exists:categories,id', 'uom' => 'nullable|string|max:40',
             'warehouse' => 'nullable|integer|exists:warehouses,id',
             'active' => 'nullable|in:0,1',
+            'quantity_setup' => 'nullable|in:set,unset',
             'stock' => 'nullable|in:tracked,unset,healthy,low,out,shortage',
             'pricing' => 'nullable|in:missing,priced',
             'quantity_min' => 'nullable|numeric', 'quantity_max' => 'nullable|numeric',
@@ -75,6 +76,11 @@ class InventoryProducts
         if (isset($filters['active'])) {
             $query->where('products.is_active', $filters['active']);
         }
+        match ($filters['quantity_setup'] ?? '') {
+            'set' => $query->whereNotNull($quantity),
+            'unset' => $query->whereNull($quantity),
+            default => null,
+        };
 
         match ($filters['stock'] ?? '') {
             'tracked' => $query->whereNotNull($quantity),

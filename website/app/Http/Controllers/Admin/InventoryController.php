@@ -10,6 +10,7 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Models\Warehouse;
 use App\Models\WarehouseInventory;
+use App\Services\InventoryColumns;
 use App\Services\InventoryProducts;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -18,21 +19,21 @@ use Illuminate\Validation\ValidationException;
 
 class InventoryController extends Controller
 {
-    public function index(Request $r, InventoryProducts $inventoryProducts)
+    public function index(Request $r, InventoryProducts $inventoryProducts, InventoryColumns $columns)
     {
         $filters = $inventoryProducts->filters($r);
+        $selectedColumns = $columns->selected($r);
         $warehouses = Warehouse::where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get();
         $selectedWarehouse = $warehouses->firstWhere('id', (int) $r->input('warehouse')) ?? $warehouses->firstWhere('is_default', true) ?? $warehouses->first();
         $query = $inventoryProducts->query($filters, $selectedWarehouse?->id);
         [$stockSummary, $products] = DB::transaction(fn () => [
             $inventoryProducts->stockSummary($query),
-            (clone $query)
-                ->with(['inventory', 'categories', 'media' => fn ($q) => $q->coverImage()])
+            $columns->withColumns(clone $query)
                 ->paginate((int) $r->input('per_page', 20))->withQueryString(),
         ]);
         $categories = Category::orderBy('name')->get();
 
-        return view('admin.inventory.index', compact('products', 'warehouses', 'selectedWarehouse', 'categories', 'stockSummary'));
+        return view('admin.inventory.index', compact('products', 'warehouses', 'selectedWarehouse', 'categories', 'stockSummary', 'columns', 'selectedColumns'));
     }
 
     public function summary(Request $request, InventoryProducts $inventoryProducts)
