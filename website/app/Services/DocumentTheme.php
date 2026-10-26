@@ -3,6 +3,12 @@ namespace App\Services;
 use App\Models\{GeneralSetting,Order};
 use Illuminate\Support\Facades\Storage;
 class DocumentTheme {
+ public function dateLabel(string $date):string {
+  $date=trim($date);
+  if($date==='' || preg_match('/^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s/i',$date))return $date;
+  // Add the weekday without changing the recorded date, time or timezone.
+  return \Illuminate\Support\Carbon::parse($date,config('app.timezone'))->format('l').', '.$date;
+ }
  public function brand():array {
   $s=GeneralSetting::find(1);$path=$s?->logo_path?Storage::disk('local')->path($s->logo_path):public_path('logo.png');
   $logo=null;

@@ -28,6 +28,6 @@
 @endforeach
 @endif
 </tbody></table>
-<footer class="doc-footer"><strong>Thank you for choosing {{ $doc['brand']['name'] }}.</strong><p>Inventory valuation as of {{ $doc['date'] }}. Line values are rounded to two decimals before totaling. Products marked Needs setup are excluded from totals. Unconfigured quantities contribute 0; negative quantities retain their sign. EUR and CAD stay separate; no currency conversion is applied.</p></footer>
+<footer class="doc-footer"><strong>Thank you for choosing {{ $doc['brand']['name'] }}.</strong><p>Inventory valuation as of {{ app(\App\Services\DocumentTheme::class)->dateLabel($doc['date']) }}. Line values are rounded to two decimals before totaling. Products marked Needs setup are excluded from totals. Unconfigured quantities contribute 0; negative quantities retain their sign. EUR and CAD stay separate; no currency conversion is applied.</p></footer>
 </section>@endforeach
 </main></body></html>

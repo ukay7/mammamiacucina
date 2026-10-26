@@ -6,7 +6,7 @@
 <div class="doc-toolbar"><button type="button" id="print-catalogue">{{ $pdf?'Save as PDF':'Print catalogue' }}</button><span id="catalogue-print-status" role="status">@if($pdf)Choose “Save as PDF” as the destination. @endif All products matching the selected filters are included.</span></div>
 <main class="document">
 @include('documents.header')
-<table class="doc-info"><tr><td><h2>Product catalogue</h2><div>All products matching your selected filters.</div></td><td><h2>Pricing</h2><div>Current published prices, as of {{ $doc['date'] }}.</div></td></tr></table>
+<table class="doc-info"><tr><td><h2>Product catalogue</h2><div>All products matching your selected filters.</div></td><td><h2>Pricing</h2><div>Current published prices, as of {{ app(\App\Services\DocumentTheme::class)->dateLabel($doc['date']) }}.</div></td></tr></table>
 <div class="catalogue-scroll"><table class="doc-lines"><thead><tr>@foreach($headers as $header)<th>{{ $header }}</th>@endforeach</tr></thead><tbody>
 @forelse($rows as $row)<tr>@foreach($row as $index=>$cell)
 <td @class(['catalogue-image-cell'=>$selectedColumns[$index]==='image','catalogue-nowrap'=>in_array($selectedColumns[$index],['status','qr_code','product_code','published_price','business_price'])])>
