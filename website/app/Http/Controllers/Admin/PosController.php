@@ -64,7 +64,7 @@ class PosController extends Controller
             'address'=>'nullable|string|max:255','city'=>'nullable|string|max:100','province'=>'nullable|string|max:100',
             'postal_code'=>'nullable|string|max:30','country'=>'nullable|string|max:100'] + \App\Services\BusinessDetails::rules($request->input('account_type')==='business'));
         $customer=$service->create($data);
-        return response()->json(['customer'=>$customer->only(['id','name','email','phone','account_type','address','city','province','postal_code','country']), 'pending'=>$customer->user->businessApprovalPending()]);
+        return response()->json(['customer'=>$customer->only(['id','name','email','phone','account_type','business_name','address','city','province','postal_code','country']), 'pending'=>$customer->user->businessApprovalPending()]);
     }
 
     public function orders(Request $request)

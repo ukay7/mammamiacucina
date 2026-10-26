@@ -5,6 +5,10 @@
     const $ = selector => app.querySelector(selector);
     const cart = new Map();
     const money = cents => new Intl.NumberFormat('en-CA', {style:'currency',currency:'CAD'}).format(cents / 100);
+    const customerBusinessPrefix = customer => {
+        const business = customer.account_type === 'business' ? String(customer.business_name || '').trim() : '';
+        return business ? business+' · ' : '';
+    };
     const checkout = $('#pos-checkout'), success = $('#pos-success'), form = $('#complete-sale');
     const customerForm=$('#pos-customer-form');
     let customerId=null, customerVersion=0, customerReady=false, frozenReceipt=null, cashPaymentStatus='paid';
@@ -78,7 +82,7 @@
         try{
             if(select.value==='new'){
                 const result=await request(app.dataset.customerStore,Object.fromEntries(new FormData(customerForm)));
-                const c=result.customer,option=new Option('#'+c.id+' · '+c.name+' — '+c.email,c.id);
+                const c=result.customer,option=new Option(customerBusinessPrefix(c)+'#'+c.id+' · '+c.name+' — '+c.email+(c.phone?' '+c.phone:''),c.id);
                 option.dataset.profile=JSON.stringify(c);option.dataset.pending=result.pending?'1':'0';select.add(option);select.value=String(c.id);
                 $('#pos-new-customer').hidden=true;$('#pos-new-customer').querySelectorAll('input,select,textarea').forEach(el=>el.disabled=true);
             }
@@ -96,7 +100,7 @@
             const parts=profile.name.split(' ');form.elements.first_name.value=parts.shift();form.elements.last_name.value=parts.join(' ');
             for(const key of ['email','phone','address','city','province','postal_code','country'])form.elements[key].value=profile[key]||'';
             if(!form.elements.country.value)form.elements.country.value='Canada';
-            $('#pos-customer-summary').textContent=profile.name+' · '+(profile.account_type==='business'?'Business':'Individual')+' pricing'+(cart.size?' · Cart prices updated':'');
+            $('#pos-customer-summary').textContent=customerBusinessPrefix(profile)+profile.name+' · '+(profile.account_type==='business'?'Business':'Individual')+' pricing'+(cart.size?' · Cart prices updated':'');
             $('#confirm-customer').textContent='Customer selected';
             renderResults(data.products);renderCart();$('#scan-code').focus();
             feedback('Customer selected. Search and scans now use '+profile.account_type+' prices.');
