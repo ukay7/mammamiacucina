@@ -14,8 +14,10 @@ class GeneralSettingController extends Controller
     public function logo()
     {
         $settings=GeneralSetting::findOrFail(1);
-        abort_unless($settings->logo_path && Storage::disk('local')->exists($settings->logo_path),404);
-        return response()->file(Storage::disk('local')->path($settings->logo_path),['X-Content-Type-Options'=>'nosniff','Cache-Control'=>'no-cache']);
+        $path=$settings->logo_path ? Storage::disk('local')->path($settings->logo_path) : public_path('logo.png');
+        if (!is_file($path)) $path=public_path('logo.png');
+        abort_unless(is_file($path),404);
+        return response()->file($path,['X-Content-Type-Options'=>'nosniff','Cache-Control'=>'no-cache']);
     }
 
     public function pageBanner()

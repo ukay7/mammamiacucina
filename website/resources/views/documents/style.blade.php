@@ -4,4 +4,12 @@
 .doc-info .doc-billing-line{font-size:11px;line-height:1.5}
 .doc-info .doc-billing-name{font-size:16px;font-weight:700;line-height:1.3;margin-bottom:5px;word-wrap:break-word}
 .doc-info .doc-billing-account{font-size:13px;font-weight:600;margin-bottom:4px}
+.doc-financial .doc-lines{font-size:10px;line-height:1.3}
+.doc-financial .doc-lines td,.doc-financial .doc-lines th{padding:4px;border-bottom:1px solid #dfcfb7}
+.doc-financial .doc-lines th{font-size:9px}
+.doc-financial .doc-lines th:first-child{width:7%}
+.doc-financial .doc-lines th:nth-child(3){width:36%}
+.doc-financial .doc-product-image{width:28px;height:28px;border-radius:3px}
+.doc-financial .doc-product-no-image{width:28px;min-height:28px;padding-top:8px;font-size:6px;border-radius:3px}
+.doc-financial .doc-lines small{font-size:8px;line-height:1.25}
 </style>

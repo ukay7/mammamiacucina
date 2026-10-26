@@ -11,6 +11,7 @@ class DocumentTheme {
  }
  public function brand():array {
   $s=GeneralSetting::find(1);$path=$s?->logo_path?Storage::disk('local')->path($s->logo_path):public_path('logo.png');
+  if(!is_file($path))$path=public_path('logo.png');
   $logo=null;
   if(is_file($path)) {
    $cache=storage_path('framework/cache/document-logo-'.sha1_file($path).'.jpg');
