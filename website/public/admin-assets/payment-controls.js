@@ -1,10 +1,13 @@
 document.querySelectorAll('[data-payment-adjustment]').forEach(form => {
     const fields = form.querySelector('[data-payment-correct-fields]');
+    const creditNote = form.querySelector('[data-payment-credit-note]');
     const sync = () => {
         const correction = form.elements.action.value === 'correct_method';
+        const credit = correction && form.elements.method.value === 'credit';
         fields.hidden = !correction;
         form.elements.method.required = correction;
-        form.elements.reference.required = correction && form.elements.method.value !== 'cash';
+        form.elements.reference.required = correction && !['cash', 'credit'].includes(form.elements.method.value);
+        creditNote.hidden = !credit;
     };
     form.elements.action.addEventListener('change', sync);
     form.elements.method.addEventListener('change', sync);

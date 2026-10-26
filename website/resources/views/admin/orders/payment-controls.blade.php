@@ -3,6 +3,7 @@
 <section class="panel panel-content payment-controls" aria-labelledby="payment-controls-title">
     <h2 id="payment-controls-title">Super Admin payment controls</h2>
     <p>Selected payment method: <strong>{{ $order->payment_label }}</strong>. Changing a method does not record money received, change stock or move the order through fulfillment.</p>
+    @if($order->payment_method==='credit' && $order->credit_warning)<div class="alert alert-warning">{{ $order->credit_warning }}</div>@endif
     @if($order->payment?->paid_at)
     <div class="alert alert-info">Confirmed online payment is locked. Use gateway reconciliation or refund controls; its transaction cannot be relabelled or manually reversed.</div>
     @else
@@ -30,8 +31,9 @@
             <label>Payment to correct / reverse<select class="form-control" name="source" required><option value="">Select a payment</option>@foreach($paymentSources as $source)<option value="{{ $source['id'] }}" data-available="{{ number_format($source['available']/100,2,'.','') }}">{{ $source['label'] }}</option>@endforeach</select></label>
             <label>Amount to correct / reverse (CAD)<input class="form-control" type="number" data-number-display="decimal" name="amount" min="0.01" step="0.01" required></label>
             <div data-payment-correct-fields>
-                <label>Actual payment method (for method corrections)<select class="form-control" name="method"><option value="">Select the actual method</option>@foreach(\App\Services\ManualPaymentControls::METHODS as $key=>$label)@if($key!=='credit')<option value="{{ $key }}">{{ $label }}</option>@endif @endforeach</select></label>
-                <label>Verified transaction reference (required except cash)<input class="form-control" name="reference" maxlength="255"></label>
+                <label>Actual payment method (for method corrections)<select class="form-control" name="method"><option value="">Select the actual method</option>@foreach(\App\Services\ManualPaymentControls::METHODS as $key=>$label)@if($key!=='credit'||$order->customer_id)<option value="{{ $key }}">{{ $label }}</option>@endif @endforeach</select></label>
+                <p class="alert alert-info" data-payment-credit-note hidden>Customer Credit means payment is still owed. The selected amount will be removed from recorded collections, and the outstanding balance will be placed on the customer's credit account, subject to their credit settings. No payment or refund is made.</p>
+                <label>Verified transaction reference (required except Cash / Customer Credit)<input class="form-control" name="reference" maxlength="255"></label>
             </div>
             <label>Required reason / bank reference<textarea class="form-control" name="reason" rows="3" maxlength="2000" required>{{ old('_payment_control')==='adjust'?old('reason'):'' }}</textarea></label>
             <label class="payment-control-confirm"><input type="checkbox" name="confirmed" value="1" required> I verified the actual payment records and confirm this correction / reversal. This action does not send a refund or collect money.</label>

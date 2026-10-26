@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\AdminDashboard;
 use App\Services\BusinessReports;
 use App\Services\CustomerInvoicing;
+use App\Services\CustomerTerms;
 use App\Services\DocumentTheme;
 use App\Services\ManualPaymentControls;
 use App\Services\OnlinePayments;
@@ -340,5 +341,126 @@ class ManualPaymentControlsTest extends TestCase
         $this->post($url, $this->adjustment($order, ['source' => $source['id'], 'amount' => '80.00']))->assertSessionHasNoErrors();
         $this->assertSame(0, $order->fresh()->net_received_cents);
         $this->assertSame(2000, $order->fresh()->refunded_cents);
+    }
+
+    public function test_paid_cash_can_be_corrected_to_credit_without_recording_credit_as_received_money(): void
+    {
+        $actor = $this->super();
+        $this->actingAs($actor);
+        $customer = User::factory()->create(['account_type' => 'business'])->customerRecord();
+        $customer->update(['credit_limit_cents' => 20000, 'credit_policy' => 'block']);
+        $order = $this->order(['customer_id' => $customer->id, 'payment_method' => 'cash', 'payment_status' => 'paid',
+            'manual_collected_cents' => null, 'paid_at' => now(), 'status' => 'completed']);
+        $order->items()->create(['name' => 'Original invoice item', 'quantity' => 1, 'unit_cents' => 10000, 'line_cents' => 10000]);
+        $invoice = app(CustomerInvoicing::class)->issue($order);
+        $invoiceSnapshot = $invoice->fresh()->getAttributes();
+        $emails = EmailHistory::count();
+        $this->get(route('admin.orders.payments', $order))->assertOk()->assertSee('value="credit">Customer Credit', false);
+        $this->post(route('admin.orders.payment-adjustment', $order), $this->adjustment($order, [
+            'action' => 'correct_method', 'method' => 'credit', 'reason' => 'Cash was selected by mistake; customer has not paid',
+        ]))->assertSessionHasNoErrors();
+        $order->refresh();
+        $this->assertSame('credit', $order->payment_method);
+        $this->assertSame('unpaid', $order->payment_status);
+        $this->assertSame('completed', $order->status);
+        $this->assertSame('cash', $order->original_payment_method);
+        $this->assertSame(10000, (int) $order->manual_collected_cents);
+        $this->assertSame(0, $order->net_received_cents);
+        $this->assertSame(10000, $order->balance_cents);
+        $this->assertSame(0, $order->refunded_cents);
+        $this->assertSame(0, $order->reversed_cents);
+        $this->assertDatabaseCount('order_settlements', 1);
+        $this->assertDatabaseHas('order_settlements', ['order_id' => $order->id, 'method' => 'cash', 'entry_kind' => 'correction_debit', 'amount_cents' => -10000]);
+        $this->assertDatabaseMissing('order_settlements', ['order_id' => $order->id, 'method' => 'credit']);
+        $this->assertSame([], app(ManualPaymentControls::class)->sources($order));
+        $balances = app(CustomerInvoicing::class)->balances($customer);
+        $this->assertSame(10000, $balances['pending']);
+        $this->assertSame(10000, $balances['used']);
+        $this->assertSame(10000, $balances['available']);
+        $this->assertSame(10000, app(CustomerTerms::class)->used($customer));
+        $this->assertSame(10000, (int) app(AdminDashboard::class)->balances()->where('o.id', $order->id)->first()->balance_cents);
+        $this->assertSame($invoiceSnapshot, $invoice->fresh()->getAttributes());
+        $this->assertSame($emails, EmailHistory::count());
+        $this->assertDatabaseCount('inventory_movements', 0);
+        $event = $order->events()->where('user_id', $actor->id)->latest('id')->firstOrFail();
+        $this->assertStringContainsString('cash → credit', $event->description);
+        $this->assertStringContainsString('paid → unpaid', $event->description);
+        $this->assertStringContainsString('customer has not paid', $event->description);
+        $this->get(route('admin.orders.payments', $order))->assertOk()->assertSee('Moved to Customer Credit; no funds received.');
+        $summary = app(BusinessReports::class)->report('payments', ['from' => today()->toDateString(), 'to' => today()->toDateString()])['summary'];
+        $this->assertSame(0, (int) $summary['net']);
+        $this->assertSame(0, (int) $summary['refunded']);
+        $this->assertSame(-10000, (int) $summary['adjustments']);
+        $this->get(route('admin.reports.payments'))->assertOk()->assertViewHas('summary', fn ($s) => $s['credit']['gross'] === 0 && $s['credit']['pending'] === 10000);
+        $this->post(route('admin.orders.settlement', $order), ['revision' => $order->revision, 'direction' => 'collect',
+            'method' => 'cash', 'amount' => '100.00', 'note' => 'Customer paid later', 'received' => 1])->assertSessionHasNoErrors();
+        $this->assertSame('paid', $order->fresh()->payment_status);
+        $this->assertSame(0, $order->fresh()->balance_cents);
+        $this->assertSame(0, app(CustomerInvoicing::class)->balances($customer)['used']);
+    }
+
+    public function test_credit_correction_checks_account_permissions_limit_and_order_state_atomically(): void
+    {
+        $this->actingAs($this->super());
+        foreach (['no_account', 'zero_limit', 'over_limit', 'disabled', 'unpriced', 'cancelled', 'gateway'] as $scenario) {
+            $customer = User::factory()->create(['account_type' => 'business'])->customerRecord();
+            $customer->update(['credit_limit_cents' => $scenario === 'zero_limit' ? 0 : ($scenario === 'over_limit' ? 5000 : 20000),
+                'credit_policy' => 'block', 'payment_permissions' => ['website' => ['credit' => $scenario !== 'disabled']]]);
+            $order = $this->order(['customer_id' => $scenario === 'no_account' ? null : $customer->id,
+                'payment_method' => 'cash', 'payment_status' => 'paid', 'manual_collected_cents' => 10000, 'paid_at' => now(),
+                'status' => $scenario === 'cancelled' ? 'cancelled' : 'warehouse_pending', 'delivery_cents' => $scenario === 'unpriced' ? null : 0]);
+            if ($scenario === 'gateway') {
+                $this->gateway($order, ['status' => 'paid', 'paid_at' => now()]);
+            }
+            if ($scenario === 'no_account') {
+                $this->get(route('admin.orders.payments', $order))->assertOk()->assertDontSee('value="credit">Customer Credit', false);
+            }
+            $before = $order->fresh()->getAttributes();
+            $this->postJson(route('admin.orders.payment-adjustment', $order), $this->adjustment($order, [
+                'action' => 'correct_method', 'method' => 'credit',
+            ]))->assertUnprocessable();
+            $this->assertSame($before, $order->fresh()->getAttributes(), $scenario);
+            $this->assertDatabaseMissing('order_settlements', ['order_id' => $order->id]);
+        }
+    }
+
+    public function test_credit_correction_increases_existing_credit_usage_only_by_the_reversed_collection(): void
+    {
+        $this->actingAs($this->super());
+        $customer = User::factory()->create(['account_type' => 'business'])->customerRecord();
+        $customer->update(['credit_limit_cents' => 20000, 'credit_policy' => 'block']);
+        $this->order(['customer_id' => $customer->id, 'payment_method' => 'credit', 'subtotal_cents' => 9000, 'manual_collected_cents' => 0]);
+        $order = $this->order(['customer_id' => $customer->id, 'payment_method' => 'credit', 'manual_collected_cents' => 0]);
+        $source = $order->settlements()->create(['method' => 'cash', 'amount_cents' => 5000, 'note' => 'Earlier partial payment']);
+        $this->assertSame(14000, app(CustomerInvoicing::class)->balances($customer)['used']);
+        $this->post(route('admin.orders.payment-adjustment', $order), $this->adjustment($order, [
+            'action' => 'correct_method', 'method' => 'credit', 'source' => (string) $source->id, 'amount' => '30.00',
+        ]))->assertSessionHasNoErrors();
+        $order->refresh();
+        $this->assertSame(2000, $order->net_received_cents);
+        $this->assertSame(8000, $order->balance_cents);
+        $this->assertSame(17000, app(CustomerInvoicing::class)->balances($customer)['used']);
+        $this->postJson(route('admin.orders.payment-adjustment', $order), $this->adjustment($order, [
+            'action' => 'correct_method', 'method' => 'credit', 'source' => (string) $source->id, 'amount' => '30.00',
+        ]))->assertUnprocessable();
+        $this->assertSame(8000, $order->fresh()->balance_cents);
+    }
+
+    public function test_credit_warning_policy_is_visible_after_correction_and_confirmation_is_required(): void
+    {
+        $this->actingAs($this->super());
+        $customer = User::factory()->create(['account_type' => 'business'])->customerRecord();
+        $customer->update(['credit_limit_cents' => 5000, 'credit_policy' => 'warn']);
+        $order = $this->order(['customer_id' => $customer->id, 'payment_method' => 'cash', 'payment_status' => 'paid',
+            'manual_collected_cents' => 10000, 'paid_at' => now()]);
+        $data = $this->adjustment($order, ['action' => 'correct_method', 'method' => 'credit']);
+        foreach (['reason', 'confirmed'] as $field) {
+            $invalid = $data;
+            unset($invalid[$field]);
+            $this->postJson(route('admin.orders.payment-adjustment', $order), $invalid)->assertUnprocessable()->assertJsonValidationErrors($field);
+        }
+        $this->post(route('admin.orders.payment-adjustment', $order), $data)->assertSessionHasNoErrors();
+        $this->assertStringContainsString('Credit warning', $order->fresh()->credit_warning);
+        $this->get(route('admin.orders.payments', $order))->assertOk()->assertSee('Credit warning');
     }
 }
