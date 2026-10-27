@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class SupplierOrder extends Model
 {
+    public const STATUS_LABELS = ['placed' => 'In progress', 'completed' => 'Completed', 'deleted' => 'Deleted'];
+
     protected $guarded = ['id'];
 
     protected function casts(): array
