@@ -1,0 +1,25 @@
+.purchase-scroll { overflow: auto; max-height: 70vh; border: 1px solid var(--admin-line, #dfcfb7); border-radius: 8px; }
+.purchase-table { min-width: 1450px; margin: 0; }
+.purchase-table thead th { position: sticky; top: 0; background: var(--admin-soft, #efe3cb); z-index: 2; }
+.purchase-table td { vertical-align: middle; }
+.purchase-table td:nth-child(3) { min-width: 200px; }
+.purchase-table th:first-child, .purchase-table td:first-child { position: sticky; left: 0; background: var(--theme-surface, #fffaf2); z-index: 1; }
+.purchase-table th:last-child, .purchase-table td:last-child { position: sticky; right: 0; background: var(--theme-surface, #fffaf2); border-left: 1px solid var(--admin-line, #dfcfb7); z-index: 1; }
+.purchase-table thead th:first-child, .purchase-table thead th:last-child { background: var(--admin-soft, #efe3cb); z-index: 3; }
+.purchase-table input[type=number] { width: 115px; min-width: 115px; }
+.purchase-missing { background: #fde2e5; color: #a00020; }
+.purchase-modal[hidden] { display: none !important; }
+.purchase-modal { position: fixed; inset: 0; background: #0008; z-index: 2050; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.purchase-dialog { width: min(1050px, 100%); max-height: 90vh; overflow: auto; background: var(--theme-surface, #fffaf2); color: var(--theme-text, #30271e); border: 1px solid var(--admin-line, #dfcfb7); border-radius: 12px; padding: 24px; box-shadow: 0 15px 55px #0004; }
+.purchase-dialog header { margin-bottom: 20px; }
+.purchase-dialog footer { text-align: right; }
+.purchase-contact-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 24px; margin-bottom: 12px; }
+.purchase-contact-grid p { margin: 0; white-space: pre-line; overflow-wrap: anywhere; }
+.purchase-totals { text-align: right; font-weight: bold; font-size: 18px; margin: 16px 0; }
+.purchase-dialog td { overflow-wrap: anywhere; max-width: 260px; }
+.purchase-dialog-open { overflow: hidden; }
+@media (max-width: 600px) {
+    .purchase-modal { padding: 8px; }
+    .purchase-dialog { padding: 16px; max-height: 95vh; }
+    .purchase-contact-grid { grid-template-columns: minmax(0, 1fr); }
+}

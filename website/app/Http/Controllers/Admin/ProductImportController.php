@@ -77,7 +77,7 @@ class ProductImportController extends Controller
 
     public function template()
     {
-        return response()->download(resource_path('templates/product-import-template.xlsx'), 'product-import-template.xlsx');
+        return response()->download(app(\App\Services\ProductImportTemplate::class)->path(), 'product-import-template.xlsx')->deleteFileAfterSend(true);
     }
 
     public function cancel(ProductImport $import, DnaCatalogueImporter $service)

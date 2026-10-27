@@ -145,7 +145,7 @@ class InventoryValuation
         return $summary;
     }
 
-    private function calculate(Product $product): array
+    public function calculate(Product $product): array
     {
         $inputs = $product->pricingDraft?->inputs ?? [];
         $currency = strtoupper(trim((string) ($inputs['currency'] ?? '')));

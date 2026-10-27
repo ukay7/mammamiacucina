@@ -108,7 +108,7 @@ class ProductController extends Controller
 
     private function form(Product $product)
     {
-        return view('admin.products.form', ['allergies' => Allergy::orderBy('name')->get(), 'product' => $product, 'categories' => Category::orderBy('sort_order')->orderBy('name')->get()]);
+        return view('admin.products.form', ['suppliers' => \App\Models\Supplier::where(fn($q) => $q->where('is_active', true)->orWhere('id', $product->supplier_id))->orderBy('name')->get(), 'allergies' => Allergy::orderBy('name')->get(), 'product' => $product, 'categories' => Category::orderBy('sort_order')->orderBy('name')->get()]);
     }
 
     public function store(Request $r)

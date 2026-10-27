@@ -27,6 +27,10 @@ return [
         $link('orders.view', 'admin.reports.index', 'admin.reports.*', 'Reporting Centre', 'chart-bar'),
     ],
     'Products & Stock' => [
+        $group('Purchasing', 'truck-loading', [
+            $link('suppliers.view', 'admin.suppliers.index', 'admin.suppliers.*', 'Suppliers', 'address-book'),
+            $link('purchases.view', 'admin.supplier-orders.index', 'admin.supplier-orders.*', 'Supplier Orders', 'file-invoice'),
+        ]),
         $group('Product Management', 'box-open', [
             $link('products.view', 'admin.products.index', 'admin.products.*', 'View Products', 'box-open'),
             $link('categories.view', 'admin.categories.index', 'admin.categories.*', 'Categories', 'tags'),

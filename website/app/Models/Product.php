@@ -70,6 +70,7 @@ class Product extends Model
 
     protected static function booted(): void
     {
+        static::saving(fn (Product $product) => app(\App\Services\SupplierDirectory::class)->syncProduct($product));
         // Keep the existing primary category compatible with imports and older callers.
         static::saved(function (Product $product) {
             if ($product->wasRecentlyCreated || $product->wasChanged('category_id')) {
@@ -96,6 +97,11 @@ class Product extends Model
     public function inventory()
     {
         return $this->hasOne(Inventory::class);
+    }
+
+    public function supplierRecord()
+    {
+        return $this->belongsTo(Supplier::class, 'supplier_id');
     }
 
     public function warehouseInventories()

@@ -104,6 +104,19 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         Route::get('/customers/business-requests', [\App\Http\Controllers\Admin\CustomerController::class, 'businessRequests'])->middleware(AdminAccess::class.':orders.view')->name('customers.business-requests');
         Route::get('/customers/{customer}', [\App\Http\Controllers\Admin\CustomerController::class, 'show'])->middleware(AdminAccess::class.':orders.view')->name('customers.show');
         Route::get('/customers/{customer}/file-cover', \App\Http\Controllers\Admin\CustomerFileCoverController::class)->middleware(AdminAccess::class.':orders.view')->name('customers.file-cover');
+        Route::get('/suppliers', [\App\Http\Controllers\Admin\SupplierController::class, 'index'])->middleware(AdminAccess::class.':suppliers.view')->name('suppliers.index');
+        Route::get('/suppliers/create', [\App\Http\Controllers\Admin\SupplierController::class, 'create'])->middleware(AdminAccess::class.':suppliers.manage')->name('suppliers.create');
+        Route::post('/suppliers', [\App\Http\Controllers\Admin\SupplierController::class, 'store'])->middleware(AdminAccess::class.':suppliers.manage')->name('suppliers.store');
+        Route::get('/suppliers/{supplier}/edit', [\App\Http\Controllers\Admin\SupplierController::class, 'edit'])->middleware(AdminAccess::class.':suppliers.manage')->name('suppliers.edit');
+        Route::put('/suppliers/{supplier}', [\App\Http\Controllers\Admin\SupplierController::class, 'update'])->middleware(AdminAccess::class.':suppliers.manage')->name('suppliers.update');
+        Route::delete('/suppliers/{supplier}', [\App\Http\Controllers\Admin\SupplierController::class, 'destroy'])->middleware(AdminAccess::class.':suppliers.manage')->name('suppliers.destroy');
+        Route::get('/suppliers/{supplier}', [\App\Http\Controllers\Admin\SupplierController::class, 'show'])->middleware(AdminAccess::class.':suppliers.view')->name('suppliers.show');
+        Route::get('/supplier-orders', [\App\Http\Controllers\Admin\SupplierOrderController::class, 'index'])->middleware(AdminAccess::class.':purchases.view')->name('supplier-orders.index');
+        Route::get('/supplier-orders/create', [\App\Http\Controllers\Admin\SupplierOrderController::class, 'create'])->middleware(AdminAccess::class.':purchases.manage')->name('supplier-orders.create');
+        Route::post('/supplier-orders/preview', [\App\Http\Controllers\Admin\SupplierOrderController::class, 'preview'])->middleware(AdminAccess::class.':purchases.manage')->name('supplier-orders.preview');
+        Route::post('/supplier-orders', [\App\Http\Controllers\Admin\SupplierOrderController::class, 'store'])->middleware(AdminAccess::class.':purchases.manage')->name('supplier-orders.store');
+        Route::post('/supplier-orders/{supplierOrder}/status', [\App\Http\Controllers\Admin\SupplierOrderController::class, 'status'])->middleware(AdminAccess::class.':purchases.manage')->name('supplier-orders.status');
+        Route::get('/supplier-orders/{supplierOrder}', [\App\Http\Controllers\Admin\SupplierOrderController::class, 'show'])->middleware(AdminAccess::class.':purchases.view')->name('supplier-orders.show');
         Route::get('/orders/completed', [OrderController::class, 'index'])->middleware(AdminAccess::class.':orders.view|warehouse.pack')->name('orders.completed');
         Route::middleware(\App\Http\Middleware\SuperAdminOnly::class)->group(function () {
             Route::get('/orders/deleted', [\App\Http\Controllers\Admin\DeletedOrderController::class, 'index'])->name('orders.deleted.index');

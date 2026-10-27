@@ -21,6 +21,8 @@ class ProductData
         if ($unique) {
             $rules['qr_code'][] = Rule::unique('products', 'qr_code')->ignore($id);
         }
+        $rules['supplier'][0] = 'required_without:supplier_id';
+        $rules['supplier_id'] = ['nullable', 'integer', 'exists:suppliers,id'];
 
         return $rules;
     }

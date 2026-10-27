@@ -8,6 +8,11 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
+Artisan::command('suppliers:backfill {--dry-run : Preview mappings without saving}', function () {
+    $result = app(\App\Services\SupplierDirectory::class)->backfill((bool) $this->option('dry-run'));
+    $this->info(($this->option('dry-run') ? 'Dry run: ' : '')."{$result['linked']} products mapped; {$result['created']} suppliers created; {$result['blank']} blank supplier names skipped.");
+})->purpose('Map legacy product supplier names to supplier records without changing stock or prices');
+
 Schedule::command('payments:reconcile')->everyMinute()->withoutOverlapping(10);
 Schedule::command('emails:deliver')->everyMinute()->withoutOverlapping(10)->runInBackground();
 

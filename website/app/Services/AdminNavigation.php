@@ -58,7 +58,7 @@ class AdminNavigation
             // Existing route/action checks remain in force beneath the menu gate.
             $result[]=explode('|',$node['permission'])[0];
         }
-        foreach(['users','roles','categories','products','imports','inventory','warehouses','stock-counts','banners','quotations','orders'] as $module) {
+        foreach(['users','roles','categories','products','imports','inventory','warehouses','stock-counts','banners','quotations','orders','suppliers','purchases'] as $module) {
             if(in_array($module.'.manage',$result,true)) $result[]=$module.'.view';
         }
         return array_values(array_unique($result));

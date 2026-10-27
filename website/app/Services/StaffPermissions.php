@@ -10,6 +10,8 @@ class StaffPermissions
     public static function actions(): array
     {
         return [
+            'admin.suppliers.index' => ['suppliers.manage' => 'Create, edit and delete unused suppliers'],
+            'admin.supplier-orders.index' => ['purchases.manage' => 'Create and manage supplier orders'],
             'admin.products.index' => ['products.manage' => 'Manage products'],
             'admin.categories.index' => ['categories.manage' => 'Manage categories'],
             'admin.imports.index' => ['imports.manage' => 'Upload and commit imports'],

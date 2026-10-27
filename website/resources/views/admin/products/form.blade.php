@@ -11,7 +11,9 @@
 <p class="text-muted">Edit Total Selling Price (CAD) below and click Save Product. The Pricing tab is an optional calculator for setting the same price.</p>
 <div class="row">
 @foreach(['premium_marketing_name','total_selling_price_cad','business_selling_price_cad','qr_code','product_code','supplier','italian_subtitle','original_description'] as $key)
-@php($field=config('product_fields.'.$key)) @include('admin.products.field')
+@if($key==='supplier')
+<div class="form-group col-md-6"><label for="supplier_id">Supplier *</label><select class="form-control" id="supplier_id" name="supplier_id" required><option value="">Select supplier</option>@foreach($suppliers as $supplier)<option value="{{ $supplier->id }}" @selected((string)old('supplier_id',$product->supplier_id)===(string)$supplier->id)>#{{ $supplier->id }} · {{ $supplier->name }}{{ $supplier->is_active?'':' (Inactive)' }}</option>@endforeach</select>@if(auth()->user()->hasAdminPermission('suppliers.manage'))<small><a href="{{ route('admin.suppliers.create') }}" target="_blank" rel="noopener">Add supplier</a></small>@endif</div>
+@else @php($field=config('product_fields.'.$key)) @include('admin.products.field') @endif
 @endforeach
 @include('admin.products.dna-fields',['group'=>'identity'])
 <div class="form-group col-md-6"><label for="is_active">Product enabled</label><select class="form-control" id="is_active" name="is_active"><option value="1" @selected(old('is_active',$product->is_active)==1)>Active</option><option value="0" @selected(old('is_active',$product->is_active)==0)>Inactive</option></select></div>

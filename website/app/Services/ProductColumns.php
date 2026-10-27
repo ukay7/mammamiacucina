@@ -13,7 +13,7 @@ class ProductColumns
     public function labels(): array
     {
         return [
-            'status' => 'Status', 'image' => 'Image', 'qr_code' => 'Internal code', 'premium_marketing_name' => 'Mamma Mia name', 'supplier' => 'Supplier', 'product_code' => 'Supplier product code',
+            'status' => 'Status', 'image' => 'Image', 'qr_code' => 'Internal code', 'premium_marketing_name' => 'Mamma Mia name', 'supplier' => 'Supplier', 'supplier_id' => 'Supplier ID', 'product_code' => 'Supplier product code',
             'original_description' => 'Product name on source', 'manufacturer' => 'Manufacturer', 'recipient' => 'Purchaser on document', 'delivery_to' => 'Delivery destination on source',
             'allocated_to' => 'Internal brand allocation', 'category' => 'Category', 'gluten_status' => 'Gluten-free status', 'unit_weight_g' => 'Weight per piece (g)', 'pieces_per_carton' => 'Pieces per carton',
             'net_carton_kg' => 'Net carton weight (kg)', 'sale_unit' => 'Sell as', 'minimum_sale' => 'Minimum sale', 'purchase_price' => 'Supplier quoted price', 'purchase_basis' => 'Supplier price basis',
@@ -60,7 +60,7 @@ class ProductColumns
             }
         }
         $values = array_fill_keys(array_keys($this->labels()), null);
-        foreach (['qr_code', 'premium_marketing_name', 'supplier', 'product_code', 'original_description', 'unit_weight_g'] as $key) {
+        foreach (['qr_code', 'premium_marketing_name', 'supplier', 'supplier_id', 'product_code', 'original_description', 'unit_weight_g'] as $key) {
             $values[$key] = $p->$key;
         }
         foreach (['manufacturer', 'recipient', 'delivery_to', 'allocated_to', 'gluten_status', 'pieces_per_carton', 'net_carton_kg', 'sale_unit', 'owner_notes'] as $key) {

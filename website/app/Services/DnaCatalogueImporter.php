@@ -140,6 +140,9 @@ class DnaCatalogueImporter
                                 }
                                 $header[$label] = $matches[0];
                             }
+                            $supplierIds = array_keys($lower, 'supplier id', true);
+                            if (count($supplierIds) > 1) $this->fail('Duplicate column: Supplier ID.');
+                            if ($supplierIds) $header['Supplier ID'] = $supplierIds[0];
 
                             continue;
                         }
@@ -222,6 +225,10 @@ class DnaCatalogueImporter
             }
             $effective[$label] = $v;
         }
+        $directory = app(SupplierDirectory::class);
+        $supplier = $directory->reference($source['Supplier ID'] ?? null,
+            filled($source['Supplier ID'] ?? null) ? ($source['Supplier'] ?? null) : ($effective['Supplier'] ?? null), $product?->supplier_id);
+        if ($supplier) $effective['Supplier'] = $supplier->name;
         foreach (['Internal code', 'Mamma Mia name', 'Supplier'] as $label) {
             if (empty($effective[$label])) {
                 $this->fail("$label is required.");
@@ -253,6 +260,7 @@ class DnaCatalogueImporter
         $pieces = (int) $inputs['pieces_per_carton'];
         $dna = $product?->dna ?? [];
         $fields = [];
+        $fields['supplier_id'] = $supplier?->id;
         foreach (config('product_import.columns') as $label => $key) {
             if (($effective[$label] ?? '') !== '' && $effective[$label] !== null) {
                 $fields[$key] = $effective[$label];
@@ -316,7 +324,10 @@ class DnaCatalogueImporter
         if (abs($fields['business_selling_price_cad'] - $expectedBusiness) > .011) {
             $warnings[] = 'Business selling price differs from calculated markup. The exact file selling price will be saved.';
         }
-        $storedSource = array_diff_key($effective, array_flip(config('product_import.ignored')));
+        $storedSource = array_diff_key($effective, array_flip([...config('product_import.ignored'), 'Supplier ID']));
+        // Blank cells preserve existing values; do not turn absent metadata into
+        // extra null keys when the same workbook is uploaded again.
+        $storedSource = array_filter($storedSource, fn ($value) => $value !== null && $value !== '');
         $dna['import_pricing'] = $storedSource;
         $fields['dna'] = $dna;
         $candidate = $product ? clone $product : new Product;
@@ -332,6 +343,8 @@ class DnaCatalogueImporter
         }
         $diff[] = ['label' => 'Individual selling price, CAD (150% markup)', 'before' => $product?->total_selling_price_cad, 'after' => $fields['total_selling_price_cad'], 'changed' => ! $this->same($product?->total_selling_price_cad, $fields['total_selling_price_cad']), 'note' => 'Per '.strtolower($sale)];
         $diff[] = ['label' => 'Assigned website category', 'before' => $product?->category?->name, 'after' => Category::find($fields['category_id'])?->name, 'changed' => $product?->category_id !== $fields['category_id'], 'note' => 'Additional categories are preserved'];
+        $diff[] = ['label' => 'Supplier ID', 'before' => $product?->supplier_id, 'after' => $supplier?->id,
+            'changed' => $product?->supplier_id !== $supplier?->id, 'note' => $supplier ? 'Matched supplier record' : 'Supplier will be created and mapped when this import is confirmed'];
         $result['landed_cad'] = $landed;
         $result['unit_cents'] = (int) round($individualUnit * 100);
         $result['carton_cents'] = $result['unit_cents'] * $pieces;
@@ -361,6 +374,7 @@ class DnaCatalogueImporter
             }
         }
         $values['Status'] = $product->is_active ? 'Active' : 'Inactive';
+        $values['Supplier ID'] = $product->supplier_id;
         $values['Image'] = $dna['image_link'] ?? 'Existing product media preserved';
         $values['Ingredients file'] = $dna['ingredients_link'] ?? 'Existing ingredients preserved';
         foreach (config('product_import.columns') as $label => $key) {
@@ -432,6 +446,7 @@ class DnaCatalogueImporter
                 if (! Category::whereKey($plan['fields']['category_id'])->where('is_active', true)->exists()) {
                     $this->fail('A reviewed category is no longer active. Upload again.');
                 }
+                app(SupplierDirectory::class)->reference($plan['fields']['supplier_id'] ?? null, $plan['fields']['supplier'], $product?->supplier_id);
             }
             $created = 0;
             $updated = 0;
