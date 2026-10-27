@@ -94,7 +94,7 @@ class OrderController extends Controller
     public function payments(Order $order)
     {
 
-        $order->load(['payment', 'paymentAttempts', 'settlements.author', 'events.author']);
+        $order->load(['payment', 'paymentAttempts', 'settlements.author', 'settlements.receiptLine.receipt', 'events.author']);
         $paymentSources = auth()->user()->isSuper() ? app(\App\Services\ManualPaymentControls::class)->sources($order) : [];
         $gatewayRefunds = $order->payment?->provider === 'helcim'
             ? \Illuminate\Support\Facades\DB::table('payment_refunds')->where('payment_id', $order->payment->id)->where('status', 'completed')->orderBy('id')->get() : collect();

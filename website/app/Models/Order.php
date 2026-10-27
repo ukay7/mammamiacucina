@@ -33,6 +33,10 @@ class Order extends Model
         if ($this->trashed()) {
             return 'This order is already deleted.';
         }
+        $receiptAllocations = $this->settlements()->whereNotNull('customer_receipt_line_id')->get()->groupBy('customer_receipt_line_id');
+        if ($this->net_received_cents > 0 && $receiptAllocations->contains(fn ($entries) => $entries->sum('amount_cents') > 0)) {
+            return 'This order has an active customer receipt allocation. Resolve or reverse it from the customer receipt before deleting this order.';
+        }
         if ($this->payment && (! in_array($this->payment->status, ['paid', 'partially_refunded', 'refunded', 'cancelled', 'expired', 'failed'], true) || $this->payment->attention)) {
             return 'Resolve the in-progress gateway payment before deleting this order.';
         }
@@ -164,6 +168,7 @@ class Order extends Model
             return 'Unpaid · Bank Processing';
         }
         if ($this->payment_status === 'unpaid') {
+            if ($this->status !== 'cancelled' && $this->net_received_cents > 0 && $this->balance_cents > 0) return 'Partially paid';
             return $this->payment_method === 'credit' ? 'Unpaid · On Credit' : (in_array($this->payment_method, ['cheque', 'etransfer']) || ($this->source === 'website' && $this->payment_method === 'cash') ? 'Unpaid · Awaiting Admin Verification' : 'Unpaid');
         }
 

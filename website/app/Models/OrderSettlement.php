@@ -15,7 +15,12 @@ class OrderSettlement extends Model
 
     protected function casts(): array
     {
-        return ['amount_cents' => 'integer', 'related_original' => 'boolean'];
+        return ['amount_cents' => 'integer', 'related_original' => 'boolean', 'received_on' => 'date'];
+    }
+
+    public function receiptLine()
+    {
+        return $this->belongsTo(CustomerReceiptLine::class, 'customer_receipt_line_id');
     }
 
     public function getKindAttribute(): string

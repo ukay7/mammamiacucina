@@ -114,7 +114,7 @@ class ManualPaymentControls
             $sources[] = ['id' => 'original', 'method' => $o->original_payment_method ?: $o->payment_method, 'amount' => $o->collected_cents, 'reference' => null];
         }
         foreach ($o->settlements as $entry) {
-            if ($entry->amount_cents > 0 && in_array($entry->kind, ['payment', 'correction_credit'], true)) {
+            if (! $entry->customer_receipt_line_id && $entry->amount_cents > 0 && in_array($entry->kind, ['payment', 'correction_credit'], true)) {
                 $sources[] = ['id' => (string) $entry->id, 'method' => $entry->method, 'amount' => $entry->amount_cents, 'reference' => $entry->reference];
             }
         }

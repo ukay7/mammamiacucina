@@ -68,11 +68,12 @@ class CustomerController extends Controller {
   request()->validate(['invoice_search'=>'nullable|string|max:100','payment_search'=>'nullable|string|max:100','payment_method'=>'nullable|in:cash,cheque,etransfer,card,credit,paypal']);
   $invoiceSearch=trim((string)request('invoice_search'));$paymentSearch=trim((string)request('payment_search'));
   $invoices=\App\Models\CustomerInvoice::with(['order.payment','order.settlements'])->whereHas('order',fn($q)=>$q->where('customer_id',$customer->id))->when($invoiceSearch,fn($q)=>$q->where(fn($q)=>$q->where('number',str_ireplace('INV-','',$invoiceSearch))->orWhereHas('order',fn($o)=>$o->where('number','like','%'.$invoiceSearch.'%')->orWhere('id',$invoiceSearch))))->latest('number')->paginate(20,['*'],'invoices_page');
-  $paymentOrders=$customer->orders()->with(['payment','settlements.author'])->when($paymentSearch,fn($q)=>$q->where(fn($q)=>$q->where('number','like','%'.$paymentSearch.'%')->orWhere('id',$paymentSearch)))->when(request('payment_method'),fn($q)=>$q->where(fn($q)=>$q->where('payment_method',request('payment_method'))->orWhereHas('settlements',fn($s)=>$s->where('method',request('payment_method')))))->orderByDesc('ordered_at')->orderByDesc('id')->paginate(20,['*'],'payments_page');
+  $paymentOrders=$customer->orders()->with(['payment','settlements.author','settlements.receiptLine.receipt'])->when($paymentSearch,fn($q)=>$q->where(fn($q)=>$q->where('number','like','%'.$paymentSearch.'%')->orWhere('id',$paymentSearch)))->when(request('payment_method'),fn($q)=>$q->where(fn($q)=>$q->where('payment_method',request('payment_method'))->orWhereHas('settlements',fn($s)=>$s->where('method',request('payment_method')))))->orderByDesc('ordered_at')->orderByDesc('id')->paginate(20,['*'],'payments_page');
   $balances=app(\App\Services\CustomerInvoicing::class)->balances($customer);
   $latestOrder=$customer->orders()->orderByDesc('ordered_at')->orderByDesc('id')->first();
   $notes=\App\Models\CustomerNote::with('author')->where('customer_id',$customer->id)->latest('id')->paginate(8,['*'],'notes_page')->withQueryString();
-  return view('admin.customers.show',compact('customer','orders','latestOrder','notes','invoices','paymentOrders','balances'));
+  $accountReceipts=auth()->user()->isSuper()?\App\Models\CustomerReceipt::with('lines','author')->where('customer_id',$customer->id)->latest('id')->paginate(10,['*'],'receipts_page')->withQueryString():null;
+  return view('admin.customers.show',compact('customer','orders','latestOrder','notes','invoices','paymentOrders','balances','accountReceipts'));
  }
  public function storeNote(Request $request,Customer $customer){
   $data=$request->validate(['body'=>'required|string|max:5000']);

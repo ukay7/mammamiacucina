@@ -87,6 +87,17 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         Route::get('/customers/{customer}/discounts', [\App\Http\Controllers\Admin\CustomerTermsController::class,'discounts'])->middleware(AdminAccess::class.':customers.manage')->name('customers.discounts');
         Route::post('/customers/{customer}/discounts', [\App\Http\Controllers\Admin\CustomerTermsController::class,'saveDiscounts'])->middleware(AdminAccess::class.':customers.manage')->name('customers.discounts.save');
         Route::post('/customers/{customer}/notes', [\App\Http\Controllers\Admin\CustomerController::class,'storeNote'])->middleware([AdminAccess::class.':orders.view',AdminAccess::class.':customers.manage'])->name('customers.notes.store');
+        Route::middleware(\App\Http\Middleware\SuperAdminOnly::class)->group(function () {
+            $receipts = \App\Http\Controllers\Admin\CustomerReceiptController::class;
+            Route::get('/customers/{customer}/receipts/create', [$receipts, 'create'])->name('customers.receipts.create');
+            Route::post('/customers/{customer}/receipts/preview', [$receipts, 'preview'])->name('customers.receipts.preview');
+            Route::post('/customers/{customer}/receipts', [$receipts, 'store'])->name('customers.receipts.store');
+            Route::get('/customers/{customer}/receipts/{receipt}', [$receipts, 'show'])->name('customers.receipts.show');
+            Route::get('/customers/{customer}/receipts/{receipt}/document', [$receipts, 'document'])->name('customers.receipts.document');
+            Route::get('/customers/{customer}/receipts/{receipt}/lines/{line}/proof', [$receipts, 'proof'])->name('customers.receipts.proof');
+            Route::post('/customers/{customer}/receipts/{receipt}/lines/{line}/preview', [$receipts, 'actionPreview'])->name('customers.receipts.action-preview');
+            Route::post('/customers/{customer}/receipts/{receipt}/lines/{line}', [$receipts, 'action'])->name('customers.receipts.action');
+        });
         Route::post('/customers/{customer}/verify-email', [\App\Http\Controllers\Admin\CustomerController::class,'verifyEmail'])->middleware(AdminAccess::class.':customers.manage')->name('customers.verify-email');
         Route::get('/customers/create', [\App\Http\Controllers\Admin\CustomerController::class,'create'])->middleware(AdminAccess::class.':customers.manage')->name('customers.create');
         Route::post('/customers', [\App\Http\Controllers\Admin\CustomerController::class,'store'])->middleware(AdminAccess::class.':customers.manage')->name('customers.store');
