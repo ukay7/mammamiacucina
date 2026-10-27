@@ -1,3 +1,16 @@
+.mmc-admin .purchase-filter-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(160px, 1fr) auto; gap: 16px 24px; align-items: end; }
+.mmc-admin .purchase-filter-grid--create { grid-template-columns: minmax(200px, 2fr) minmax(170px, 1.2fr) minmax(140px, .8fr) auto; }
+.mmc-admin .purchase-filter-grid > .form-group { min-width: 0; margin-bottom: 0; }
+.mmc-admin .purchase-filter-grid label { display: block; }
+.purchase-filter-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.purchase-filter-actions .btn { white-space: nowrap; }
+@media (max-width: 1100px) {
+    .mmc-admin .purchase-filter-grid, .mmc-admin .purchase-filter-grid--create { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .purchase-filter-actions { grid-column: 1 / -1; }
+}
+@media (max-width: 575px) {
+    .mmc-admin .purchase-filter-grid, .mmc-admin .purchase-filter-grid--create { grid-template-columns: minmax(0, 1fr); }
+}
 .purchase-scroll { overflow: auto; max-height: 70vh; border: 1px solid var(--admin-line, #dfcfb7); border-radius: 8px; }
 .purchase-table { min-width: 1450px; margin: 0; }
 .purchase-table thead th { position: sticky; top: 0; background: var(--admin-soft, #efe3cb); z-index: 2; }
