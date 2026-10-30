@@ -49,7 +49,14 @@
             const head = table.createTHead().insertRow();
             columns.forEach(key => { const th = document.createElement('th'); th.textContent = data.labels[key]; head.append(th); });
             const body = table.createTBody();
-            data.rows.forEach(values => { const row = body.insertRow(); columns.forEach(key => { const cell = row.insertCell(); cell.textContent = values[key] ?? '—'; }); });
+            data.rows.forEach(values => { const row = body.insertRow(); columns.forEach(key => {
+                const cell = row.insertCell();
+                if (key === 'image' && values.image) {
+                    const photo = document.createElement('img'); photo.src = values.image;
+                    photo.alt = `Product image: ${values.name}`; photo.width = 36; photo.height = 36;
+                    photo.loading = 'lazy'; photo.className = 'supplier-pdf-image'; cell.append(photo);
+                } else cell.textContent = key === 'image' ? 'No image' : (values[key] ?? '—');
+            }); });
             preview.append(table);
         });
         const totals = modal.querySelector('[data-supplier-pdf-totals]'); totals.replaceChildren();

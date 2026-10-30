@@ -8,6 +8,8 @@ body{background:white}.document{margin:0;padding:0;max-width:none}
 .supplier-lines th:nth-child(n){width:auto}.supplier-lines td,.supplier-lines th{padding:4px;word-wrap:break-word}
 .supplier-notes{white-space:pre-line;word-wrap:break-word}.supplier-total{font-weight:bold}
 .supplier-section .doc-footer{page-break-inside:avoid}
+.supplier-lines .doc-product-image{width:30px;height:30px;border-radius:3px}
+.supplier-lines .doc-product-no-image{width:30px;height:30px;min-height:0;padding:0;line-height:30px;font-size:7px}
 </style></head><body><main class="document">
 @foreach($groups as $columns)<section class="supplier-section">
 @include('documents.header')
@@ -17,10 +19,10 @@ body{background:white}.document{margin:0;padding:0;max-width:none}
 @if(count($groups)>1)<div>Column section {{ $loop->iteration }} of {{ count($groups) }}. Selected identifiers repeat to match the rows.</div>@endif
 </td></tr></table>
 @if($order->status==='deleted')<p class="doc-notice"><strong>DELETED ORDER - historical reference only.</strong> {{ $order->deletion_reason }}</p>@endif
-@php($weights=['serial'=>6,'product_id'=>8,'product_code'=>12,'barcode'=>12,'name'=>24,'original_description'=>20,'manufacturer'=>20,'allocated_to'=>18,'supplier'=>22])
+@php($weights=['serial'=>6,'image'=>9,'product_id'=>8,'product_code'=>12,'barcode'=>12,'name'=>24,'original_description'=>20,'manufacturer'=>20,'allocated_to'=>18,'supplier'=>22])
 @php($totalWeight=array_sum(array_map(fn($key)=>$weights[$key]??12,$columns)))
 <table class="doc-lines supplier-lines"><thead><tr>@foreach($columns as $key)<th style="width:{{ 100*($weights[$key]??12)/$totalWeight }}%">{{ $labels[$key] }}</th>@endforeach</tr></thead><tbody>
-@forelse($rows as $row)<tr>@foreach($columns as $key)<td>{{ $row[$key] }}</td>@endforeach</tr>@empty<tr><td colspan="{{ count($columns) }}">No ordered products.</td></tr>@endforelse
+@forelse($rows as $row)<tr>@foreach($columns as $key)<td>@if($key==='image')@if($row[$key])<img class="doc-product-image" src="{{ $row[$key] }}" alt="Product image">@else<span class="doc-product-no-image">No image</span>@endif @else{{ $row[$key] }}@endif</td>@endforeach</tr>@empty<tr><td colspan="{{ count($columns) }}">No ordered products.</td></tr>@endforelse
 </tbody></table>
 @if(in_array('line_total',$columns,true))<table class="doc-totals">@foreach($order->totals as $currency=>$amount)<tr class="supplier-total"><td>Order total ({{ $currency }})</td><td class="money">{{ $currency }} {{ $amount }}</td></tr>@endforeach</table>@endif
 @if(filled($order->notes))<section class="doc-box"><h2>Order notes</h2><p class="supplier-notes">{{ $order->notes }}</p></section>@endif

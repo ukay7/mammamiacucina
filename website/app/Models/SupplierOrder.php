@@ -6,6 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class SupplierOrder extends Model
 {
+    public static function referenceForId(int $id): string
+    {
+        return 'PO-'.(3999 + $id);
+    }
+
     public const STATUS_LABELS = ['placed' => 'In progress', 'packing' => 'Packing', 'ready' => 'Ready', 'received' => 'Received', 'completed' => 'Completed (legacy manual stock)', 'deleted' => 'Deleted'];
 
     protected $guarded = ['id'];

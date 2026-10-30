@@ -55,6 +55,7 @@
 .supplier-pdf-preview table { min-width: 650px; margin: 0; }
 .supplier-pdf-preview th { position: sticky; top: 0; background: var(--admin-soft, #efe3cb); z-index: 1; }
 .supplier-pdf-preview h4 { padding: 12px; margin: 0; }
+.supplier-pdf-image { display: block; width: 36px; height: 36px; object-fit: contain; background: white; border: 1px solid var(--admin-line, #dfcfb7); border-radius: 3px; }
 @media(max-width:750px) { .supplier-pdf-choices > div { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @media(max-width:480px) { .supplier-pdf-choices > div { grid-template-columns: minmax(0,1fr); } }
 @media (max-width: 600px) {

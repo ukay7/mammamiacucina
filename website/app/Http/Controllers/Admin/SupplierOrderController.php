@@ -73,7 +73,7 @@ class SupplierOrderController extends Controller
             'number' => $supplierOrder->number, 'supplier' => $supplierOrder->supplier_snapshot['name'] ?? '',
             'status' => SupplierOrder::STATUS_LABELS[$supplierOrder->status],
             'labels' => $document->labels(), 'defaults' => SupplierOrderDocument::DEFAULTS,
-            'rows' => $document->rows($supplierOrder), 'totals' => $supplierOrder->totals,
+            'rows' => $document->rows($supplierOrder, true), 'totals' => $supplierOrder->totals,
             'legacy_details' => $supplierOrder->items->contains(fn ($item) => ! array_key_exists('product_details', $item->pricing_snapshot ?? [])),
         ]);
     }
@@ -81,7 +81,7 @@ class SupplierOrderController extends Controller
     public function pdf(Request $request, SupplierOrder $supplierOrder, SupplierOrderDocument $document, DocumentTheme $theme)
     {
         $selected = $document->selected($request);
-        $rows = $document->rows($supplierOrder);
+        $rows = $document->rows($supplierOrder, in_array('image', $selected, true));
         $groups = $document->groups($selected);
         $labels = $document->labels();
         $notes = $document->notes($supplierOrder, $selected);

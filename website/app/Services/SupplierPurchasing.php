@@ -124,7 +124,7 @@ class SupplierPurchasing
                 'warehouse_id' => $plan['warehouse_id'], 'warehouse_name' => $plan['warehouse_name'],
                 'status' => 'placed', 'notes' => $data['notes'] ?? null, 'totals' => $plan['totals'],
                 'request_key' => $confirmation['request_key'], 'request_hash' => $plan['preview_hash'], 'created_by' => $actor]);
-            $order->update(['number' => 'PO-'.str_pad((string) $order->id, 6, '0', STR_PAD_LEFT)]);
+            $order->update(['number' => SupplierOrder::referenceForId($order->id)]);
             foreach ($plan['items'] as $item) {
                 $item['unit_cost'] = (string) BigDecimal::of($item['unit_cost'])->toScale(8, RoundingMode::HalfUp);
                 $order->items()->create($item);

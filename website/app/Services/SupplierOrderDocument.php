@@ -16,7 +16,7 @@ class SupplierOrderDocument
     public function labels(): array
     {
         return [
-            'serial' => 'Serial number', 'product_id' => 'Product record ID',
+            'serial' => 'Serial number', 'image' => 'Product image', 'product_id' => 'Product record ID',
             'product_code' => 'Supplier product code', 'barcode' => 'Internal code / barcode',
             'name' => 'Product name', 'original_description' => 'Product name on source',
             'manufacturer' => 'Manufacturer', 'allocated_to' => 'Internal brand allocation',
@@ -41,11 +41,14 @@ class SupplierOrderDocument
         return $selected;
     }
 
-    public function rows(SupplierOrder $order): array
+    public function rows(SupplierOrder $order, bool $withImages = false): array
     {
         $order->loadMissing('items.product');
+        $images = $withImages ? app(DocumentProductImages::class)->forItems($order->items->map(fn ($item) => [
+            'product_id' => $item->product_id, 'qr_code' => $item->barcode, 'product_code' => $item->product_code,
+        ])->all()) : [];
 
-        return $order->items->values()->map(function ($item, $index) use ($order) {
+        return $order->items->values()->map(function ($item, $index) use ($order, $images) {
             $snapshot = $item->pricing_snapshot ?? [];
             $valuation = $snapshot['valuation'] ?? [];
             $details = $snapshot['product_details'] ?? [
@@ -57,7 +60,8 @@ class SupplierOrderDocument
                 : $item->currency.' '.NumberDisplay::decimal($value, $places, $places !== 2);
 
             return [
-                'serial' => (string) ($index + 1), 'product_id' => (string) ($item->product_id ?? '—'),
+                'serial' => (string) ($index + 1), 'image' => $images[$index] ?? null,
+                'product_id' => (string) ($item->product_id ?? '—'),
                 'product_code' => $item->product_code ?: '—', 'barcode' => $item->barcode ?: '—',
                 'name' => $item->name, 'original_description' => ($details['original_description'] ?? null) ?: '—',
                 'manufacturer' => ($details['manufacturer'] ?? null) ?: '—', 'allocated_to' => ($details['allocated_to'] ?? null) ?: '—',
@@ -83,6 +87,9 @@ class SupplierOrderDocument
         }
         if (array_intersect(['stock_quantity', 'stock_value'], $selected)) {
             $notes[] = 'Stock columns are historical values from order placement, not current inventory.';
+        }
+        if (in_array('image', $selected, true)) {
+            $notes[] = 'Product images use the currently available cover photos; saved order quantities and prices are unchanged.';
         }
 
         return $notes;

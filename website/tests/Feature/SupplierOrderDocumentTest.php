@@ -14,7 +14,9 @@ use App\Services\SupplierOrderDocument;
 use App\Services\SupplierPurchasing;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -30,10 +32,10 @@ class SupplierOrderDocumentTest extends TestCase
 
     private function order(): SupplierOrder
     {
-        $supplier = Supplier::create(['name' => 'Saved PDF supplier', 'email' => 'purchase@example.test']);
+        $supplier = Supplier::firstOrCreate(['name' => 'Saved PDF supplier'], ['email' => 'purchase@example.test']);
         $product = Product::create(['slug' => Str::uuid(), 'category_id' => Category::first()->id,
             'supplier_id' => $supplier->id, 'premium_marketing_name' => 'Saved cake', 'product_code' => 'SUP-001',
-            'qr_code' => '100001', 'is_active' => true, 'original_description' => 'Original cake',
+            'qr_code' => (string) Str::uuid(), 'is_active' => true, 'original_description' => 'Original cake',
             'dna' => ['manufacturer' => 'Saved manufacturer', 'allocated_to' => 'Saved brand']]);
         $product->inventory()->create(['quantity_on_hand' => 10, 'low_stock_threshold' => 5]);
         $product->pricingDraft()->create(['inputs' => ['purchase_price' => '2', 'discount' => '38',
@@ -124,5 +126,74 @@ class SupplierOrderDocumentTest extends TestCase
         $this->actingAs($this->staff(['access.admin.products.index']));
         $this->getJson(route('admin.supplier-orders.pdf-preview', $order))->assertForbidden();
         $this->get(route('admin.supplier-orders.pdf', $order))->assertForbidden();
+    }
+
+    public function test_product_images_are_selectable_embedded_and_optional_with_missing_photo_fallback(): void
+    {
+        Storage::fake('local');
+        $order = $this->order();
+        $product = $order->items()->first()->product;
+        $path = UploadedFile::fake()->image('cake.png', 320, 160)->store('product-media/'.$product->id, 'local');
+        $product->media()->create(['kind' => 'image', 'path' => $path, 'mime_type' => 'image/png', 'original_name' => 'cake.png', 'sort_order' => 0]);
+        $this->actingAs($this->staff());
+        $preview = $this->getJson(route('admin.supplier-orders.pdf-preview', $order))->assertOk()->assertJsonPath('labels.image', 'Product image');
+        $this->assertStringStartsWith('data:image/jpeg;base64,', $preview->json('rows.0.image'));
+        $document = app(SupplierOrderDocument::class);
+        $this->assertNull($document->rows($order)[0]['image']);
+        $pdf = $this->get(route('admin.supplier-orders.pdf', [$order, 'columns' => 'serial,image,name,quantity,line_total']))->assertOk();
+        $this->assertStringStartsWith('%PDF-', $pdf->getContent());
+        $this->assertStringContainsString('/Width 160', $pdf->getContent());
+        $this->assertStringContainsString('/Height 160', $pdf->getContent());
+        Storage::disk('local')->delete($path);
+        $this->getJson(route('admin.supplier-orders.pdf-preview', $order))->assertOk()->assertJsonPath('rows.0.image', null);
+        $this->get(route('admin.supplier-orders.pdf', [$order, 'columns' => 'image,name']))->assertOk();
+    }
+
+    public function test_numbering_starts_at_4000_and_existing_references_migrate_once_without_changing_stock(): void
+    {
+        $first = $this->order();
+        $second = $this->order();
+        $custom = $this->order();
+        $this->assertSame('PO-4000', $first->number);
+        $this->assertSame('PO-4001', $second->number);
+        $first->update(['number' => sprintf('PO-%06d', $first->id), 'status' => 'deleted', 'deletion_reason' => 'Test duplicate']);
+        $second->update(['number' => sprintf('PO-%06d', $second->id)]);
+        $custom->update(['number' => 'CUSTOM-ORDER']);
+        $before = [DB::table('inventories')->get()->map(fn ($row) => (array) $row)->all(),
+            DB::table('supplier_order_items')->get()->map(fn ($row) => (array) $row)->all(), DB::table('inventory_movements')->count()];
+        $migration = require database_path('migrations/2026_10_31_010000_start_supplier_order_references_at_4000.php');
+        $migration->up();
+        $this->assertSame('PO-4000', $first->fresh()->number);
+        $this->assertSame('PO-4001', $second->fresh()->number);
+        $this->assertSame('deleted', $first->fresh()->status);
+        $this->assertSame('CUSTOM-ORDER', $custom->fresh()->number);
+        $this->assertStringContainsString('from PO-000001 to PO-4000', $first->events()->reorder()->latest('id')->first()->reason);
+        $this->assertSame($before, [DB::table('inventories')->get()->map(fn ($row) => (array) $row)->all(),
+            DB::table('supplier_order_items')->get()->map(fn ($row) => (array) $row)->all(), DB::table('inventory_movements')->count()]);
+        $events = DB::table('supplier_order_events')->count();
+        $migration->up();
+        $migration->down();
+        $this->assertSame($events, DB::table('supplier_order_events')->count());
+        $this->assertSame('PO-4000', $first->fresh()->number);
+        $this->assertSame('PO-4003', $this->order()->number);
+    }
+
+    public function test_number_migration_rejects_custom_reference_collisions_without_partial_updates(): void
+    {
+        $first = $this->order();
+        $first->update(['number' => 'PO-000001']);
+        $custom = $this->order();
+        $custom->update(['number' => 'PO-4000']);
+        $events = DB::table('supplier_order_events')->count();
+        $migration = require database_path('migrations/2026_10_31_010000_start_supplier_order_references_at_4000.php');
+        try {
+            $migration->up();
+            $this->fail('A custom reference collision must stop the migration.');
+        } catch (\RuntimeException $exception) {
+            $this->assertStringContainsString('conflicts', $exception->getMessage());
+        }
+        $this->assertSame('PO-000001', $first->fresh()->number);
+        $this->assertSame('PO-4000', $custom->fresh()->number);
+        $this->assertSame($events, DB::table('supplier_order_events')->count());
     }
 }
