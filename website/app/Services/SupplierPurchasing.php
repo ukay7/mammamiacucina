@@ -73,7 +73,10 @@ class SupplierPurchasing
                 'product_code' => $product->product_code, 'barcode' => $product->qr_code,
                 'quantity' => $quantity, 'currency' => $currency, 'unit_cost' => $valuation['carton_cost'],
                 'line_total' => (string) $lineTotal,
-                'pricing_snapshot' => ['valuation' => $valuation, 'stock_quantity' => $product->stock_quantity]];
+                'pricing_snapshot' => ['valuation' => $valuation, 'stock_quantity' => $product->stock_quantity,
+                    'product_details' => ['original_description' => $product->original_description,
+                        'manufacturer' => data_get($product->dna, 'manufacturer'),
+                        'allocated_to' => data_get($product->dna, 'allocated_to')]]];
         }
         ksort($totals);
         $plan = ['supplier' => $supplier->snapshot(), 'warehouse_id' => $warehouse?->id,

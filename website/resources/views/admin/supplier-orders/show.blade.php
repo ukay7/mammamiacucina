@@ -2,7 +2,7 @@
 @section('title','Supplier Order '.$order->number)
 @section('content')
 <link rel="stylesheet" href="{{ asset('admin-assets/supplier-orders.css') }}?v={{ filemtime(public_path('admin-assets/supplier-orders.css')) }}">
-<div class="mb-3"><a class="btn btn-outline-primary" href="{{ route('admin.supplier-orders.index',['status'=>$order->status]) }}">Back to Supplier Orders</a></div>
+<div class="purchase-filter-actions mb-3"><a class="btn btn-outline-primary" href="{{ route('admin.supplier-orders.index',['status'=>$order->status]) }}">Back to Supplier Orders</a><button type="button" class="btn btn-outline-primary" data-supplier-pdf-open data-preview-url="{{ route('admin.supplier-orders.pdf-preview',$order) }}" data-pdf-url="{{ route('admin.supplier-orders.pdf',$order) }}" aria-label="PDF for {{ $order->number }}">PDF</button></div>
 <section class="panel panel-content">
     <h2>{{ $order->number }}</h2><p><strong>{{ \App\Models\SupplierOrder::STATUS_LABELS[$order->status] }}</strong> · {{ $order->created_at->format('l, d M Y H:i') }} · {{ $order->author?->name }}</p>
     <h3>{{ $order->supplier_snapshot['name'] }}</h3><p>Supplier #{{ $order->supplier_id }} · Stock view when ordered: {{ $order->warehouse_name }}</p>
@@ -60,4 +60,5 @@
 <script defer src="{{ asset('admin-assets/supplier-receiving.js') }}?v={{ filemtime(public_path('admin-assets/supplier-receiving.js')) }}"></script>
 @endif
 <section class="panel panel-content"><h3>Status history</h3><table class="table"><thead><tr><th>When</th><th>Who</th><th>Change</th><th>Reason</th></tr></thead><tbody>@foreach($order->events as $event)<tr><td>{{ $event->created_at->format('d M Y H:i') }}</td><td>{{ $event->actor_name ?: ($event->author?->name??'Former staff member') }}</td><td>{{ $event->from_status?\App\Models\SupplierOrder::STATUS_LABELS[$event->from_status].' → ':'' }}{{ \App\Models\SupplierOrder::STATUS_LABELS[$event->to_status] }}</td><td class="purchase-receiving-note">{{ $event->reason }}</td></tr>@endforeach</tbody></table></section>
+@include('admin.supplier-orders.pdf-modal')
 @endsection

@@ -6,9 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\Supplier;
 use App\Models\SupplierOrder;
 use App\Models\Warehouse;
+use App\Services\DocumentTheme;
 use App\Services\InventoryValuation;
+use App\Services\SupplierOrderDocument;
 use App\Services\SupplierPurchasing;
 use App\Services\SupplierReceiving;
+use Dompdf\Dompdf;
+use Dompdf\Options;
 use Illuminate\Http\Request;
 
 class SupplierOrderController extends Controller
@@ -61,6 +65,39 @@ class SupplierOrderController extends Controller
         $warehouses = Warehouse::where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get();
 
         return view('admin.supplier-orders.show', ['order' => $supplierOrder, 'warehouses' => $warehouses]);
+    }
+
+    public function pdfPreview(SupplierOrder $supplierOrder, SupplierOrderDocument $document)
+    {
+        return response()->json([
+            'number' => $supplierOrder->number, 'supplier' => $supplierOrder->supplier_snapshot['name'] ?? '',
+            'status' => SupplierOrder::STATUS_LABELS[$supplierOrder->status],
+            'labels' => $document->labels(), 'defaults' => SupplierOrderDocument::DEFAULTS,
+            'rows' => $document->rows($supplierOrder), 'totals' => $supplierOrder->totals,
+            'legacy_details' => $supplierOrder->items->contains(fn ($item) => ! array_key_exists('product_details', $item->pricing_snapshot ?? [])),
+        ]);
+    }
+
+    public function pdf(Request $request, SupplierOrder $supplierOrder, SupplierOrderDocument $document, DocumentTheme $theme)
+    {
+        $selected = $document->selected($request);
+        $rows = $document->rows($supplierOrder);
+        $groups = $document->groups($selected);
+        $labels = $document->labels();
+        $notes = $document->notes($supplierOrder, $selected);
+        $order = $supplierOrder;
+        $landscape = count($selected) > 6;
+        $doc = ['brand' => $theme->brand(), 'title' => 'Supplier Order', 'number' => $order->number,
+            'date' => $order->created_at->format('d M Y H:i').' '.config('app.timezone')];
+        $pdf = new Dompdf(new Options(['isRemoteEnabled' => false, 'isPhpEnabled' => false,
+            'defaultFont' => 'DejaVu Sans', 'defaultMediaType' => 'print']));
+        $pdf->loadHtml(view('documents.supplier-order', compact('doc', 'order', 'selected', 'groups', 'labels', 'rows', 'notes', 'landscape'))->render());
+        $pdf->setPaper('A4', $landscape ? 'landscape' : 'portrait');
+        $pdf->render();
+        $pdf->getCanvas()->page_text($landscape ? 725 : 480, $landscape ? 579 : 820, 'Page {PAGE_NUM} of {PAGE_COUNT}', $pdf->getFontMetrics()->getFont('Helvetica'), 8);
+
+        return response($pdf->output(), 200, ['Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="supplier-order-'.(int) $order->id.'.pdf"']);
     }
 
     public function status(Request $request, SupplierOrder $supplierOrder, SupplierPurchasing $purchasing)

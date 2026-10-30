@@ -129,6 +129,8 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         Route::post('/supplier-orders/{supplierOrder}/status', [\App\Http\Controllers\Admin\SupplierOrderController::class, 'status'])->middleware(AdminAccess::class.':purchases.manage')->name('supplier-orders.status');
         Route::post('/supplier-orders/{supplierOrder}/receive', [\App\Http\Controllers\Admin\SupplierOrderController::class, 'receive'])->middleware(AdminAccess::class.':purchases.manage')->name('supplier-orders.receive');
         Route::get('/supplier-orders/{supplierOrder}', [\App\Http\Controllers\Admin\SupplierOrderController::class, 'show'])->middleware(AdminAccess::class.':purchases.view')->name('supplier-orders.show');
+        Route::get('/supplier-orders/{supplierOrder}/pdf-preview', [\App\Http\Controllers\Admin\SupplierOrderController::class, 'pdfPreview'])->middleware(AdminAccess::class.':purchases.view')->name('supplier-orders.pdf-preview');
+        Route::get('/supplier-orders/{supplierOrder}/pdf', [\App\Http\Controllers\Admin\SupplierOrderController::class, 'pdf'])->middleware(AdminAccess::class.':purchases.view')->name('supplier-orders.pdf');
         Route::get('/orders/completed', [OrderController::class, 'index'])->middleware(AdminAccess::class.':orders.view|warehouse.pack')->name('orders.completed');
         Route::middleware(\App\Http\Middleware\SuperAdminOnly::class)->group(function () {
             Route::get('/orders/deleted', [\App\Http\Controllers\Admin\DeletedOrderController::class, 'index'])->name('orders.deleted.index');
