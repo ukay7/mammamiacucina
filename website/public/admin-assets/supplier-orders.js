@@ -6,6 +6,9 @@
     const review = form.querySelector('[data-purchase-review]');
     const place = modal.querySelector('[data-purchase-place]');
     const all = form.querySelector('[data-purchase-all]');
+    const search = form.querySelector('[data-purchase-search]');
+    const normalize = value => value.normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase();
+    const searchable = new Map(rows.map(row => [row, normalize(row.dataset.productSearch)]));
     const token = form.querySelector('[name="_token"]').value;
     let pending = null, busy = false;
     const selected = () => rows.filter(row => row.querySelector('[data-purchase-select]').checked);
@@ -13,13 +16,30 @@
     const count = () => {
         const chosen = selected();
         form.querySelector('[data-purchase-count]').textContent = chosen.length;
+        const hiddenSelected = chosen.filter(row => row.hidden).length;
+        form.querySelector('[data-purchase-hidden-count]').textContent = hiddenSelected ? ` (${hiddenSelected} hidden by search)` : '';
         review.disabled = !chosen.length || busy;
-        const available = rows.filter(row => !row.querySelector('[data-purchase-select]').disabled);
-        all.checked = available.length > 0 && chosen.length === available.length;
-        all.indeterminate = chosen.length > 0 && !all.checked;
+        const available = rows.filter(row => !row.hidden && !row.querySelector('[data-purchase-select]').disabled);
+        const visibleSelected = available.filter(row => row.querySelector('[data-purchase-select]').checked).length;
+        all.disabled = available.length === 0;
+        all.checked = available.length > 0 && visibleSelected === available.length;
+        all.indeterminate = visibleSelected > 0 && !all.checked;
     };
+    const filter = () => {
+        const terms = normalize(search.value).trim().split(/\s+/).filter(Boolean);
+        rows.forEach(row => { row.hidden = !terms.every(term => searchable.get(row).includes(term)); });
+        const visible = rows.filter(row => !row.hidden).length;
+        form.querySelector('[data-purchase-search-count]').textContent = `Showing ${visible} of ${rows.length} products`;
+        const empty = form.querySelector('[data-purchase-no-results]');
+        if (empty) empty.hidden = visible !== 0;
+        count();
+    };
+    search.addEventListener('input', filter);
+    search.addEventListener('keydown', event => { if (event.key === 'Enter') event.preventDefault(); });
+    form.querySelector('[data-purchase-search-clear]').addEventListener('click', () => { search.value = ''; filter(); search.focus(); });
+    form.addEventListener('submit', event => event.preventDefault());
     rows.forEach(row => row.querySelector('[data-purchase-select]').addEventListener('change', count));
-    all.addEventListener('change', () => { rows.forEach(row => { const check = row.querySelector('[data-purchase-select]'); if (!check.disabled) check.checked = all.checked; }); count(); });
+    all.addEventListener('change', () => { rows.forEach(row => { const check = row.querySelector('[data-purchase-select]'); if (!row.hidden && !check.disabled) check.checked = all.checked; }); count(); });
     const close = () => {
         if (busy) return;
         modal.hidden = true; document.body.classList.remove('purchase-dialog-open'); review.focus();
@@ -49,7 +69,7 @@
         if (!chosen.length) return;
         for (const row of chosen) {
             const input = row.querySelector('[data-purchase-quantity]');
-            if (!input.value || !input.checkValidity()) { input.focus(); input.reportValidity(); error(form.querySelector('[data-purchase-error]'), 'Enter a positive order quantity for every selected product, with up to three decimal places.'); return; }
+            if (!input.value || !input.checkValidity()) { if (row.hidden) { search.value = ''; filter(); } input.focus(); input.reportValidity(); error(form.querySelector('[data-purchase-error]'), 'Enter a positive order quantity for every selected product, with up to three decimal places.'); return; }
         }
         const payload = {supplier_id:form.querySelector('[name="supplier_id"]').value,
             warehouse_id:form.querySelector('[name="warehouse_id"]').value || null,
@@ -82,5 +102,5 @@
         } catch (e) { error(modal.querySelector('[data-purchase-modal-error]'),e.message); }
         finally { busy = false; place.disabled = false; place.textContent = 'Place Supplier Order'; count(); }
     });
-    count();
+    filter();
 })();

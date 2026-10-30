@@ -12,6 +12,11 @@
     .mmc-admin .purchase-filter-grid, .mmc-admin .purchase-filter-grid--create { grid-template-columns: minmax(0, 1fr); }
 }
 .purchase-scroll { overflow: auto; max-height: 70vh; border: 1px solid var(--admin-line, #dfcfb7); border-radius: 8px; }
+.purchase-product-search { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 18px; margin: 18px 0; }
+.purchase-product-search > div { flex: 1 1 280px; min-width: 0; }
+.purchase-product-search label, .purchase-product-search small { display: block; }
+.purchase-product-search small { margin-top: 5px; }
+.purchase-table [hidden] { display: none !important; }
 .purchase-table { min-width: 1450px; margin: 0; }
 .purchase-table thead th { position: sticky; top: 0; background: var(--admin-soft, #efe3cb); z-index: 2; }
 .purchase-table td { vertical-align: middle; }
