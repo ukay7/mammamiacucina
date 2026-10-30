@@ -6,6 +6,8 @@ document.addEventListener('submit',event=>{
  // Customer receipt forms require a signed allocation preview and explicit
  // confirmation, enforced again on the server by the Super Admin-only service.
  if(form.matches('[data-customer-receipt],[data-receipt-action]'))return;
+ // Supplier status/receiving forms have their own required confirmation checkbox.
+ if(form.matches('[data-supplier-receiving],[data-supplier-status]'))return;
  if(form.dataset.cancellationConfirmed==='1'){delete form.dataset.cancellationConfirmed;return;}
  const action=event.submitter?.value, label=event.submitter?.textContent.trim()||'save these changes';
  const messages={save:'Save this packing progress?',return:'Return this order to admin with the item notes?',ready:'Confirm all items are packed and mark this order ready for dispatch?'};

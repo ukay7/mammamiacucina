@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class SupplierOrder extends Model
 {
-    public const STATUS_LABELS = ['placed' => 'In progress', 'completed' => 'Completed', 'deleted' => 'Deleted'];
+    public const STATUS_LABELS = ['placed' => 'In progress', 'packing' => 'Packing', 'ready' => 'Ready', 'received' => 'Received', 'completed' => 'Completed (legacy manual stock)', 'deleted' => 'Deleted'];
 
     protected $guarded = ['id'];
 
@@ -38,5 +38,10 @@ class SupplierOrder extends Model
     public function events()
     {
         return $this->hasMany(SupplierOrderEvent::class)->orderBy('id');
+    }
+
+    public function receipt()
+    {
+        return $this->hasOne(SupplierOrderReceipt::class);
     }
 }

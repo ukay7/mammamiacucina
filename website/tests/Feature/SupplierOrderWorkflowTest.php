@@ -69,7 +69,7 @@ class SupplierOrderWorkflowTest extends TestCase
         $order = SupplierOrder::firstOrFail();
         $this->assertSame(route('admin.supplier-orders.show', $order), $response->json('redirect'));
         $this->assertSame('placed', $order->status);
-        $this->assertSame('PO-000001', $order->number);
+        $this->assertSame(sprintf('PO-%06d', $order->id), $order->number);
         $this->postJson(route('admin.supplier-orders.store'), $input)->assertOk();
         $this->assertSame(1, SupplierOrder::count());
         $this->assertSame(2, $order->items()->count());

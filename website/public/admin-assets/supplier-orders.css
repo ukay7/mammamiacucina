@@ -31,6 +31,9 @@
 .purchase-totals { text-align: right; font-weight: bold; font-size: 18px; margin: 16px 0; }
 .purchase-dialog td { overflow-wrap: anywhere; max-width: 260px; }
 .purchase-dialog-open { overflow: hidden; }
+.purchase-receiving-note { white-space: pre-line; overflow-wrap: anywhere; }
+.purchase-receive-effect { padding: 12px; border: 1px solid var(--admin-line, #dfcfb7); border-radius: 6px; background: var(--admin-soft, #efe3cb); }
+[data-receive-stock][hidden] { display: none !important; }
 @media (max-width: 600px) {
     .purchase-modal { padding: 8px; }
     .purchase-dialog { padding: 16px; max-height: 95vh; }

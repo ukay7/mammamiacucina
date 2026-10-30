@@ -43,7 +43,8 @@ class WarehouseWorkflowTest extends TestCase
         $this->get(route('admin.orders.show', $order))
             ->assertOk()
             ->assertSee('admin-assets/warehouse-detail.css', false)
-            ->assertSee('class="wh-product-image"', false)
+            ->assertSee('class="wh-product-image mmc-lazy-image"', false)
+            ->assertSee('data-src="'.$url.'"', false)
             ->assertSee('width="52"', false)
             ->assertSee('height="52"', false);
         $this->actingAs($worker)->get($url)->assertOk()->assertHeader('Content-Type', 'image/png');

@@ -6,6 +6,7 @@ use App\Models\Product;
 use App\Models\ProductPricingDraft;
 use App\Models\Supplier;
 use App\Models\SupplierOrder;
+use App\Models\User;
 use App\Models\Warehouse;
 use Brick\Math\BigDecimal;
 use Brick\Math\RoundingMode;
@@ -125,7 +126,7 @@ class SupplierPurchasing
                 $item['unit_cost'] = (string) BigDecimal::of($item['unit_cost'])->toScale(8, RoundingMode::HalfUp);
                 $order->items()->create($item);
             }
-            $order->events()->create(['user_id' => $actor, 'to_status' => 'placed', 'reason' => 'Supplier order created.']);
+            $order->events()->create(['user_id' => $actor, 'actor_name' => User::find($actor)?->name, 'to_status' => 'placed', 'reason' => 'Supplier order created.']);
 
             return $order;
         }, 3);
@@ -133,13 +134,16 @@ class SupplierPurchasing
 
     public function transition(SupplierOrder $order, array $input, int $actor): SupplierOrder
     {
-        $data = Validator::make($input, ['status' => 'required|in:placed,completed,deleted', 'revision' => 'required|integer|min:0',
+        $data = Validator::make($input, ['status' => 'required|in:placed,packing,ready,completed,received,deleted', 'revision' => 'required|integer|min:0',
             'reason' => 'nullable|required_if:status,deleted|string|max:2000', 'confirm' => 'accepted'])->validate();
 
         return DB::transaction(function () use ($order, $data, $actor) {
             $current = SupplierOrder::whereKey($order->id)->lockForUpdate()->firstOrFail();
-            if ($current->status === 'deleted') {
-                $this->fail('status', 'Deleted supplier orders are view only.');
+            if (in_array($current->status, ['deleted', 'received'], true) || $current->receipt()->exists()) {
+                $this->fail('status', 'Deleted and received supplier orders are view only. Use a reasoned inventory adjustment for any later stock correction.');
+            }
+            if ($data['status'] === 'received') {
+                $this->fail('status', 'Use Mark Received and confirm whether to add inventory and the receiving warehouse.');
             }
             if ((int) $current->revision !== (int) $data['revision']) {
                 $this->fail('revision', 'This order changed. Reload before updating it.');
@@ -153,7 +157,7 @@ class SupplierPurchasing
             if ($data['status'] === 'completed') {
                 $current->completed_at = now();
                 $current->completed_by = $actor;
-            } elseif ($data['status'] === 'placed') {
+            } elseif (in_array($data['status'], ['placed', 'packing', 'ready'], true)) {
                 $current->completed_at = null;
                 $current->completed_by = null;
             } else {
@@ -162,7 +166,7 @@ class SupplierPurchasing
                 $current->deletion_reason = $data['reason'];
             }
             $current->save();
-            $current->events()->create(['user_id' => $actor, 'from_status' => $from,
+            $current->events()->create(['user_id' => $actor, 'actor_name' => User::find($actor)?->name, 'from_status' => $from,
                 'to_status' => $data['status'], 'reason' => $data['reason'] ?? null]);
 
             return $current;

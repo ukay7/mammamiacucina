@@ -2,7 +2,7 @@
 @section('title','Supplier Orders')
 @section('content')
 <link rel="stylesheet" href="{{ asset('admin-assets/supplier-orders.css') }}?v={{ filemtime(public_path('admin-assets/supplier-orders.css')) }}">
-<div class="d-flex justify-content-between align-items-center mb-3"><p class="mb-0">Purchase orders to suppliers. Inventory is updated separately.</p>@if(auth()->user()->hasAdminPermission('purchases.manage'))<a class="btn btn-primary" href="{{ route('admin.supplier-orders.create') }}">Create Supplier Order</a>@endif</div>
+<div class="d-flex justify-content-between align-items-center mb-3"><p class="mb-0">Track supplier orders from In progress to Received. Inventory is added only after an explicit receiving confirmation.</p>@if(auth()->user()->hasAdminPermission('purchases.manage'))<a class="btn btn-primary" href="{{ route('admin.supplier-orders.create') }}">Create Supplier Order</a>@endif</div>
 <form class="panel panel-content">
     <div class="purchase-filter-grid">
         <div class="form-group"><label for="purchase-search">Search</label><input class="form-control" id="purchase-search" name="q" value="{{ request('q') }}" placeholder="Order number or supplier name"></div>

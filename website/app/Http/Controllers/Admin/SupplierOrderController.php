@@ -8,13 +8,14 @@ use App\Models\SupplierOrder;
 use App\Models\Warehouse;
 use App\Services\InventoryValuation;
 use App\Services\SupplierPurchasing;
+use App\Services\SupplierReceiving;
 use Illuminate\Http\Request;
 
 class SupplierOrderController extends Controller
 {
     public function index(Request $request)
     {
-        $filters = $request->validate(['q' => 'nullable|string|max:200', 'status' => 'nullable|in:placed,completed,deleted,all']);
+        $filters = $request->validate(['q' => 'nullable|string|max:200', 'status' => 'nullable|in:placed,packing,ready,received,completed,deleted,all']);
         $status = $filters['status'] ?? 'placed';
         $orders = SupplierOrder::with('author')->withCount('items')
             ->when($status !== 'all', fn ($q) => $q->where('status', $status))
@@ -56,15 +57,25 @@ class SupplierOrderController extends Controller
 
     public function show(SupplierOrder $supplierOrder)
     {
-        $supplierOrder->load('items', 'events.author', 'author');
+        $supplierOrder->load('items', 'events.author', 'author', 'receipt.items');
+        $warehouses = Warehouse::where('is_active', true)->orderByDesc('is_default')->orderBy('name')->get();
 
-        return view('admin.supplier-orders.show', ['order' => $supplierOrder]);
+        return view('admin.supplier-orders.show', ['order' => $supplierOrder, 'warehouses' => $warehouses]);
     }
 
     public function status(Request $request, SupplierOrder $supplierOrder, SupplierPurchasing $purchasing)
     {
         $purchasing->transition($supplierOrder, $request->all(), $request->user()->id);
 
-        return back()->with('status', 'Supplier order status updated. Inventory is managed separately.');
+        return back()->with('status', 'Supplier order status updated. Stock changes only when Mark Received is confirmed with Add to inventory = Yes.');
+    }
+
+    public function receive(Request $request, SupplierOrder $supplierOrder, SupplierReceiving $receiving)
+    {
+        $receipt = $receiving->receive($supplierOrder, $request->all(), $request->user());
+
+        return redirect()->route('admin.supplier-orders.show', $supplierOrder)->with('status', $receipt->add_to_inventory
+            ? 'Order received. Ordered quantities were added once to '.$receipt->warehouse_name.'.'
+            : 'Order received. Inventory was left unchanged as requested.');
     }
 }

@@ -127,6 +127,7 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         Route::post('/supplier-orders/preview', [\App\Http\Controllers\Admin\SupplierOrderController::class, 'preview'])->middleware(AdminAccess::class.':purchases.manage')->name('supplier-orders.preview');
         Route::post('/supplier-orders', [\App\Http\Controllers\Admin\SupplierOrderController::class, 'store'])->middleware(AdminAccess::class.':purchases.manage')->name('supplier-orders.store');
         Route::post('/supplier-orders/{supplierOrder}/status', [\App\Http\Controllers\Admin\SupplierOrderController::class, 'status'])->middleware(AdminAccess::class.':purchases.manage')->name('supplier-orders.status');
+        Route::post('/supplier-orders/{supplierOrder}/receive', [\App\Http\Controllers\Admin\SupplierOrderController::class, 'receive'])->middleware(AdminAccess::class.':purchases.manage')->name('supplier-orders.receive');
         Route::get('/supplier-orders/{supplierOrder}', [\App\Http\Controllers\Admin\SupplierOrderController::class, 'show'])->middleware(AdminAccess::class.':purchases.view')->name('supplier-orders.show');
         Route::get('/orders/completed', [OrderController::class, 'index'])->middleware(AdminAccess::class.':orders.view|warehouse.pack')->name('orders.completed');
         Route::middleware(\App\Http\Middleware\SuperAdminOnly::class)->group(function () {
