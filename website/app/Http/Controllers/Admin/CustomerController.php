@@ -22,12 +22,13 @@ class CustomerController extends Controller {
   }
   return redirect()->route('admin.customers.show',$customer)->with('status','Customer created. Login uses the email and password you entered. Business accounts still require approval and email verification.');
  }
- public function index(Request $request){
+ public function index(Request $request,\App\Services\CustomerColumns $columns){
+  $columnLabels=$columns->labels();$selectedColumns=$columns->selected($request);
   $query=$this->listingQuery($request);
   $customers=$query->paginate((int)($request->input('per_page')?:25))->withQueryString();
   $customers->getCollection()->loadCount('orders')->loadMax('orders','ordered_at');
   $search=trim((string)$request->input('search',''));
-  return view('admin.customers.index',compact('customers','search'));
+  return view('admin.customers.index',compact('customers','search','columnLabels','selectedColumns'));
  }
  public function businessRequests(Request $request){
   $businessRequests=$this->listingQuery($request)->whereHas('user',fn($q)=>$q->where('account_type','business')->whereNull('business_approved_at'))

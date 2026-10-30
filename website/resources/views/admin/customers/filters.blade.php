@@ -1,4 +1,5 @@
 <form method="get" class="panel panel-content mb-4" action="{{ route($approvalScreen?'admin.customers.business-requests':'admin.customers.index') }}">
+@isset($selectedColumns)<input type="hidden" name="columns" value="{{ implode(',',$selectedColumns) }}" data-customer-columns-value>@endisset
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;align-items:end">
 <label style="grid-column:1/-1">Search customers<input class="form-control" name="search" value="{{ $search }}" maxlength="200" placeholder="Customer ID, name, email, phone, business name, BIN, city or postal code"></label>
 @unless($approvalScreen)

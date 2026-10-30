@@ -16,6 +16,14 @@ class CustomerDirectoryTest extends TestCase {
   $this->get(route('admin.customers.index',['search'=>'Directory','per_page'=>10,'sort'=>'name','direction'=>'asc','page'=>2]))->assertOk()->assertSee('Directory 10')->assertDontSee('Directory 00');
   $this->getJson(route('admin.customers.index',['per_page'=>500000]))->assertUnprocessable();
   $this->getJson(route('admin.customers.index',['sort'=>'password']))->assertUnprocessable();
+  $columns='id,identity,status';
+  $this->get(route('admin.customers.index',['search'=>'Directory','per_page'=>10,'sort'=>'name','direction'=>'asc','columns'=>$columns]))
+   ->assertOk()->assertViewHas('selectedColumns',['id','identity','status'])->assertSee('columns=id%2Cidentity%2Cstatus',false);
+  $this->get(route('admin.customers.index',['search'=>'Directory','per_page'=>10,'sort'=>'name','direction'=>'asc','columns'=>$columns,'page'=>2]))
+   ->assertOk()->assertViewHas('selectedColumns',['id','identity','status'])->assertSee('Directory 10')->assertDontSee('Directory 00');
+  $this->get(route('admin.customers.index',['columns'=>'']))->assertOk()->assertViewHas('selectedColumns',[]);
+  $this->getJson(route('admin.customers.index',['columns'=>'id,password']))->assertUnprocessable();
+  $this->getJson(route('admin.customers.index',['columns'=>['id']]))->assertUnprocessable();
  }
  public function test_filters_search_and_separate_pending_approval_screen(){
   $pending=$this->customer('Pending Owner',['account_type'=>'business','email_verified_at'=>null,'is_active'=>false]);

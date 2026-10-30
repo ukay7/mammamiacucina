@@ -1,0 +1,15 @@
+.customer-column-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px}
+.customer-column-picker{padding:20px;margin-bottom:16px;border:1px solid var(--admin-line,#dfcba5);border-radius:10px;background:var(--theme-surface,#fffaf2)}
+.customer-column-presets{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+.customer-column-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 24px}
+.customer-column-options label{display:flex;align-items:flex-start;gap:9px;margin:0;cursor:pointer}
+.customer-column-options input{margin-top:4px;flex-shrink:0;accent-color:var(--theme-primary,#264e7a)}
+.customer-column-picker[hidden],[data-customer-column][hidden]{display:none!important}
+.customer-directory .customer-directory-id{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.customer-directory .customer-directory-name{display:block;font-size:18px;font-weight:700;line-height:1.35;margin-bottom:4px}
+.customer-directory .customer-directory-owner{display:block;font-size:16px;font-weight:700;line-height:1.4}
+.customer-directory .customer-directory-email{display:block;font-size:14px;font-weight:700;line-height:1.4;margin-top:5px;overflow-wrap:anywhere}
+.customer-directory [data-customer-column="identity"]{min-width:240px;max-width:360px;overflow-wrap:anywhere}
+.customer-directory .table td{vertical-align:middle}
+@media(max-width:750px){.customer-column-options{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.customer-column-options{grid-template-columns:minmax(0,1fr)}.customer-column-picker{padding:14px}}
