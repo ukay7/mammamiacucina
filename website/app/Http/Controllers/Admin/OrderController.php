@@ -173,7 +173,7 @@ class OrderController extends Controller
         $warehouseOnly = $this->warehouseOnly();
         $completed = $r->routeIs('admin.orders.completed') || ($r->routeIs('admin.orders.export') && $r->input('view')==='completed');
         $r->validate(['status' => 'nullable|in:'.implode(',', array_keys(Order::STATUSES))]);
-        $orders = Order::with(['payment', 'settlements', 'creator', 'items:id,order_id,name,inventory_shortage_quantity'])->where('status', $completed ? '=' : '!=', 'completed')->when($warehouseOnly, fn ($q) => $completed ? $q->where('created_by',$r->user()->id) : $q->visibleToWarehouse($r->user()->id))->when($r->filled('status'), fn ($q) => $q->where('status', $r->input('status')))->where('ordered_at', '>=', \App\Support\BusinessTime::start($from))->where('ordered_at', '<', \App\Support\BusinessTime::end($to))->when($search, fn ($q) => $q->where(fn ($q) => $q->where('number', 'like', '%'.$search.'%')->orWhere('email', 'like', '%'.$search.'%')->orWhere('first_name', 'like', '%'.$search.'%')->orWhere('last_name', 'like', '%'.$search.'%')));
+        $orders = Order::with(['customer', 'payment', 'settlements', 'creator', 'items:id,order_id,name,inventory_shortage_quantity'])->where('status', $completed ? '=' : '!=', 'completed')->when($warehouseOnly, fn ($q) => $completed ? $q->where('created_by',$r->user()->id) : $q->visibleToWarehouse($r->user()->id))->when($r->filled('status'), fn ($q) => $q->where('status', $r->input('status')))->where('ordered_at', '>=', \App\Support\BusinessTime::start($from))->where('ordered_at', '<', \App\Support\BusinessTime::end($to))->when($search, fn ($q) => $q->where(fn ($q) => $q->where('number', 'like', '%'.$search.'%')->orWhere('email', 'like', '%'.$search.'%')->orWhere('first_name', 'like', '%'.$search.'%')->orWhere('last_name', 'like', '%'.$search.'%')->orWhereHas('customer', fn ($customer) => $customer->where('account_type', 'business')->where('business_name', 'like', '%'.$search.'%'))));
         $r->validate(['per_page' => 'sometimes|in:10,20,50,100', 'sort' => 'sometimes|in:date,number,customer,creator,status', 'direction' => 'sometimes|in:asc,desc']);
         $sort = $r->input('sort', 'date');
         $direction = $r->input('direction', 'desc');
@@ -205,7 +205,7 @@ class OrderController extends Controller
         if (! $warehouseOnly) {
             $headers = array_merge($headers, ['Subtotal CAD', 'Payment method', 'Payment status']);
         }
-        $headers = array_merge($headers, ['Delivery service','From postal','From zone','To postal','To zone','Delivery CAD']);
+        $headers = array_merge($headers, ['Delivery service','From postal','From zone','To postal','To zone','Delivery CAD', 'Customer type', 'Business name']);
         $rows = function () use ($query, $warehouseOnly) {
             foreach ($query->lazy(200) as $order) {
                 $row = [$order->number, \App\Support\BusinessTime::format($order->ordered_at,'Y-m-d H:i T'), $order->source==='pos'?'Quick Sale / POS':'Website', $order->fulfillment, trim($order->first_name.' '.$order->last_name), $order->email, $order->creator?->name ?? ($order->created_by ? 'Former user' : 'Website customer'), $order->status_label];
@@ -213,6 +213,9 @@ class OrderController extends Controller
                     $row = array_merge($row, [number_format($order->subtotal_cents / 100, 2, '.', ''), $order->payment_method, $order->payment_status]);
                 }
                 $row=array_merge($row,[$order->delivery_service_name??$order->delivery_service??($order->fulfillment==='pickup'?'Pick up':'Not recorded'),$order->delivery_from_postal??'', $order->delivery_from_zone??'', $order->delivery_to_postal??$order->postal_code, $order->delivery_to_zone??'', $order->delivery_cents===null?'':number_format($order->delivery_cents/100,2,'.','')]);
+                $profile = $order->customer;
+                $business = $profile?->account_type === 'business';
+                $row = array_merge($row, [$profile ? ($business ? 'Business customer' : 'Individual customer') : 'Guest customer', $business ? trim((string) $profile->business_name) : '']);
                 yield $row;
             }
         };
@@ -292,7 +295,7 @@ class OrderController extends Controller
     public function show(Order $order)
     {
         $this->readable($order);
-        $order->load(['items.product.media' => fn ($q) => $q->coverImage(), 'events.author', 'payment', 'settlements']);
+        $order->load(['customer', 'items.product.media' => fn ($q) => $q->coverImage(), 'events.author', 'payment', 'settlements']);
         if ($this->warehouseOnly()) {
             return view($order->source === 'pos' && !in_array($order->status,['warehouse_pending','packing','ready_to_dispatch']) ? 'admin.orders.own-sale' : 'admin.orders.warehouse', compact('order'));
         }

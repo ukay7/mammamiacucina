@@ -5,7 +5,7 @@
 <div class="alert alert-info"><strong>Deleted · View only</strong><br>{{ \App\Support\BusinessTime::format($order->deleted_at,'d M Y H:i T') }} · {{ $order->deletedBy?->name ?? 'Former user / migration' }}<br>Reason: {{ $order->deletion_reason }}<br>Inventory decision: {{ $order->deletion_restock?'Return deducted stock':'Keep inventory unchanged' }}. This retained order does not contribute to normal reports or balances.</div>
 <section class="panel panel-content">
 <h2>{{ $order->number }}</h2><p>Order date: {{ \App\Support\BusinessTime::format($order->ordered_at,'d M Y H:i T') }} · Status when deleted: {{ $order->status_label }} · Payment: {{ $order->payment_status_label }}</p>
-<p>{{ $order->first_name }} {{ $order->last_name }}<br>{{ $order->email }}<br>{{ $order->phone }}</p>
+<div class="mb-3">@include('admin.orders.customer-summary')<small class="d-block">Phone: {{ filled($order->phone) ? $order->phone : 'Not provided' }}</small></div>
 <div class="table-responsive"><table class="table"><thead><tr><th>Product</th><th>Code</th><th>Quantity</th><th>Unit price (CAD)</th><th>Total (CAD)</th></tr></thead><tbody>
 @foreach($order->items as $item)<tr><td>{{ $item->name }}</td><td>{{ $item->product_code ?: '—' }}</td><td>{{ $item->quantity }}</td><td>{{ number_format($item->unit_cents/100,2) }}</td><td>{{ number_format($item->line_cents/100,2) }}</td></tr>@endforeach
 </tbody></table></div>

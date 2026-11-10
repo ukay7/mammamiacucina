@@ -9,7 +9,7 @@
     <form action="{{ route($listRoute) }}" method="get" class="warehouse-filters">
         <input type="hidden" name="sort" value="{{ request('sort','date') }}">
         <input type="hidden" name="direction" value="{{ request('direction','desc') }}">
-        <label class="warehouse-search"><span class="sr-only">Search orders</span><i class="fas fa-search" aria-hidden="true"></i><input class="form-control" type="search" name="q" value="{{ $search }}" placeholder="Order number, customer or email"></label>
+        <label class="warehouse-search"><span class="sr-only">Search orders</span><i class="fas fa-search" aria-hidden="true"></i><input class="form-control" type="search" name="q" value="{{ $search }}" placeholder="Order number, business, customer or email"></label>
         <label>From<input class="form-control" type="date" name="from" value="{{ $from }}" required></label>
         <label>To<input class="form-control" type="date" name="to" value="{{ $to }}" required></label>
         <label>Status<select class="form-control" name="status"><option value="">All statuses</option>@foreach(\App\Models\Order::STATUSES as $key=>$label)@if(($key==='completed')===$completed)<option value="{{ $key }}" @selected(request('status')===$key)>{{ $label }}</option>@endif @endforeach</select></label>
@@ -55,7 +55,7 @@
                 <span class="mmc-status-pill" data-status="{{ $order->status }}">{{ $order->status_label }}</span>
             </div>
             <div class="warehouse-order-date"><span><i class="fas fa-calendar-alt" aria-hidden="true"></i> {{ \App\Support\BusinessTime::format($order->ordered_at,'d M Y') }}</span><span><i class="fas fa-clock" aria-hidden="true"></i> {{ \App\Support\BusinessTime::format($order->ordered_at,'H:i T') }}</span></div>
-            <div class="warehouse-card-customer"><i class="fas fa-user" aria-hidden="true"></i><div><strong>{{ $order->first_name }} {{ $order->last_name }}</strong><span>{{ $order->email }}</span></div></div>
+            <div class="warehouse-card-customer"><i class="fas fa-{{ $order->customer?->account_type==='business'?'building':'user' }}" aria-hidden="true"></i>@include('admin.orders.customer-summary')</div>
             <dl class="warehouse-card-meta"><div><dt>Source</dt><dd><span class="warehouse-source">{{ $order->source==='pos'?'Quick Sale / POS':'Website' }}</span></dd></div><div><dt>Created by</dt><dd>{{ $order->creator?->name ?? ($order->created_by?'Former user':'Website customer') }}@if((int)$order->created_by===auth()->id())<small>Created by you</small>@endif</dd></div></dl>
             @if($order->status==='warehouse_issue')<p class="text-danger">Action needed — open order to review item notes.</p>@endif
             <div class="warehouse-card-actions"><a class="btn btn-primary" href="{{ route('admin.orders.show',$order) }}"><i class="fas fa-{{ in_array($order->status,['warehouse_pending','packing'])?'box':'eye' }}" aria-hidden="true"></i> {{ in_array($order->status,['warehouse_pending','packing'])?'Pack / View':'View' }}</a><a class="btn btn-outline-primary" href="{{ route('admin.orders.print',$order) }}" target="_blank" rel="noopener"><i class="fas fa-print" aria-hidden="true"></i> Print</a></div>

@@ -1,8 +1,24 @@
 <link rel="stylesheet" href="{{ asset('admin-assets/warehouse-orders.css') }}?v={{ filemtime(public_path('admin-assets/warehouse-orders.css')) }}">
+@php
+    $customerProfile=$order->customer;
+    $businessCustomer=$customerProfile?->account_type==='business';
+    $businessName=$businessCustomer?trim((string)$customerProfile->business_name):'';
+    $orderContactName=trim($order->first_name.' '.$order->last_name) ?: ($customerProfile?->name ?: 'Customer');
+    $customerHeading=$businessName!==''?$businessName:$orderContactName;
+    $customerType=$customerProfile?($businessCustomer?'Business customer':'Individual customer'):'Guest customer';
+    $customerNode=\App\Services\AdminNavigation::nodes()['access.admin.customers.index']??null;
+    $canOpenCustomerProfile=$customerProfile && $customerNode && auth()->user()->hasAdminPermission('orders.view') && \App\Services\AdminNavigation::allowed(auth()->user(),$customerNode);
+@endphp
 <section class="wh-detail-summary">
     <div class="wh-detail-title"><h1><i class="fas fa-box" aria-hidden="true"></i> Order <strong>{{ $order->number }}</strong></h1><span class="mmc-status-pill" data-status="{{ $order->status }}">{{ $order->status_label }}</span></div>
     <div class="wh-detail-info">
-        <div><i class="fas fa-user" aria-hidden="true"></i><div><strong>{{ $order->first_name }} {{ $order->last_name }}</strong><span>{{ $order->email }}</span><span>{{ $order->phone }}</span></div></div>
+        <div class="wh-order-customer"><i class="fas fa-{{ $businessCustomer?'building':'user' }}" aria-hidden="true"></i><div>
+            <span class="wh-order-customer-type">{{ $customerType }}</span>
+            <div class="wh-order-customer-heading"><strong>{{ $customerHeading }}</strong>@if($canOpenCustomerProfile)<a class="btn btn-outline-primary wh-order-customer-profile" href="{{ route('admin.customers.show',$customerProfile) }}" title="Open customer profile" aria-label="Open customer profile for {{ $customerHeading }}"><i class="fas fa-user-circle" aria-hidden="true"></i></a>@endif</div>
+            @if($businessName!=='')<span><b>Customer:</b> {{ $orderContactName }}</span>@endif
+            <span><b>Email:</b> {{ filled($order->email)?$order->email:'Not provided' }}</span>
+            <span><b>Phone:</b> {{ filled($order->phone)?$order->phone:'Not provided' }}</span>
+        </div></div>
         <div><i class="fas fa-{{ $order->fulfillment==='pickup'?'store':'truck' }}" aria-hidden="true"></i><div><strong>{{ $order->fulfillment==='pickup'?'Pick up':'Delivery' }}</strong><span>{{ $order->fulfillment==='pickup'?'Pick up in store':trim($order->address.', '.$order->city.', '.$order->province.' '.$order->postal_code.', '.$order->country,', ') }}</span></div></div>
         <div><i class="fas fa-calendar-alt" aria-hidden="true"></i><div><strong>{{ \App\Support\BusinessTime::format($order->ordered_at,'d M Y') }}</strong><span>{{ \App\Support\BusinessTime::format($order->ordered_at,'H:i T') }} · {{ $order->source==='pos'?'Quick Sale / POS':'Website' }}</span></div></div>
     </div>

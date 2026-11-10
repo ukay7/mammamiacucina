@@ -8,6 +8,12 @@
 .warehouse-detail-page .wh-detail-title h1{min-width:0;overflow-wrap:anywhere}
 .warehouse-detail-page .wh-detail-title h1 strong{white-space:normal}
 .warehouse-detail-page .wh-detail-info>div>div{min-width:0}
+.wh-detail-info .wh-order-customer-type{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--theme-accent,#8b704c);margin-bottom:4px}
+.wh-order-customer-heading{display:flex;align-items:center;gap:8px;min-width:0;margin-bottom:4px}
+.wh-detail-info .wh-order-customer-heading strong{font-size:16px;line-height:1.35;margin:0;min-width:0}
+.wh-detail-info .wh-order-customer-profile{display:inline-flex;align-items:center;justify-content:center;flex:0 0 28px;width:28px;height:28px;padding:0;border-radius:5px}
+.wh-detail-info .wh-order-customer-profile i{font-size:14px;color:inherit;margin:0}
+.wh-order-customer-profile:focus-visible{outline:2px solid currentColor;outline-offset:2px}
 .warehouse-detail-page .wh-customer-note,.warehouse-detail-page .warehouse-notice,.warehouse-detail-page .alert,.warehouse-detail-page .wh-route-detail,.warehouse-detail-page .wh-commercial-notices{overflow-wrap:anywhere}
 .warehouse-detail-page .wh-commercial-notices:empty,.warehouse-detail-page .wh-payment-proof:empty{display:none}
 .warehouse-detail-page .wh-commercial-notices{font-size:12px;line-height:1.5}

@@ -15,9 +15,10 @@ class DeletedOrderController extends Controller
         abort_unless($request->user()->isSuper(), 403);
         $data = $request->validate(['q' => 'nullable|string|max:200', 'per_page' => 'nullable|in:10,20,50,100']);
         $search = trim($data['q'] ?? '');
-        $orders = Order::onlyTrashed()->with('deletedBy')->when($search !== '', fn ($q) => $q->where(fn ($q) => $q
+        $orders = Order::onlyTrashed()->with(['deletedBy', 'customer'])->when($search !== '', fn ($q) => $q->where(fn ($q) => $q
             ->where('number', 'like', '%'.$search.'%')->orWhere('email', 'like', '%'.$search.'%')
-            ->orWhere('first_name', 'like', '%'.$search.'%')->orWhere('last_name', 'like', '%'.$search.'%')))
+            ->orWhere('first_name', 'like', '%'.$search.'%')->orWhere('last_name', 'like', '%'.$search.'%')
+            ->orWhereHas('customer', fn ($customer) => $customer->where('account_type', 'business')->where('business_name', 'like', '%'.$search.'%'))))
             ->orderByDesc('deleted_at')->orderByDesc('id')->paginate((int) ($data['per_page'] ?? 20))->withQueryString();
 
         return view('admin.orders.deleted', compact('orders', 'search'));
@@ -27,7 +28,7 @@ class DeletedOrderController extends Controller
     {
         abort_unless($request->user()->isSuper(), 403);
         abort_unless($deletedOrder->trashed(), 404);
-        $order = $deletedOrder->load(['items', 'deletedBy', 'payment', 'paymentAttempts', 'invoice', 'settlements.author', 'events.author']);
+        $order = $deletedOrder->load(['customer', 'items', 'deletedBy', 'payment', 'paymentAttempts', 'invoice', 'settlements.author', 'events.author']);
         $refunds = $order->payment ? DB::table('payment_refunds')->where('payment_id', $order->payment->id)->orderBy('id')->get() : collect();
 
         return view('admin.orders.deleted-show', compact('order', 'refunds'));
