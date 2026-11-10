@@ -399,7 +399,7 @@ class WarehouseWorkflowTest extends TestCase
         $this->moveStatus($order, 'warehouse_pending')->assertOk();
         $this->actingAs($worker);
         $this->pack($order, 'ready', 1, '')->assertSessionHasNoErrors();
-        $this->get(route('admin.orders.print', $order))->assertOk()->assertSee('MAMMA MIA CUCINA')->assertSee('Packing Slip')->assertSee('10 Example Street')->assertSee('Warehouse Cake')->assertDontSee('Subtotal');
+        $this->get(route('admin.orders.print', $order))->assertOk()->assertSee('Mamma Mia Cucina INC.')->assertSee('Packing Slip')->assertSee('10 Example Street')->assertSee('Warehouse Cake')->assertDontSee('Subtotal');
     }
 
     public function test_resending_shortage_preserves_completed_items_and_their_packing_audit(): void

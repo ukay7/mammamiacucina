@@ -26,6 +26,6 @@ body{background:white}.document{margin:0;padding:0;max-width:none}
 </tbody></table>
 @if(in_array('line_total',$columns,true))<table class="doc-totals">@foreach($order->totals as $currency=>$amount)<tr class="supplier-total"><td>Order total ({{ $currency }})</td><td class="money">{{ $currency }} {{ $amount }}</td></tr>@endforeach</table>@endif
 @if(filled($order->notes))<section class="doc-box"><h2>Order notes</h2><p class="supplier-notes">{{ $order->notes }}</p></section>@endif
-<footer class="doc-footer"><strong>Thank you from {{ $doc['brand']['name'] }}.</strong>@foreach($notes as $note)<p>{{ $note }}</p>@endforeach<p>EUR and CAD are shown separately; no currency conversion is applied. Receiving and inventory updates are recorded separately.</p></footer>
+<footer class="doc-footer"><strong>Thank you from {{ rtrim($doc['brand']['name'],'.') }}.</strong>@foreach($notes as $note)<p>{{ $note }}</p>@endforeach<p>EUR and CAD are shown separately; no currency conversion is applied. Receiving and inventory updates are recorded separately.</p></footer>
 </section>@endforeach
 </main></body></html>

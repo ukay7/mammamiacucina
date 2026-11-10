@@ -13,3 +13,4 @@
 .doc-financial .doc-product-no-image{width:28px;min-height:28px;padding-top:8px;font-size:6px;border-radius:3px}
 .doc-financial .doc-lines small{font-size:8px;line-height:1.25}
 </style>
+@include('documents.header-style')

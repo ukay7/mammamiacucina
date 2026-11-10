@@ -27,7 +27,11 @@ class DocumentTheme {
    ini_set('memory_limit',$previousLimit);
    $logo='data:'.$mime.';base64,'.base64_encode($bytes);
   }
-  return ['name'=>'Mamma Mia Cucina','logo'=>$logo,'address'=>$s?->pickup_address,'email'=>$s?->email,'phone'=>$s?->phone,'registration'=>$s?->business_number,'tax_number'=>$s?->tax_number];
+  // Document addresses are separate from checkout pickup instructions.
+  $warehouse=$s && array_key_exists('document_warehouse_address',$s->getAttributes())?$s->document_warehouse_address:$s?->pickup_address;
+  return ['name'=>$s?->document_company_name?:GeneralSetting::DOCUMENT_COMPANY_NAME,'logo'=>$logo,
+   'address'=>$warehouse,'mailing_address'=>$s?->mailing_address,'warehouse_address'=>$warehouse,
+   'email'=>$s?->email,'phone'=>$s?->phone,'registration'=>$s?->business_number,'tax_number'=>$s?->gst_hst_number??$s?->tax_number];
  }
  public function order(Order $order,?\App\Models\CustomerInvoice $invoice=null,?\App\Models\OrderSettlement $receipt=null):array {
   $order->loadMissing('items','customer','payment','settlements');$money=fn($n)=>$n===null?'To be confirmed':'$'.number_format($n/100,2);

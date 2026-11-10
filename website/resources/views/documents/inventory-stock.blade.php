@@ -21,7 +21,7 @@
 @empty<tr><td colspan="{{ count($headers) }}">No products match these filters.</td></tr>@endforelse
 <tr class="stock-total"><td colspan="{{ count($headers)-1 }}">Total stock quantity · all matching products</td><td class="money">{{ $summary['quantity'] }}</td></tr>
 </tbody></table>
-<footer class="doc-footer"><strong>Thank you for choosing {{ $doc['brand']['name'] }}.</strong><p>Current stock as of {{ app(\App\Services\DocumentTheme::class)->dateLabel($doc['date']) }}. Quantities not set contribute 0 to totals; saved zero and negative quantities retain their values.</p></footer>
+<footer class="doc-footer"><strong>Thank you for choosing {{ rtrim($doc['brand']['name'],'.') }}.</strong><p>Current stock as of {{ app(\App\Services\DocumentTheme::class)->dateLabel($doc['date']) }}. Quantities not set contribute 0 to totals; saved zero and negative quantities retain their values.</p></footer>
 </section>
 @endforeach
 </main></body></html>

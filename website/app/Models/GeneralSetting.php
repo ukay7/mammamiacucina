@@ -8,6 +8,8 @@ class GeneralSetting extends Model
 {
     protected $guarded = ['id'];
 
+    public const DOCUMENT_COMPANY_NAME = 'Mamma Mia Cucina INC.';
+
     public static function defaultContactIcon(array $link): string
     {
         $host = strtolower(parse_url($link['url'] ?? '', PHP_URL_HOST) ?? '');
