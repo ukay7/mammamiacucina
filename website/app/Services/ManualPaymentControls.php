@@ -94,7 +94,7 @@ class ManualPaymentControls
             $o->payment_method = $data['method'];
             $o->payment_status = 'unpaid';
             $o->cheque_days = $data['method'] === 'cheque' ? ($o->customer?->cheque_days ?: 7) : null;
-            $o->cheque_due_date = $data['method'] === 'cheque' ? today()->addDays($o->cheque_days)->toDateString() : null;
+            $o->cheque_due_date = $data['method'] === 'cheque' ? \App\Support\BusinessTime::today()->addDays($o->cheque_days)->toDateString() : null;
             $o->revision++;
             $o->saveQuietly();
             $o->events()->create(['user_id' => $actor->id, 'created_at' => now(), 'description' => 'Super Admin changed unpaid payment method: '.$before.' → '.$o->payment_method.'. Payment remains Unpaid. Cheque due: '.($oldDue ?: 'none').' → '.($o->cheque_due_date ?: 'none').'. Reason: '.$data['reason']]);

@@ -5,7 +5,7 @@
 <div class="dna-review">
 <a href="{{ route('admin.price-reviews.index') }}">Back to approvals</a>
 <h2 class="mt-3">{{ $review->product->premium_marketing_name }} · {{ $review->product->qr_code }}</h2>
-<p>Proposal #{{ $review->id }} · {{ ucfirst($review->status) }} · Draft revision {{ $review->draft_revision }} · Submitted by {{ $review->submitter?->name }} on {{ $review->created_at }}</p>
+<p>Proposal #{{ $review->id }} · {{ ucfirst($review->status) }} · Draft revision {{ $review->draft_revision }} · Submitted by {{ $review->submitter?->name }} on {{ \App\Support\BusinessTime::format($review->created_at) }}</p>
 <div class="dna-results"><div>Previous price<strong>{{ $review->previous_price===null?'Not set':'CAD '.number_format($review->previous_price,2) }}</strong></div><div>Proposed price<strong>CAD {{ number_format($review->proposed_cents/100,2) }}</strong>{{ $review->sale_label }}</div><div>Current store price<strong>{{ $review->product->total_selling_price_cad===null?'Not set':'CAD '.number_format($review->product->total_selling_price_cad,2) }}</strong></div></div>
 <h3>Calculation submitted for review</h3>
 <div class="row"><div class="col-md-6"><table class="table"><tbody>@foreach($review->snapshot['inputs'] as $key=>$value)<tr><th>{{ ucwords(str_replace('_',' ',$key)) }}</th><td>{{ \App\Support\NumberDisplay::field($value,$key) }}</td></tr>@endforeach</tbody></table></div>
@@ -18,6 +18,6 @@
 <label for="note">Review note (required when rejecting)</label><textarea name="note" id="note" class="form-control" maxlength="2000">{{ old('note') }}</textarea>
 <div class="dna-controls"><button name="decision" value="approve" class="btn btn-primary">Approve and Publish Price</button><button name="decision" value="reject" class="btn btn-outline-primary">Reject</button></div>
 </form>
-@else<p>Reviewed by {{ $review->reviewer?->name??'—' }} · {{ $review->reviewed_at }}</p><p>{{ $review->review_note }}</p>@endif
+@else<p>Reviewed by {{ $review->reviewer?->name??'—' }} · {{ \App\Support\BusinessTime::format($review->reviewed_at) }}</p><p>{{ $review->review_note }}</p>@endif
 </div>
 @endsection

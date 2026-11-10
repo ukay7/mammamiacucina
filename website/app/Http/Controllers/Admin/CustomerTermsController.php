@@ -37,7 +37,7 @@ class CustomerTermsController extends Controller {
  }
  public function overdue(Request $r){
   $d=$r->validate(['q'=>'nullable|string|max:200']);$q=trim($d['q']??'');
-  $orders=Order::with('customer')->where('payment_method','cheque')->whereNotIn('status',['cancelled'])->where('payment_status','unpaid')->whereDate('cheque_due_date','<',today())->when($q,fn($b)=>$b->where(fn($b)=>$b->where('number','like','%'.$q.'%')->orWhereHas('customer',fn($c)=>$c->where('name','like','%'.$q.'%')->orWhere('email','like','%'.$q.'%'))))->orderBy('cheque_due_date')->paginate(25)->withQueryString();
+  $orders=Order::with('customer')->where('payment_method','cheque')->whereNotIn('status',['cancelled'])->where('payment_status','unpaid')->whereDate('cheque_due_date','<',\App\Support\BusinessTime::today()->toDateString())->when($q,fn($b)=>$b->where(fn($b)=>$b->where('number','like','%'.$q.'%')->orWhereHas('customer',fn($c)=>$c->where('name','like','%'.$q.'%')->orWhere('email','like','%'.$q.'%'))))->orderBy('cheque_due_date')->paginate(25)->withQueryString();
   return view('admin.customers.overdue-cheques',compact('orders','q'));
  }
 }

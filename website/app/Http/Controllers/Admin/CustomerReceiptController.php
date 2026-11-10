@@ -133,7 +133,7 @@ class CustomerReceiptController extends Controller
         $title = in_array($event->action, ['reverse', 'bounce', 'cancel']) ? 'Payment Adjustment Record'
             : ($snapshot['confirmed_cents'] ? 'Customer Payment Receipt' : 'Cheque Acknowledgement');
         $doc = ['brand' => $theme->brand(), 'title' => $title, 'number' => $receipt->number,
-            'date' => $event->created_at->format('d M Y H:i').' '.config('app.timezone')];
+            'date' => \App\Support\BusinessTime::format($event->created_at,'d M Y H:i T')];
         $current = app(CustomerInvoicing::class)->balances($customer);
         $pdf = $request->boolean('pdf');
         $view = view('documents.customer-receipt', compact('customer', 'receipt', 'event', 'snapshot', 'doc', 'current', 'pdf'));

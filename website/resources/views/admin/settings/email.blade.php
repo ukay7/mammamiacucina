@@ -7,7 +7,7 @@
 <p>Save and enable email delivery to send new verification emails, POS account invitations and password-reset emails through your provider.</p>
 <div class="alert {{ $settings->enabled?'alert-success':'alert-warning' }}" role="status">{{ $settings->enabled?'Email delivery is enabled. Use the test below to confirm delivery.':'Email delivery is not enabled here. Save valid credentials and enable delivery to send email.' }}</div>
 <div class="alert {{ $settings->ready()?'alert-success':'alert-warning' }}">
-@if($settings->ready())Email test passed at {{ $settings->tested_at->format('d M Y H:i') }}. New customers must verify their email. Provider acceptance does not guarantee inbox placement.
+@if($settings->ready())Email test passed at {{ \App\Support\BusinessTime::format($settings->tested_at,'d M Y H:i T') }}. New customers must verify their email. Provider acceptance does not guarantee inbox placement.
 @else Email delivery has not passed a test for the current settings. New Individual customers use the temporary auto-verification fallback when enabled; Business approval remains required. Save changes and send a successful test to enable email verification.
 @endif</div>
 <p>Saving email settings clears the previous test confirmation. Existing customers are not changed.</p>

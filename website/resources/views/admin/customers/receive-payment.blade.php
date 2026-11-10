@@ -36,7 +36,7 @@
         <div class="receipt-fields">
             <div class="form-group"><label data-receipt-label="method">Payment method</label><select class="form-control" data-receipt-field="method">@foreach(\App\Models\CustomerReceiptLine::METHODS as $key=>$label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select></div>
             <div class="form-group"><label data-receipt-label="amount">Amount (CAD)</label><input class="form-control" data-receipt-field="amount" inputmode="decimal" placeholder="0.00" maxlength="10" required></div>
-            <div class="form-group"><label data-receipt-label="payment_date">Payment / received date</label><input class="form-control" data-receipt-field="payment_date" type="date" value="{{ today()->toDateString() }}" max="{{ today()->toDateString() }}" required></div>
+            <div class="form-group"><label data-receipt-label="payment_date">Payment / received date</label><input class="form-control" data-receipt-field="payment_date" type="date" value="{{ \App\Support\BusinessTime::today()->toDateString() }}" max="{{ \App\Support\BusinessTime::today()->toDateString() }}" required></div>
             <div class="form-group"><label data-receipt-label="reference">Reference / cheque number</label><input class="form-control" data-receipt-field="reference" maxlength="150"></div>
             <div class="form-group" data-cheque-only hidden><label data-receipt-label="cheque_date">Cheque date</label><input class="form-control" data-receipt-field="cheque_date" type="date"></div>
             <div class="form-group" data-cheque-only hidden><label data-receipt-label="bank">Bank (optional)</label><input class="form-control" data-receipt-field="bank" maxlength="150"></div>

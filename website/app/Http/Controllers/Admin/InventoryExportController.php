@@ -35,7 +35,7 @@ class InventoryExportController extends Controller
         $warehouse = $warehouses->firstWhere('id', (int) $request->input('warehouse'))
             ?? $warehouses->firstWhere('is_default', true) ?? $warehouses->first();
         $query = $columns->withColumns($inventory->query($filters, $warehouse?->id));
-        $filename = 'inventory-stock-'.now()->format('Y-m-d-His');
+        $filename = 'inventory-stock-'.\App\Support\BusinessTime::now()->format('Y-m-d-His');
 
         if (in_array($request->input('format'), ['print', 'pdf'], true)) {
             [$summary, $rows] = DB::transaction(fn () => [
@@ -44,7 +44,7 @@ class InventoryExportController extends Controller
             ]);
             $doc = ['brand' => app(DocumentTheme::class)->brand(), 'title' => 'Inventory Stock',
                 'number' => $warehouse?->name ?? 'All warehouses combined',
-                'date' => now()->format('d M Y H:i').' '.config('app.timezone')];
+                'date' => \App\Support\BusinessTime::now()->format('d M Y H:i').' '.\App\Support\BusinessTime::zone()];
             $groups = $columns->printGroups($selected);
             $pdf = $request->input('format') === 'pdf';
             $view = view('documents.inventory-stock', compact('doc', 'groups', 'rows', 'summary', 'filters', 'columns', 'pdf'));

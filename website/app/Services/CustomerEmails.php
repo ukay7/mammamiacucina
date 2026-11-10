@@ -70,7 +70,7 @@ class CustomerEmails
             'instructions' => $instructions, 'environment' => $test ? 'TEST ORDER — no live payment is represented by this email.' : '',
         ];
         $document = in_array($type, ['order_confirmation', 'payment_received']) ? [
-            'values' => $values, 'date' => now()->toDateTimeString(), 'subtotal' => $money($order->subtotal_cents),
+            'values' => $values, 'date' => \App\Support\BusinessTime::format(now()), 'subtotal' => $money($order->subtotal_cents),
             'delivery' => $money($order->delivery_cents), 'tax' => $money($order->tax_cents),
             'items' => $order->items->map(fn ($i) => ['name' => $i->name, 'code' => $i->product_code, 'quantity' => $i->quantity, 'unit' => $money($i->unit_cents), 'total' => $money($i->line_cents)])->all(),
         ] : null;

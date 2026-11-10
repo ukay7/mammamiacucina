@@ -25,12 +25,12 @@
     {{ $customer->user->is_active?'Active':'Inactive' }}
     @break
 @case('created_at')
-    <span class="text-nowrap">{{ $customer->created_at?->format('d M Y') ?? '—' }}</span>
+    <span class="text-nowrap">{{ \App\Support\BusinessTime::format($customer->created_at,'d M Y') ?? '—' }}</span>
     @break
 @case('orders')
     {{ $customer->orders_count }}
     @break
 @case('last_order')
-    {{ $customer->orders_max_ordered_at ? \Carbon\Carbon::parse($customer->orders_max_ordered_at)->format('d M Y') : '—' }}
+    {{ $customer->orders_max_ordered_at ? \App\Support\BusinessTime::local($customer->orders_max_ordered_at)->format('d M Y') : '—' }}
     @break
 @endswitch

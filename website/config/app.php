@@ -67,6 +67,9 @@ return [
 
     'timezone' => 'UTC',
 
+    // Keep persistence and gateway/audit clocks in UTC. All business-facing dates use Toronto.
+    'business_timezone' => 'America/Toronto',
+
     /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration

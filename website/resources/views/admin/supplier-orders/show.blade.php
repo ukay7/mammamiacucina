@@ -4,7 +4,7 @@
 <link rel="stylesheet" href="{{ asset('admin-assets/supplier-orders.css') }}?v={{ filemtime(public_path('admin-assets/supplier-orders.css')) }}">
 <div class="purchase-filter-actions mb-3"><a class="btn btn-outline-primary" href="{{ route('admin.supplier-orders.index',['status'=>$order->status]) }}">Back to Supplier Orders</a><button type="button" class="btn btn-outline-primary" data-supplier-pdf-open data-preview-url="{{ route('admin.supplier-orders.pdf-preview',$order) }}" data-pdf-url="{{ route('admin.supplier-orders.pdf',$order) }}" aria-label="PDF for {{ $order->number }}">PDF</button></div>
 <section class="panel panel-content">
-    <h2>{{ $order->number }}</h2><p><strong>{{ \App\Models\SupplierOrder::STATUS_LABELS[$order->status] }}</strong> · {{ $order->created_at->format('l, d M Y H:i') }} · {{ $order->author?->name }}</p>
+    <h2>{{ $order->number }}</h2><p><strong>{{ \App\Models\SupplierOrder::STATUS_LABELS[$order->status] }}</strong> · {{ \App\Support\BusinessTime::format($order->created_at,'l, d M Y H:i T') }} · {{ $order->author?->name }}</p>
     <h3>{{ $order->supplier_snapshot['name'] }}</h3><p>Supplier #{{ $order->supplier_id }} · Stock view when ordered: {{ $order->warehouse_name }}</p>
     <dl class="row">@foreach(['contact_name'=>'Contact','email'=>'Email','phone'=>'Phone','address'=>'Address'] as $key=>$label)<dt class="col-md-2">{{ $label }}</dt><dd class="col-md-10" style="white-space:pre-line;overflow-wrap:anywhere">{{ $order->supplier_snapshot[$key] ?: 'Not provided' }}</dd>@endforeach</dl>
     <p class="text-muted">Supplier details and prices are preserved from placement. The stock view above is not a receiving destination. Choose the destination when marking the order Received.</p>
@@ -20,7 +20,7 @@
 @php($receipt=$order->receipt)
 <section class="panel panel-content" id="receiving-history"><h3>Receiving record #{{ $receipt->id }}</h3>
     <p><strong>{{ $receipt->add_to_inventory?'Inventory added to '.$receipt->warehouse_name:'Inventory not added — quantities unchanged' }}</strong></p>
-    <p>{{ $receipt->received_at->format('l, d M Y H:i') }} · {{ $receipt->received_by_name }}</p><p class="purchase-receiving-note">{{ $receipt->reason }}</p>
+    <p>{{ \App\Support\BusinessTime::format($receipt->received_at,'l, d M Y H:i T') }} · {{ $receipt->received_by_name }}</p><p class="purchase-receiving-note">{{ $receipt->reason }}</p>
     <p class="text-muted">Received quantities and stock levels below are historical snapshots. Later stock movements do not change this record. Received orders are view only; make later stock corrections through Inventory with a reason.</p>
     <div class="table-responsive"><table class="table"><thead><tr><th>Product / code</th><th>Received quantity</th><th>Warehouse before</th><th>Warehouse after</th><th>Total before</th><th>Total after</th><th>Stock history entry</th></tr></thead><tbody>
     @foreach($receipt->items as $entry)<tr><td>{{ $entry->name }}<br><small>{{ $entry->product_code ?: $entry->barcode }}</small></td><td>{{ \App\Support\NumberDisplay::quantity($entry->quantity) }}</td><td>{{ $receipt->add_to_inventory?\App\Support\NumberDisplay::quantity($entry->quantity_before,'Not set'):'Not changed' }}</td><td>{{ $receipt->add_to_inventory?\App\Support\NumberDisplay::quantity($entry->quantity_after):'Not changed' }}</td><td>{{ \App\Support\NumberDisplay::quantity($entry->total_before,'Not set') }}</td><td>{{ \App\Support\NumberDisplay::quantity($entry->total_after,'Not set') }}</td><td>{{ $entry->inventory_movement_id?'#'.$entry->inventory_movement_id:'No stock movement' }}</td></tr>@endforeach
@@ -59,6 +59,6 @@
 </div>
 <script defer src="{{ asset('admin-assets/supplier-receiving.js') }}?v={{ filemtime(public_path('admin-assets/supplier-receiving.js')) }}"></script>
 @endif
-<section class="panel panel-content"><h3>Status history</h3><table class="table"><thead><tr><th>When</th><th>Who</th><th>Change</th><th>Reason</th></tr></thead><tbody>@foreach($order->events as $event)<tr><td>{{ $event->created_at->format('d M Y H:i') }}</td><td>{{ $event->actor_name ?: ($event->author?->name??'Former staff member') }}</td><td>{{ $event->from_status?\App\Models\SupplierOrder::STATUS_LABELS[$event->from_status].' → ':'' }}{{ \App\Models\SupplierOrder::STATUS_LABELS[$event->to_status] }}</td><td class="purchase-receiving-note">{{ $event->reason }}</td></tr>@endforeach</tbody></table></section>
+<section class="panel panel-content"><h3>Status history</h3><table class="table"><thead><tr><th>When</th><th>Who</th><th>Change</th><th>Reason</th></tr></thead><tbody>@foreach($order->events as $event)<tr><td>{{ \App\Support\BusinessTime::format($event->created_at,'d M Y H:i T') }}</td><td>{{ $event->actor_name ?: ($event->author?->name??'Former staff member') }}</td><td>{{ $event->from_status?\App\Models\SupplierOrder::STATUS_LABELS[$event->from_status].' → ':'' }}{{ \App\Models\SupplierOrder::STATUS_LABELS[$event->to_status] }}</td><td class="purchase-receiving-note">{{ $event->reason }}</td></tr>@endforeach</tbody></table></section>
 @include('admin.supplier-orders.pdf-modal')
 @endsection

@@ -6,7 +6,7 @@
 <h2>{{ $email->subject }}</h2>
 <p><strong>To:</strong> {{ $email->recipient }}<br>
 <strong>Status:</strong> {{ ucfirst(str_replace('_',' ',$email->status)) }}<br>
-<strong>Sent at:</strong> {{ $email->sent_at ?? 'Not confirmed' }} ({{ config('app.timezone') }})<br>
+<strong>Sent at:</strong> {{ \App\Support\BusinessTime::format($email->sent_at) ?? 'Not confirmed' }} ({{ \App\Support\BusinessTime::zone() }})<br>
 <strong>Message ID:</strong> <span style="overflow-wrap:anywhere">{{ $email->message_id ?? '—' }}</span></p>
 <p class="text-muted">This is the saved message for this attempt. Accepted means the provider accepted it; inbox delivery is not confirmed. Failed, queued or logged-only entries are not proof of sending.</p>
 @if($archive)

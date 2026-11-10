@@ -65,7 +65,7 @@ class BusinessReports
             $query->where('m.provider', $f['provider']);
         }
         if ($dated) {
-            $query->where('m.occurred_at', '>=', $f['from'].' 00:00:00')->where('m.occurred_at', '<', Carbon::parse($f['to'])->addDay()->toDateString());
+            $query->where('m.occurred_at', '>=', \App\Support\BusinessTime::start($f['from']))->where('m.occurred_at', '<', \App\Support\BusinessTime::end($f['to']));
         }
 
         return $query;
@@ -92,14 +92,15 @@ class BusinessReports
             } else {
                 $rows = (clone $query)->select('o.id', 'o.number', 'o.first_name', 'o.last_name', 'm.*')->orderByDesc('m.occurred_at')->orderByDesc('m.order_id')->orderBy('m.entry_type');
             }
-            $trend = (clone $query)->selectRaw("DATE(m.occurred_at) AS day, SUM(CASE WHEN m.entry_kind = 'payment' THEN m.amount_cents ELSE 0 END) AS amount")->groupByRaw('DATE(m.occurred_at)')->orderBy('day')->get();
+            $daySql = \App\Support\BusinessTime::dayExpression('m.occurred_at', $f['from'], $f['to']);
+            $trend = (clone $query)->selectRaw("$daySql AS day, SUM(CASE WHEN m.entry_kind = 'payment' THEN m.amount_cents ELSE 0 END) AS amount")->groupByRaw($daySql)->orderBy('day')->get();
         } else {
             $query = $this->orders($f);
             if (! empty($f['method'])) {
                 $query->where('payment_method', $f['method']);
             }
             if (in_array($kind, ['sales', 'customers'])) {
-                $query->where('ordered_at', '>=', $f['from'].' 00:00:00')->where('ordered_at', '<', Carbon::parse($f['to'])->addDay()->toDateString());
+                $query->where('ordered_at', '>=', \App\Support\BusinessTime::start($f['from']))->where('ordered_at', '<', \App\Support\BusinessTime::end($f['to']));
             }
             if ($kind === 'balances') {
                 $query->whereNotNull('balance_cents')->where('balance_cents', ($f['balance'] ?? 'due') === 'refund' ? '<' : '>', 0);
@@ -111,7 +112,7 @@ class BusinessReports
                 }
                 match ($f['schedule'] ?? 'scheduled') {
                     'unscheduled' => $query->whereNull('fulfillment_date'),
-                    'overdue' => $query->where('fulfillment_date', '<', today()->toDateString()),
+                    'overdue' => $query->where('fulfillment_date', '<', \App\Support\BusinessTime::today()->toDateString()),
                     default => $query->whereBetween('fulfillment_date', [$f['from'], $f['to']]),
                 };
             }
@@ -129,7 +130,8 @@ class BusinessReports
                 $rows->orderByDesc('id');
             }
             if ($kind === 'sales') {
-                $trend = (clone $query)->where('status', '!=', 'cancelled')->selectRaw('DATE(ordered_at) AS day, SUM(total_cents) AS amount')->groupByRaw('DATE(ordered_at)')->orderBy('day')->get();
+                $daySql = \App\Support\BusinessTime::dayExpression('ordered_at', $f['from'], $f['to']);
+                $trend = (clone $query)->where('status', '!=', 'cancelled')->selectRaw("$daySql AS day, SUM(total_cents) AS amount")->groupByRaw($daySql)->orderBy('day')->get();
             }
         }
 

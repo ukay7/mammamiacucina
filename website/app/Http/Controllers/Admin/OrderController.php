@@ -22,9 +22,12 @@ class OrderController extends Controller
     {
         $data = $request->validate([
             'revision' => 'required|integer|min:0',
-            'ordered_at' => 'required|date_format:Y-m-d\\TH:i|before_or_equal:now',
+            'ordered_at' => 'required|date_format:Y-m-d\\TH:i',
         ]);
-        $newDate = Carbon::createFromFormat('Y-m-d\\TH:i', $data['ordered_at'], config('app.timezone'))->startOfMinute();
+        $newDate = \App\Support\BusinessTime::input($data['ordered_at'],'ordered_at');
+        if ($newDate->isFuture()) {
+            throw ValidationException::withMessages(['ordered_at' => 'Order Date cannot be in the future (Toronto time).']);
+        }
 
         DB::transaction(function () use ($order, $data, $newDate, $request) {
             $current = Order::lockForUpdate()->findOrFail($order->id);
@@ -40,12 +43,12 @@ class OrderController extends Controller
 
             $changes = ['ordered_at' => $newDate, 'revision' => $current->revision + 1];
             if ($current->payment_method === 'cheque' && $current->payment_status === 'unpaid' && $current->cheque_days) {
-                $changes['cheque_due_date'] = $newDate->copy()->addDays((int) $current->cheque_days)->toDateString();
+                $changes['cheque_due_date'] = \App\Support\BusinessTime::local($newDate)->addDays((int) $current->cheque_days)->toDateString();
             }
             $current->update($changes);
             $current->events()->create([
                 'user_id' => $request->user()->id,
-                'description' => 'Order Date corrected: '.$oldDate->format('d M Y H:i').' → '.$newDate->format('d M Y H:i').'. System entry date remains '.$current->created_at->format('d M Y H:i').'.',
+                'description' => 'Order Date corrected: '.\App\Support\BusinessTime::format($oldDate).' → '.\App\Support\BusinessTime::format($newDate).'. System entry date remains '.\App\Support\BusinessTime::format($current->created_at).'.',
                 'created_at' => now(),
             ]);
         });
@@ -106,7 +109,7 @@ class OrderController extends Controller
         abort_unless($order->collected_cents>0,404);
         $doc=app(\App\Services\DocumentTheme::class)->order($order);
         $doc['title']='Payment Receipt';$doc['number']='PAY-'.$order->number;
-        $doc['date']=\Illuminate\Support\Carbon::parse($order->paid_at ?? $order->payment?->paid_at ?? $order->ordered_at)->format('d M Y H:i').' '.config('app.timezone');
+        $doc['date']=\App\Support\BusinessTime::format($order->paid_at ?? $order->payment?->paid_at ?? $order->ordered_at);
         $doc['totals']=['This payment'=>'$'.number_format($order->collected_cents/100,2)]+$doc['totals'];
         $doc['payment']=ucfirst($order->original_payment_method ?: $order->payment_method).' / Original recorded collection';
         $doc['notice'].=' Original receipt retained. Any subsequent payment corrections or reversals are recorded separately; balances shown are current.';
@@ -162,15 +165,15 @@ class OrderController extends Controller
     {
         $search = mb_substr((string) $r->input('q', ''), 0, 200);
         $dates = $r->validate(['from' => 'sometimes|required|date_format:Y-m-d', 'to' => 'sometimes|required|date_format:Y-m-d']);
-        $from = $dates['from'] ?? now()->startOfMonth()->toDateString();
-        $to = $dates['to'] ?? now()->endOfMonth()->toDateString();
+        $from = $dates['from'] ?? \App\Support\BusinessTime::now()->startOfMonth()->toDateString();
+        $to = $dates['to'] ?? \App\Support\BusinessTime::now()->endOfMonth()->toDateString();
         if ($to < $from) {
             throw ValidationException::withMessages(['to' => 'The To date must be on or after the From date.']);
         }
         $warehouseOnly = $this->warehouseOnly();
         $completed = $r->routeIs('admin.orders.completed') || ($r->routeIs('admin.orders.export') && $r->input('view')==='completed');
         $r->validate(['status' => 'nullable|in:'.implode(',', array_keys(Order::STATUSES))]);
-        $orders = Order::with(['payment', 'settlements', 'creator', 'items:id,order_id,name,inventory_shortage_quantity'])->where('status', $completed ? '=' : '!=', 'completed')->when($warehouseOnly, fn ($q) => $completed ? $q->where('created_by',$r->user()->id) : $q->visibleToWarehouse($r->user()->id))->when($r->filled('status'), fn ($q) => $q->where('status', $r->input('status')))->where('ordered_at', '>=', $from.' 00:00:00')->where('ordered_at', '<', Carbon::parse($to)->addDay()->startOfDay())->when($search, fn ($q) => $q->where(fn ($q) => $q->where('number', 'like', '%'.$search.'%')->orWhere('email', 'like', '%'.$search.'%')->orWhere('first_name', 'like', '%'.$search.'%')->orWhere('last_name', 'like', '%'.$search.'%')));
+        $orders = Order::with(['payment', 'settlements', 'creator', 'items:id,order_id,name,inventory_shortage_quantity'])->where('status', $completed ? '=' : '!=', 'completed')->when($warehouseOnly, fn ($q) => $completed ? $q->where('created_by',$r->user()->id) : $q->visibleToWarehouse($r->user()->id))->when($r->filled('status'), fn ($q) => $q->where('status', $r->input('status')))->where('ordered_at', '>=', \App\Support\BusinessTime::start($from))->where('ordered_at', '<', \App\Support\BusinessTime::end($to))->when($search, fn ($q) => $q->where(fn ($q) => $q->where('number', 'like', '%'.$search.'%')->orWhere('email', 'like', '%'.$search.'%')->orWhere('first_name', 'like', '%'.$search.'%')->orWhere('last_name', 'like', '%'.$search.'%')));
         $r->validate(['per_page' => 'sometimes|in:10,20,50,100', 'sort' => 'sometimes|in:date,number,customer,creator,status', 'direction' => 'sometimes|in:asc,desc']);
         $sort = $r->input('sort', 'date');
         $direction = $r->input('direction', 'desc');
@@ -205,7 +208,7 @@ class OrderController extends Controller
         $headers = array_merge($headers, ['Delivery service','From postal','From zone','To postal','To zone','Delivery CAD']);
         $rows = function () use ($query, $warehouseOnly) {
             foreach ($query->lazy(200) as $order) {
-                $row = [$order->number, $order->ordered_at->format('Y-m-d H:i'), $order->source==='pos'?'Quick Sale / POS':'Website', $order->fulfillment, trim($order->first_name.' '.$order->last_name), $order->email, $order->creator?->name ?? ($order->created_by ? 'Former user' : 'Website customer'), $order->status_label];
+                $row = [$order->number, \App\Support\BusinessTime::format($order->ordered_at,'Y-m-d H:i T'), $order->source==='pos'?'Quick Sale / POS':'Website', $order->fulfillment, trim($order->first_name.' '.$order->last_name), $order->email, $order->creator?->name ?? ($order->created_by ? 'Former user' : 'Website customer'), $order->status_label];
                 if (! $warehouseOnly) {
                     $row = array_merge($row, [number_format($order->subtotal_cents / 100, 2, '.', ''), $order->payment_method, $order->payment_status]);
                 }
@@ -233,7 +236,7 @@ class OrderController extends Controller
                     unlink($path);
                 }
             }
-        }, 'orders-'.now()->format('Y-m-d').'.xlsx', ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Cache-Control' => 'no-store, private']);
+        }, 'orders-'.\App\Support\BusinessTime::now()->format('Y-m-d').'.xlsx', ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Cache-Control' => 'no-store, private']);
     }
 
     public function printOrder(Order $order)

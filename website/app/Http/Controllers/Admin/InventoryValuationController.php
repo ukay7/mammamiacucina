@@ -49,7 +49,7 @@ class InventoryValuationController extends Controller
         if ($selected) {
             $report->withColumns($query);
         }
-        $filename = 'inventory-valuation-'.now()->format('Y-m-d-His');
+        $filename = 'inventory-valuation-'.\App\Support\BusinessTime::now()->format('Y-m-d-His');
 
         if ($request->input('format') === 'pdf') {
             // Keep the calculation legible on A4; repeat identity in each section.
@@ -67,7 +67,7 @@ class InventoryValuationController extends Controller
                 ])->all()];
             });
             $doc = ['brand' => app(DocumentTheme::class)->brand(), 'title' => 'Inventory Valuation',
-                'number' => 'Current stock · EUR / CAD', 'date' => now()->format('d M Y H:i').' '.config('app.timezone')];
+                'number' => 'Current stock · EUR / CAD', 'date' => \App\Support\BusinessTime::now()->format('d M Y H:i').' '.\App\Support\BusinessTime::zone()];
             $warehouse = isset($filters['warehouse']) ? Warehouse::findOrFail($filters['warehouse'])->name : 'All warehouses combined';
             $pdf = new Dompdf(new Options(['isRemoteEnabled' => false, 'isPhpEnabled' => false, 'defaultFont' => 'DejaVu Sans', 'defaultMediaType' => 'print']));
             $pdf->loadHtml(view('documents.inventory-valuation', compact('doc', 'rows', 'headers', 'groups', 'summary', 'report', 'warehouse', 'filters'))->render());

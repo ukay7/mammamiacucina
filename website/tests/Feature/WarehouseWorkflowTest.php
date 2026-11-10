@@ -65,7 +65,7 @@ class WarehouseWorkflowTest extends TestCase
         $this->assertTrue($order->ordered_at->diffInSeconds($order->created_at) < 2);
 
         $enteredAt = $order->created_at->copy();
-        $historic = now()->subMonthNoOverflow()->startOfMonth()->addDays(7)->setTime(14, 30);
+        $historic = \App\Support\BusinessTime::now()->subMonthNoOverflow()->startOfMonth()->addDays(7)->setTime(14, 30);
         $order->update(['payment_method' => 'cheque', 'payment_status' => 'unpaid', 'cheque_days' => 7]);
 
         $this->actingAs($worker)->patch(route('admin.orders.order-date', $order), [
@@ -81,7 +81,7 @@ class WarehouseWorkflowTest extends TestCase
         ])->assertSessionHasNoErrors()->assertSessionHas('status');
 
         $order->refresh();
-        $this->assertTrue($order->ordered_at->equalTo($historic));
+        $this->assertTrue($order->ordered_at->equalTo($historic->utc()));
         $this->assertTrue($order->created_at->equalTo($enteredAt));
         $this->assertSame($historic->copy()->addDays(7)->toDateString(), $order->cheque_due_date);
         $this->assertStringContainsString('Order Date corrected', $order->events()->latest('id')->value('description'));
@@ -350,10 +350,10 @@ class WarehouseWorkflowTest extends TestCase
         $this->get('/admin/orders/export?view=completed&format=print&q=NO-MATCH')->assertDontSee($order->number);
         $this->get('/admin/orders/completed?per_page=999')->assertSessionHasErrors('per_page');
         $this->get('/admin/orders/export?view=completed&format=print&sort=invalid')->assertSessionHasErrors('sort');
-        $order->update(['ordered_at' => now()->subMonth()->startOfMonth()]);
+        $order->update(['ordered_at' => \App\Support\BusinessTime::now()->subMonthNoOverflow()->startOfMonth()->utc()]);
         $this->get('/admin/orders/completed')->assertViewHas('orders', fn ($rows) => $rows->isEmpty());
         $this->get('/admin/orders/export?view=completed&format=print')->assertDontSee($order->number);
-        $this->get('/admin/orders/completed?from='.now()->subMonth()->startOfMonth()->toDateString())->assertViewHas('orders', fn ($rows) => $rows->total() === 1);
+        $this->get('/admin/orders/completed?from='.\App\Support\BusinessTime::now()->subMonthNoOverflow()->startOfMonth()->toDateString())->assertViewHas('orders', fn ($rows) => $rows->total() === 1);
     }
 
     public function test_admin_queues_include_every_creator_and_source(): void

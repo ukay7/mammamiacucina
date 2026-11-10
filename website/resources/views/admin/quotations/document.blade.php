@@ -1,10 +1,10 @@
 <article class="quote-document">
 @php
-$doc=['brand'=>app(\App\Services\DocumentTheme::class)->brand(),'title'=>'PRICE QUOTATION','number'=>$quotation->number,'date'=>$quotation->created_at->format('d M Y')];
+$doc=['brand'=>app(\App\Services\DocumentTheme::class)->brand(),'title'=>'PRICE QUOTATION','number'=>$quotation->number,'date'=>\App\Support\BusinessTime::format($quotation->created_at,'d M Y')];
 @endphp
 @include('documents.header')
 <div class="quote-body">
-<section class="quote-client"><div><b>PREPARED FOR</b><h2>{{ $quotation->customer_snapshot['business_name']?:$quotation->customer_snapshot['name'] }}</h2><p>{{ implode(', ',array_filter(Arr::only($quotation->customer_snapshot,['address','city','province','postal_code','country']))) }}<br>{{ $quotation->customer_snapshot['phone'] }} &nbsp;|&nbsp; {{ $quotation->customer_snapshot['email'] }}</p>@if($quotation->customer_snapshot['website']??null)<p>{{ $quotation->customer_snapshot['website'] }}</p>@endif</div><div><p>QUOTE DATE &nbsp;|&nbsp; {{ $quotation->created_at->format('l, d M Y') }}<br>VALID UNTIL &nbsp;|&nbsp; {{ $quotation->due_date->format('l, d M Y') }}<br>CAD &nbsp;|&nbsp; {{ ucfirst($quotation->pricing_tier) }} pricing<br>@if($quotation->delivery_terms){{ $quotation->delivery_terms }}<br>@endif
+<section class="quote-client"><div><b>PREPARED FOR</b><h2>{{ $quotation->customer_snapshot['business_name']?:$quotation->customer_snapshot['name'] }}</h2><p>{{ implode(', ',array_filter(Arr::only($quotation->customer_snapshot,['address','city','province','postal_code','country']))) }}<br>{{ $quotation->customer_snapshot['phone'] }} &nbsp;|&nbsp; {{ $quotation->customer_snapshot['email'] }}</p>@if($quotation->customer_snapshot['website']??null)<p>{{ $quotation->customer_snapshot['website'] }}</p>@endif</div><div><p>QUOTE DATE &nbsp;|&nbsp; {{ \App\Support\BusinessTime::format($quotation->created_at,'l, d M Y') }}<br>VALID UNTIL &nbsp;|&nbsp; {{ $quotation->due_date->format('l, d M Y') }}<br>CAD &nbsp;|&nbsp; {{ ucfirst($quotation->pricing_tier) }} pricing<br>@if($quotation->delivery_terms){{ $quotation->delivery_terms }}<br>@endif
 @if($quotation->payment_terms)PAYMENT &nbsp;|&nbsp; {{ $quotation->payment_terms }}<br>@endif
 REFERENCE &nbsp;|&nbsp; {{ $quotation->number }}</p></div></section>
 @php

@@ -18,12 +18,12 @@ class PaymentReportController extends Controller
         $data = $request->validate(['from' => 'nullable|date_format:Y-m-d', 'to' => 'nullable|date_format:Y-m-d',
             'method' => 'nullable|in:cash,card,paypal,etransfer,cheque,credit', 'source' => 'nullable|in:website,pos',
             'payment_status' => 'nullable|in:unpaid,pending,paid,partially_refunded,refunded', 'sandbox' => 'nullable|boolean']);
-        $from = $data['from'] ?? now()->startOfMonth()->toDateString();
-        $to = $data['to'] ?? now()->endOfMonth()->toDateString();
+        $from = $data['from'] ?? \App\Support\BusinessTime::now()->startOfMonth()->toDateString();
+        $to = $data['to'] ?? \App\Support\BusinessTime::now()->endOfMonth()->toDateString();
         if ($to < $from) {
             throw ValidationException::withMessages(['to' => 'End date must follow start date.']);
         }
-        $query = Order::with(['payment', 'settlements'])->where('ordered_at', '>=', $from.' 00:00:00')->where('ordered_at', '<', Carbon::parse($to)->addDay()->startOfDay());
+        $query = Order::with(['payment', 'settlements'])->where('ordered_at', '>=', \App\Support\BusinessTime::start($from))->where('ordered_at', '<', \App\Support\BusinessTime::end($to));
         foreach (['method' => 'payment_method', 'source' => 'source', 'payment_status' => 'payment_status'] as $input => $column) {
             if (! empty($data[$input])) {
                 $query->where($column, $data[$input]);
@@ -81,7 +81,7 @@ class PaymentReportController extends Controller
             foreach ($query->lazyById(500) as $order) {
                 $total = $order->final_total_cents;
                 $refund = $order->refunded_cents;
-                $row = [$order->number, $order->ordered_at->toDateTimeString(), $order->source, $order->payment_method,
+                $row = [$order->number, \App\Support\BusinessTime::format($order->ordered_at,'Y-m-d H:i:s T'), $order->source, $order->payment_method,
                     $order->payment?->provider ?? ($order->payment_method === 'card' ? 'External terminal' : 'Manual'),
                     $order->payment?->mode ?? 'live', $order->payment_status, $total === null ? 'Unconfirmed' : number_format($total / 100, 2, '.', ''),
                     number_format($refund / 100, 2, '.', ''), number_format($order->net_received_cents / 100, 2, '.', ''), $order->payment?->transaction_id ?? '', number_format($order->reversed_cents / 100, 2, '.', '')];
@@ -89,7 +89,7 @@ class PaymentReportController extends Controller
                 fputcsv($stream, $row, ',', '"', '');
             }
             fclose($stream);
-        }, 'payments-'.now()->format('Y-m-d').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+        }, 'payments-'.\App\Support\BusinessTime::now()->format('Y-m-d').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     public function resolve(Request $request, Payment $payment, OnlinePayments $payments)

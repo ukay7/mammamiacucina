@@ -30,8 +30,8 @@ class BusinessReportController extends Controller
             'balance' => 'nullable|in:due,refund', 'fulfillment' => 'nullable|in:pickup,delivery',
             'schedule' => 'nullable|in:scheduled,overdue,unscheduled',
         ]);
-        $f['from'] = $f['from'] ?? ($kind === 'fulfilment' ? today() : today()->startOfMonth())->toDateString();
-        $f['to'] = $f['to'] ?? ($kind === 'fulfilment' ? today()->addDays(7) : today())->toDateString();
+        $f['from'] = $f['from'] ?? ($kind === 'fulfilment' ? \App\Support\BusinessTime::today() : \App\Support\BusinessTime::today()->startOfMonth())->toDateString();
+        $f['to'] = $f['to'] ?? ($kind === 'fulfilment' ? \App\Support\BusinessTime::today()->addDays(7) : \App\Support\BusinessTime::today())->toDateString();
         if ($f['to'] < $f['from'] || Carbon::parse($f['from'])->diffInDays($f['to']) > 366) {
             throw ValidationException::withMessages(['to' => 'Choose a date range of up to 366 days, with the end after the start.']);
         }
@@ -42,7 +42,7 @@ class BusinessReportController extends Controller
     public function index(Request $request, BusinessReports $reports)
     {
         $this->authorizeReport($request);
-        $today = ['from' => today()->toDateString(), 'to' => today()->toDateString()];
+        $today = ['from' => \App\Support\BusinessTime::today()->toDateString(), 'to' => \App\Support\BusinessTime::today()->toDateString()];
         $sales = $reports->report('sales', $today)['summary'];
         $cash = $reports->report('payments', $today)['summary'];
         $balances = $reports->orderSummary($reports->orders());
@@ -105,14 +105,14 @@ class BusinessReportController extends Controller
             $money = fn ($v) => $v === null ? 'Unconfirmed' : number_format($v / 100, 2, '.', '');
             foreach ($query->cursor() as $r) {
                 $values = match ($kind) {
-                    'payments' => [$r->number, $r->first_name.' '.$r->last_name, $r->occurred_at, $r->method, $r->provider, $r->entry_type, $money($r->amount_cents), $r->reference],
+                    'payments' => [$r->number, $r->first_name.' '.$r->last_name, \App\Support\BusinessTime::format($r->occurred_at), $r->method, $r->provider, $r->entry_type, $money($r->amount_cents), $r->reference],
                     'methods' => [$r->method, $r->provider, $r->transactions, $r->orders, $money($r->received), $money($r->refunded), $money($r->net), $money($r->reversed), $money($r->adjustments)],
                     'customers' => [$r->first_name.' '.$r->last_name, $r->email, $r->orders, $money($r->value), $money($r->received), $money($r->due), $money($r->refund_due), $r->unpriced],
-                    default => [$r->number, $r->first_name.' '.$r->last_name, $r->email, $r->ordered_at, Order::STATUSES[$r->status] ?? $r->status, $r->payment_method, $r->source, $r->fulfillment, $r->fulfillment_date, $money($r->total_cents), $money($r->net_cents), $money($r->balance_cents === null ? null : max(0, $r->balance_cents)), $money($r->balance_cents === null ? null : max(0, -$r->balance_cents))],
+                    default => [$r->number, $r->first_name.' '.$r->last_name, $r->email, \App\Support\BusinessTime::format($r->ordered_at), Order::STATUSES[$r->status] ?? $r->status, $r->payment_method, $r->source, $r->fulfillment, $r->fulfillment_date, $money($r->total_cents), $money($r->net_cents), $money($r->balance_cents === null ? null : max(0, $r->balance_cents)), $money($r->balance_cents === null ? null : max(0, -$r->balance_cents))],
                 };
                 fputcsv($out, array_map(fn ($v) => preg_match('/^[=+@\-\t\r]/', (string) $v) ? "'".$v : ($v ?? ''), $values), ',', '"', '');
             }
             fclose($out);
-        }, 'report-'.$kind.'-'.today()->toDateString().'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+        }, 'report-'.$kind.'-'.\App\Support\BusinessTime::today()->toDateString().'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 }

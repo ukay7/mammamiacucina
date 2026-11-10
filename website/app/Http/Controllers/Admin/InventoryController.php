@@ -99,7 +99,7 @@ class InventoryController extends Controller
             ->get(['o.id', 'o.number', 'o.ordered_at', 'o.source', 'o.status', 'o.first_name', 'o.last_name', 'oi.quantity', 'oi.inventory_shortage_quantity', 'oi.stock_deducted', 'u.name as creator']);
 
         return response()->json(['product' => $product->premium_marketing_name, 'orders' => $rows->map(fn ($row) => [
-            'number' => $row->number, 'date' => Carbon::parse($row->ordered_at)->format('d M Y H:i'),
+            'number' => $row->number, 'date' => \App\Support\BusinessTime::local($row->ordered_at)->format('d M Y H:i T'),
             'source' => $row->source === 'pos' ? 'Quick Sale / POS' : 'Website', 'customer' => trim($row->first_name.' '.$row->last_name),
             'quantity' => (float) $row->quantity, 'shortage' => $row->inventory_shortage_quantity === null ? null : (float) $row->inventory_shortage_quantity,
             'status' => Order::STATUSES[$row->status] ?? ucfirst(str_replace('_', ' ', $row->status)), 'creator' => $row->creator ?: 'Website customer',

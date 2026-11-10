@@ -88,7 +88,7 @@ class SupplierOrderController extends Controller
         $order = $supplierOrder;
         $landscape = count($selected) > 6;
         $doc = ['brand' => $theme->brand(), 'title' => 'Supplier Order', 'number' => $order->number,
-            'date' => $order->created_at->format('d M Y H:i').' '.config('app.timezone')];
+            'date' => \App\Support\BusinessTime::format($order->created_at,'d M Y H:i T')];
         $pdf = new Dompdf(new Options(['isRemoteEnabled' => false, 'isPhpEnabled' => false,
             'defaultFont' => 'DejaVu Sans', 'defaultMediaType' => 'print']));
         $pdf->loadHtml(view('documents.supplier-order', compact('doc', 'order', 'selected', 'groups', 'labels', 'rows', 'notes', 'landscape'))->render());

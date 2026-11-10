@@ -57,7 +57,7 @@
 </div>
 <div class="tab-pane fade" id="customer-orders" role="tabpanel" aria-labelledby="customer-tab-orders"><h3>Order History</h3><p class="text-muted">All orders for this customer, including archived orders.</p>
 <div class="table-responsive"><table class="table"><thead><tr><th>Order</th><th>Date</th><th>Source</th><th>Status</th><th>Payment</th><th>Total CAD</th><th>Action</th></tr></thead><tbody>
-@forelse($orders as $order)<tr><td>{{ $order->number }}</td><td>{{ $order->ordered_at->format('d M Y H:i') }}</td><td>{{ ucfirst($order->source) }}</td><td>{{ $order->status_label }}</td><td>{{ $order->payment_status_label }}</td><td>{{ $order->final_total_cents===null?'Pending':number_format($order->final_total_cents/100,2) }}</td><td><a class="btn btn-outline-primary btn-sm" href="{{ route('admin.orders.show',$order) }}" title="View order" aria-label="View order"><i class="fas fa-eye" aria-hidden="true"></i></a></td></tr>@empty<tr><td colspan="7">No orders placed yet.</td></tr>@endforelse
+@forelse($orders as $order)<tr><td>{{ $order->number }}</td><td>{{ \App\Support\BusinessTime::format($order->ordered_at,'d M Y H:i T') }}</td><td>{{ ucfirst($order->source) }}</td><td>{{ $order->status_label }}</td><td>{{ $order->payment_status_label }}</td><td>{{ $order->final_total_cents===null?'Pending':number_format($order->final_total_cents/100,2) }}</td><td><a class="btn btn-outline-primary btn-sm" href="{{ route('admin.orders.show',$order) }}" title="View order" aria-label="View order"><i class="fas fa-eye" aria-hidden="true"></i></a></td></tr>@empty<tr><td colspan="7">No orders placed yet.</td></tr>@endforelse
 </tbody></table></div><p>Showing {{ $orders->firstItem() ?? 0 }}–{{ $orders->lastItem() ?? 0 }} of {{ $orders->total() }} orders</p>{{ $orders->withQueryString()->fragment('customer-orders')->links() }}</div>
 @include('admin.customers.financial-tabs')
 
@@ -73,7 +73,7 @@
 <aside>
 @include('admin.customers.file-cover')
 <section class="panel panel-content" id="customer-notes"><div class="d-flex justify-content-between align-items-center mb-3"><h3 class="mb-0">Notes <small>({{ $notes->total() }})</small></h3>@if(auth()->user()->hasAdminPermission('customers.manage'))<button class="btn btn-outline-primary btn-sm" type="button" title="Add Note" aria-label="Add Note" data-toggle="modal" data-target="#customer-note-modal"><i class="fas fa-plus" aria-hidden="true"></i></button>@endif</div>
-@forelse($notes as $note)<article class="customer-sticky"><p>{{ $note->body }}</p><small>{{ $note->author?->name ?? 'Former staff member' }} · {{ $note->created_at->format('d M Y H:i') }}</small></article>@empty<p class="text-muted mb-0">No notes yet. Add a description or follow-up for this customer.</p>@endforelse
+@forelse($notes as $note)<article class="customer-sticky"><p>{{ $note->body }}</p><small>{{ $note->author?->name ?? 'Former staff member' }} · {{ \App\Support\BusinessTime::format($note->created_at,'d M Y H:i T') }}</small></article>@empty<p class="text-muted mb-0">No notes yet. Add a description or follow-up for this customer.</p>@endforelse
 {{ $notes->fragment('customer-notes')->links() }}
 </section>
 </aside>

@@ -34,5 +34,5 @@ class CustomerTerms {
   if($warning && $c->credit_policy==='block')throw ValidationException::withMessages(['payment_method'=>$warning.' Choose cash/card or contact administration.']);
   return $warning;
  }
- public function snapshot(Customer $c,string $method): array {return ['order_discount_bps'=>(int)$c->order_discount_bps,'cheque_days'=>$method==='cheque'?$c->cheque_days:null,'cheque_due_date'=>$method==='cheque'?now()->addDays($c->cheque_days)->toDateString():null];}
+ public function snapshot(Customer $c,string $method): array {return ['order_discount_bps'=>(int)$c->order_discount_bps,'cheque_days'=>$method==='cheque'?$c->cheque_days:null,'cheque_due_date'=>$method==='cheque'?\App\Support\BusinessTime::today()->addDays($c->cheque_days)->toDateString():null];}
 }

@@ -38,7 +38,7 @@ class CustomerReceipts
             'lines' => 'required|array|min:1|max:10', 'lines.*' => 'required|array', 'lines.*.key' => 'required|uuid|distinct',
             'lines.*.method' => ['required', Rule::in(array_keys(CustomerReceiptLine::METHODS))],
             'lines.*.amount' => ['required', 'regex:/^\d{1,7}(\.\d{1,2})?$/D'],
-            'lines.*.payment_date' => 'required|date_format:Y-m-d|before_or_equal:today',
+            'lines.*.payment_date' => 'required|date_format:Y-m-d|before_or_equal:'.\App\Support\BusinessTime::today()->toDateString(),
             'lines.*.reference' => 'nullable|string|max:150', 'lines.*.bank' => 'nullable|string|max:150',
             'lines.*.cheque_date' => 'nullable|date_format:Y-m-d', 'lines.*.note' => 'nullable|string|max:2000',
             'lines.*.verified' => 'nullable|boolean', 'lines.*.proof_hash' => 'nullable|string|size:64',
@@ -99,9 +99,9 @@ class CustomerReceipts
 
         return ['outstanding_cents' => app(CustomerInvoicing::class)->balances($customer)['pending'],
             'eligible_cents' => $eligible, 'pending_cheques_cents' => $pending, 'maximum_cents' => max(0, $eligible - $pending),
-            'unpaid_orders' => $orders->count(), 'overdue_orders' => $orders->filter(fn ($o) => $o->cheque_due_date && $o->cheque_due_date < today()->toDateString())->count(),
+            'unpaid_orders' => $orders->count(), 'overdue_orders' => $orders->filter(fn ($o) => $o->cheque_due_date && $o->cheque_due_date < \App\Support\BusinessTime::today()->toDateString())->count(),
             'orders' => $orders->map(fn ($o) => ['id' => $o->id, 'number' => $o->number, 'invoice' => $invoices->get($o->id)?->label,
-                'date' => $o->ordered_at->toDateString(), 'due_date' => $o->cheque_due_date, 'balance_cents' => $o->balance_cents,
+                'date' => \App\Support\BusinessTime::local($o->ordered_at)->toDateString(), 'due_date' => $o->cheque_due_date, 'balance_cents' => $o->balance_cents,
                 'revision' => (int) $o->revision])->all()];
     }
 
@@ -269,7 +269,7 @@ class CustomerReceipts
     {
         $data = Validator::make($input, ['action' => 'required|in:clear,reverse,bounce,cancel', 'revision' => 'required|integer|min:0',
             'reason' => 'required|string|max:2000', 'reference' => 'nullable|string|max:150',
-            'payment_date' => 'required|date_format:Y-m-d|before_or_equal:today'])->validate();
+            'payment_date' => 'required|date_format:Y-m-d|before_or_equal:'.\App\Support\BusinessTime::today()->toDateString()])->validate();
         $data['reason'] = trim($data['reason']);
         $data['reference'] = trim($data['reference'] ?? '');
         if ($data['reason'] === '') {

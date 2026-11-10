@@ -16,14 +16,15 @@ class AdminDashboard {
    ->selectRaw("$total AS total_cents, $net AS net_cents, CASE WHEN o.status = 'cancelled' THEN -$net WHEN o.payment_status = 'refunded' AND $net = 0 THEN 0 WHEN $total IS NULL THEN NULL ELSE $total - $net END AS balance_cents");
  }
  public function build(User $user,int $days): array {
-  $data=['days'=>$days,'start'=>today()->subDays($days-1),'end'=>now(),'sales'=>null,'stock'=>null];
+  $data=['days'=>$days,'start'=>\App\Support\BusinessTime::today()->subDays($days-1),'end'=>\App\Support\BusinessTime::now(),'sales'=>null,'stock'=>null];
   // Warehouse-only accounts keep the same restricted order visibility as the order screens.
   $canSeeOrders=$user->hasAdminPermission('orders.view') && !$user->isWarehouseOnly();
   if($canSeeOrders){
    $base=Order::where('currency','CAD')->where(fn($q)=>$q->whereDoesntHave('payment')->orWhereHas('payment',fn($p)=>$p->where('mode','live')));
-   $period=(clone $base)->whereBetween('ordered_at',[$data['start'],$data['end']]);
+   $period=(clone $base)->whereBetween('ordered_at',[$data['start']->utc(),$data['end']->utc()]);
    $valid=(clone $period)->whereNotIn('status',['cancelled','awaiting_payment','payment_review','parked_admin']);
-   $daily=(clone $valid)->selectRaw('DATE(ordered_at) AS day, COUNT(*) AS orders, SUM(subtotal_cents + delivery_cents + tax_cents) AS amount')->groupByRaw('DATE(ordered_at)')->get()->keyBy('day');
+   $daySql=\App\Support\BusinessTime::dayExpression('ordered_at',$data['start']->toDateString(),$data['end']->toDateString());
+   $daily=(clone $valid)->selectRaw("$daySql AS day, COUNT(*) AS orders, SUM(subtotal_cents + delivery_cents + tax_cents) AS amount")->groupByRaw($daySql)->get()->keyBy('day');
    $trend=collect(range(0,$days-1))->map(function($i)use($daily,$data){$date=$data['start']->copy()->addDays($i);$row=$daily->get($date->toDateString());return ['date'=>$date->format('d M'),'amount'=>(int)($row?->amount??0),'orders'=>(int)($row?->orders??0)];});
    $balance=fn()=>DB::query()->fromSub($this->balances(),'b');
    $money=$balance()->selectRaw('COALESCE(SUM(CASE WHEN balance_cents > 0 THEN balance_cents ELSE 0 END),0) AS due, COALESCE(SUM(CASE WHEN balance_cents < 0 THEN -balance_cents ELSE 0 END),0) AS refunds, COALESCE(SUM(net_cents),0) AS net, SUM(CASE WHEN balance_cents IS NULL THEN 1 ELSE 0 END) AS unpriced')->first();

@@ -59,7 +59,7 @@ class ProductController extends Controller
             }
         };
         if ($r->input('format') !== 'xlsx') {
-            $doc = ['brand' => app(\App\Services\DocumentTheme::class)->brand(), 'title' => 'Product catalogue', 'number' => '', 'date' => now()->format('d M Y H:i').' '.config('app.timezone')];
+            $doc = ['brand' => app(\App\Services\DocumentTheme::class)->brand(), 'title' => 'Product catalogue', 'number' => '', 'date' => \App\Support\BusinessTime::now()->format('d M Y H:i').' '.\App\Support\BusinessTime::zone()];
             return view('admin.products.print', ['headers' => $headers, 'selectedColumns' => $selected, 'rows' => $rows(), 'doc' => $doc, 'pdf' => $r->input('format') === 'pdf']);
         }
 
@@ -88,7 +88,7 @@ class ProductController extends Controller
                     unlink($path);
                 }
             }
-        }, 'products-'.now()->format('Y-m-d').'.xlsx', ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
+        }, 'products-'.\App\Support\BusinessTime::now()->format('Y-m-d').'.xlsx', ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
     }
 
     public function create()

@@ -42,9 +42,9 @@
             <div class="order-detail-card-title"><i class="fas fa-calendar-alt" aria-hidden="true"></i><div><h3>Correct Order Date</h3><p>Creation time stays unchanged in the audit record.</p></div></div>
             <form method="post" action="{{ route('admin.orders.order-date',$order) }}">@csrf @method('PATCH')
                 <input type="hidden" name="revision" value="{{ $order->revision }}">
-                <label for="order-date">Order Date and time</label>
-                <div class="order-detail-inline-form"><input class="form-control" id="order-date" type="datetime-local" name="ordered_at" max="{{ now()->format('Y-m-d\TH:i') }}" value="{{ old('ordered_at',$order->ordered_at->format('Y-m-d\TH:i')) }}" required><button class="btn btn-primary" type="submit">Save date</button></div>
-                @if(!$order->ordered_at->equalTo($order->created_at))<small>Entered into the system {{ $order->created_at->format('d M Y H:i') }}</small>@endif
+                <label for="order-date">Order Date (Toronto) and time</label>
+                <div class="order-detail-inline-form"><input class="form-control" id="order-date" type="datetime-local" name="ordered_at" max="{{ \App\Support\BusinessTime::now()->format('Y-m-d\TH:i') }}" value="{{ old('ordered_at',\App\Support\BusinessTime::format($order->ordered_at,'Y-m-d\TH:i')) }}" required><button class="btn btn-primary" type="submit">Save date</button></div>
+                @if(!$order->ordered_at->equalTo($order->created_at))<small>Entered into the system {{ \App\Support\BusinessTime::format($order->created_at,'d M Y H:i T') }}</small>@endif
             </form>
         </section>
 
@@ -64,7 +64,7 @@
 
     <details class="order-detail-disclosure order-detail-secondary">
         <summary><span><i class="fas fa-history" aria-hidden="true"></i><strong>Order history</strong><small>{{ $order->events->count() }} recorded {{ Str::plural('event',$order->events->count()) }}</small></span><i class="fas fa-chevron-down order-detail-chevron" aria-hidden="true"></i></summary>
-        <div class="order-detail-disclosure-body order-detail-timeline">@forelse($order->events as $event)<article><span aria-hidden="true"></span><div><strong>{{ $event->created_at->format('d M Y H:i') }} · {{ $event->author?->name ?? 'System' }}</strong><p>{{ $event->description }}</p></div></article>@empty<p>No changes recorded yet.</p>@endforelse</div>
+        <div class="order-detail-disclosure-body order-detail-timeline">@forelse($order->events as $event)<article><span aria-hidden="true"></span><div><strong>{{ \App\Support\BusinessTime::format($event->created_at,'d M Y H:i T') }} · {{ $event->author?->name ?? 'System' }}</strong><p>{{ $event->description }}</p></div></article>@empty<p>No changes recorded yet.</p>@endforelse</div>
     </details>
 
     @if(auth()->user()->isSuper())

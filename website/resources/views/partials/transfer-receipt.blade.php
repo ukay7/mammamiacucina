@@ -13,7 +13,7 @@
 @if(in_array(strtolower(pathinfo($order->transfer_receipt_path, PATHINFO_EXTENSION)), ['jpg','jpeg','png','webp']))
 <a href="{{ route('orders.transfer-receipt',$order) }}" target="_blank" rel="noopener"><img src="{{ route('orders.transfer-receipt',$order) }}" alt="Submitted payment proof" style="display:block;max-width:100%;max-height:320px;object-fit:contain;margin:16px 0"></a>
 @endif
-<p><a class="btn btn-outline-primary mmc-text-link" href="{{ route('orders.transfer-receipt',$order) }}" target="_blank" rel="noopener">View uploaded receipt</a> · Submitted {{ $order->transfer_receipt_uploaded_at }}</p>
+<p><a class="btn btn-outline-primary mmc-text-link" href="{{ route('orders.transfer-receipt',$order) }}" target="_blank" rel="noopener">View uploaded receipt</a> · Submitted {{ \App\Support\BusinessTime::format($order->transfer_receipt_uploaded_at) }}</p>
 @endif
 @if(!$order->trashed() && !in_array($order->status,['cancelled','completed']) && $order->payment_status === 'unpaid' && auth()->check() && (auth()->user()->isCustomer() || auth()->user()->hasAdminPermission('orders.manage') || ($order->source==='pos' && (int)$order->created_by===auth()->id() && auth()->user()->hasAdminPermission('pos.manage'))))
 <form action="{{ route('orders.transfer-receipt.store',$order) }}" method="post" enctype="multipart/form-data">

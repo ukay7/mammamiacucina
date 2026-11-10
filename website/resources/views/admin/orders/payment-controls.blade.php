@@ -43,7 +43,7 @@
     @endif
     @endif
     @if($order->transfer_receipt_path && !in_array($order->payment_method,['etransfer','cheque']))<p class="mt-3"><a href="{{ route('orders.transfer-receipt',$order) }}" target="_blank" rel="noopener">View previously uploaded payment proof</a> · retained for audit; this does not confirm receipt of funds.</p>@endif
-    @foreach($order->paymentAttempts->whereNotNull('superseded_at') as $attempt)<p class="mt-3">Closed online checkout retained: {{ ucfirst($attempt->provider) }} · {{ $attempt->status }} · {{ $attempt->reference }} · Replaced {{ $attempt->superseded_at->format('d M Y H:i') }}.</p>@endforeach
+    @foreach($order->paymentAttempts->whereNotNull('superseded_at') as $attempt)<p class="mt-3">Closed online checkout retained: {{ ucfirst($attempt->provider) }} · {{ $attempt->status }} · {{ $attempt->reference }} · Replaced {{ \App\Support\BusinessTime::format($attempt->superseded_at,'d M Y H:i T') }}.</p>@endforeach
 </section>
 <script defer src="{{ asset('admin-assets/payment-controls.js') }}?v={{ filemtime(public_path('admin-assets/payment-controls.js')) }}"></script>
 @endif
