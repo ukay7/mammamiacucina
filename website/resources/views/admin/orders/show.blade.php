@@ -29,7 +29,7 @@
 
     @if(!in_array($order->status,['cancelled','completed','delivered','out_for_delivery','awaiting_payment','payment_review']))
     <details class="order-detail-disclosure" @if($errors->hasAny(['items','first_name','last_name','email','phone','address','city','province','postal_code','country','fulfillment','delivery','tax','reason'])) open @endif>
-        <summary><span><i class="fas fa-edit" aria-hidden="true"></i><strong>Edit products &amp; customer details</strong><small>Quantities, prices, fulfillment, address and charges</small></span><i class="fas fa-chevron-down order-detail-chevron" aria-hidden="true"></i></summary>
+        <summary><span><i class="fas fa-edit" aria-hidden="true"></i><strong>Edit products &amp; customer details</strong><small>Quantities, prices, fulfillment, address, delivery date/time and charges</small></span><i class="fas fa-chevron-down order-detail-chevron" aria-hidden="true"></i></summary>
         <div class="order-detail-disclosure-body">
             @if($order->fulfillment === 'pickup' && $order->pickup_address)<div class="order-detail-inline-note"><strong>Pickup address</strong><span>{{ $order->pickup_address }}</span></div>@endif
             @include('admin.orders.amend')

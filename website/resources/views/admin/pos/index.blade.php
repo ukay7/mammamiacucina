@@ -5,7 +5,17 @@
 <div id="pos-app" data-customer-store="{{ route('admin.pos.customer') }}" data-matrix="{{ \App\Models\GeneralSetting::findOrFail(1)->matrix_delivery_enabled?'1':'0' }}" data-delivery-options="{{ route('admin.pos.delivery-options') }}" data-products="{{ route('admin.pos.products') }}" data-quote="{{ route('admin.pos.quote') }}" data-store="{{ route('admin.pos.store') }}" data-csrf="{{ csrf_token() }}">
 <div class="pos-intro"><div><span class="pos-eyebrow">THE COUNTER</span><p>Scan. Add. Serve with a smile.</p></div><span class="pos-badge">Prices in CAD</span></div>
 <div id="pos-feedback" class="pos-feedback" role="status" aria-live="polite" hidden></div>
-<section class="pos-panel pos-customer-step"><div class="pos-panel-heading"><h2>1 · Customer</h2><a class="btn btn-outline-primary" href="{{ route('admin.pos.orders') }}">My POS orders</a></div><form id="pos-customer-form" class="pos-customer-body"><label>Find customer<input class="form-control" id="pos-customer-search" placeholder="Search business name, customer ID, name, email or phone" type="search"></label><label>Customer<select class="form-control" name="existing_customer_id" id="pos-customer"><option value="">Choose a customer…</option><option value="new">+ Add new customer</option>@foreach($customers as $customer)<option value="{{ $customer->id }}" data-pending="{{ $customer->user->businessApprovalPending()?'1':'0' }}" data-profile="{{ json_encode($customer->only(['name','email','phone','address','city','province','postal_code','country','account_type','business_name'])) }}">@if($customer->account_type==='business' && filled($customer->business_name)){{ trim($customer->business_name) }} · @endif#{{ $customer->id }} · {{ $customer->name }} — {{ $customer->email }} {{ $customer->phone }}</option>@endforeach</select></label>
+<section class="pos-panel pos-customer-step"><div class="pos-panel-heading"><h2>1 · Customer</h2><a class="btn btn-outline-primary" href="{{ route('admin.pos.orders') }}">My POS orders</a></div><form id="pos-customer-form" class="pos-customer-body">
+<label id="pos-customer-fallback">Customer<select class="form-control" name="existing_customer_id" id="pos-customer"><option value="">Choose a customer…</option><option value="new">+ Add new customer</option>@foreach($customers as $customer)<option value="{{ $customer->id }}" data-pending="{{ $customer->user->businessApprovalPending()?'1':'0' }}" data-profile="{{ json_encode($customer->only(['name','email','phone','address','city','province','postal_code','country','account_type','business_name'])) }}">#{{ $customer->id }} · @if($customer->account_type==='business' && filled($customer->business_name)){{ trim($customer->business_name) }} · @endif{{ $customer->name }}@if(filled($customer->email)) — {{ $customer->email }}@endif @if(filled($customer->phone)) · {{ $customer->phone }}@endif</option>@endforeach</select></label>
+<div class="pos-customer-picker" id="pos-customer-picker" hidden>
+<label id="pos-customer-label" for="pos-customer-toggle">Customer</label>
+<button class="form-control pos-customer-toggle" id="pos-customer-toggle" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="pos-customer-options" aria-labelledby="pos-customer-label pos-customer-value"><span id="pos-customer-value">Choose a customer…</span><span aria-hidden="true">▾</span></button>
+<div class="pos-customer-menu" id="pos-customer-menu" hidden>
+<label for="pos-customer-search">Search customers</label><input class="form-control" id="pos-customer-search" placeholder="Customer number, business, name, email or phone" type="search" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="pos-customer-options">
+<div class="pos-customer-options" id="pos-customer-options" role="listbox" aria-labelledby="pos-customer-label"></div>
+<p class="pos-customer-empty" id="pos-customer-empty" role="status" hidden>No matching customers. Try another search or add a new customer.</p>
+<button type="button" class="pos-customer-create" id="pos-add-customer">+ Add new customer</button>
+</div></div>
 <div id="pos-new-customer" hidden><label id="pos-account-type">Account type<select class="form-control" name="account_type"><option value="individual">Individual</option><option value="business">Business owner</option></select></label>
 @include('partials.business-fields',['businessDynamic'=>true])
 
@@ -32,8 +42,6 @@
 <form id="complete-sale"><header class="pos-panel-heading"><div><span class="pos-eyebrow">FINAL CHECK</span><h2 id="checkout-heading">Review & place order</h2></div><button type="button" id="close-checkout" class="pos-link">Close ×</button></header>
 <div class="pos-checkout-body"><div id="quote-lines"></div><div class="pos-totals" id="quote-totals"></div>
 <p id="customer-help" class="pos-help"></p><input type="hidden" name="customer_id"><input type="hidden" name="first_name"><input type="hidden" name="last_name"><input type="hidden" name="email"><label>Customer phone<input class="form-control" name="phone" maxlength="40" type="tel"></label>
-<div id="delivery-fields" class="pos-customer-grid" hidden><label class="pos-wide">Delivery address<input class="form-control" name="address" maxlength="255" autocomplete="street-address"></label><label>City<input class="form-control" name="city" maxlength="100" autocomplete="address-level2"></label><label>Province<input class="form-control" name="province" maxlength="100" autocomplete="address-level1"></label><label>Postal code<input class="form-control" name="postal_code" maxlength="30" autocomplete="postal-code"></label><label>Country<input class="form-control" name="country" maxlength="100" value="Canada" autocomplete="country-name"></label></div>
-<div id="pos-delivery-choice" hidden><label>Delivery service<select class="form-control" name="delivery_service" id="pos-delivery-service"><option value="">Enter postal code first</option></select></label><p id="pos-delivery-description" class="pos-help" role="status"></p></div>
 <div class="pos-customer-grid"><label>Payment method<select class="form-control" name="payment_method"><option value="cash">Cash on pickup</option><option value="etransfer">E-transfer</option><option value="cheque">Cheque</option><option value="credit">Customer Credit</option></select></label><label>Payment status<select class="form-control" name="payment_status"><option value="paid">Paid · payment received</option><option value="unpaid">Unpaid · collect on delivery</option></select></label></div>
 <p class="pos-help">For cash, choose Paid only after receiving payment, or Unpaid to collect later. Cheque/E-transfer await admin verification; customer credit remains unpaid.</p>
 @if(auth()->user()->isWarehouseUserType())
@@ -44,7 +52,10 @@
 <p id="pos-credit-warning" role="status"></p>
 <div id="pos-transfer-upload" hidden><label>Receipt / cheque photo (optional)<input class="form-control" type="file" id="pos-transfer-file" accept="image/jpeg,image/png,image/webp,application/pdf"></label><p class="pos-help">Upload now or later from My POS Orders. JPG, PNG, WebP or PDF, maximum 5 MB. Admin verifies payment separately from fulfillment.</p></div>
 <label>Notes (optional)<textarea class="form-control" name="notes" rows="2" maxlength="2000"></textarea></label>
+@include('partials.delivery-address',['addressPrefix'=>'pos-delivery'])
+<div id="pos-delivery-choice" hidden><label>Delivery service<select class="form-control" name="delivery_service" id="pos-delivery-service"><option value="">Enter postal code first</option></select></label><p id="pos-delivery-description" class="pos-help" role="status"></p></div>
 <p id="checkout-error" class="pos-error" role="alert" hidden></p>
+@include('partials.delivery-schedule',['schedulePrefix'=>'pos','scheduleFulfillment'=>'#fulfillment','scheduleInitialFulfillment'=>'pickup'])
 <button class="btn btn-primary pos-checkout" id="complete-button" type="submit">Complete sale</button>
 <button class="pos-link" id="refresh-quote" type="button" hidden>Refresh prices and review again</button>
 </div></form>
@@ -52,6 +63,8 @@
 <dialog id="pos-success" aria-labelledby="success-heading"><div class="pos-success-body"><span class="pos-success-icon" aria-hidden="true">✓</span><span class="pos-eyebrow">ALL DONE</span><h2 id="success-heading">Sale completed</h2><p id="success-number"></p><strong id="success-total"></strong><p id="success-status"></p><a class="btn btn-primary" id="saved-order-link">View order / upload receipt</a><a class="btn btn-outline-primary" id="receipt-link" target="_blank" rel="noopener">Print receipt / PDF</a><button class="btn btn-primary" id="new-sale" type="button">Start next sale</button></div></dialog>
 </div>
 <script src="{{ asset('admin-assets/scanner-libs/zxing-browser-0.1.5.min.js') }}"></script>
+<script src="{{ asset('assets/js/delivery-address.js') }}?v={{ filemtime(public_path('assets/js/delivery-address.js')) }}"></script>
+<script src="{{ asset('assets/js/delivery-schedule.js') }}?v={{ filemtime(public_path('assets/js/delivery-schedule.js')) }}"></script>
 <script src="{{ asset('admin-assets/pos.js') }}?v={{ filemtime(public_path('admin-assets/pos.js')) }}"></script>
 <script src="{{ asset('assets/js/business-fields.js') }}"></script>
 @endsection

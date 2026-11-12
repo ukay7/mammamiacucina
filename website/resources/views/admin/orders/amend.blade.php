@@ -6,8 +6,12 @@
 @foreach($order->items as $item)<tr data-existing-item><td>{{ $item->name }} @if($item->warehouse_note)<small class="d-block text-danger">{{ $item->warehouse_note }}</small>@endif</td><td><input class="form-control" aria-label="Quantity for {{ $item->name }}" type="number" min="0" max="999" name="items[{{ $item->id }}][quantity]" value="{{ old('items.'.$item->id.'.quantity',$item->quantity) }}" required></td><td><input class="form-control" aria-label="Unit price for {{ $item->name }}" type="number" data-number-display="decimal" min="0" step=".01" name="items[{{ $item->id }}][unit_price]" value="{{ old('items.'.$item->id.'.unit_price',number_format($item->unit_cents/100,2,'.','')) }}" required></td><td><strong data-line-total>—</strong></td><td><button type="button" class="btn btn-outline-danger" data-remove-existing>Remove</button></td></tr>@endforeach
 </tbody><tbody id="order-new-items"></tbody></table></div>
 <button type="button" class="btn btn-outline-primary mb-3" data-add-order-item>Add Item</button>
+@php
+ $addableProducts=\App\Models\Product::where('is_active',true)->orderBy('premium_marketing_name')->get(['id','premium_marketing_name','qr_code','product_code','total_selling_price_cad','business_selling_price_cad']);
+ $addablePrices=app(\App\Services\OrderAmendment::class)->productPrices($order,$addableProducts);
+@endphp
 <template id="order-add-template"><tr data-add-row><td>
-<select data-field="product_id" aria-label="Product" hidden><option value="">Select a product</option>@foreach(\App\Models\Product::where('is_active',true)->orderBy('premium_marketing_name')->get(['id','premium_marketing_name','qr_code','product_code','total_selling_price_cad']) as $product)<option value="{{ $product->id }}" data-price="{{ $product->total_selling_price_cad }}" data-search="#{{ $product->id }} {{ $product->premium_marketing_name }} {{ $product->product_code }} {{ $product->qr_code }}">{{ $product->premium_marketing_name }}</option>@endforeach</select>
+<select data-field="product_id" aria-label="Product" hidden><option value="">Select a product</option>@foreach($addableProducts as $product)<option value="{{ $product->id }}" data-price="{{ $addablePrices[$product->id]['unit_cents']===null?'':number_format($addablePrices[$product->id]['unit_cents']/100,2,'.','') }}" data-search="#{{ $product->id }} {{ $product->premium_marketing_name }} {{ $product->product_code }} {{ $product->qr_code }}">{{ $product->premium_marketing_name }}</option>@endforeach</select>
 <button type="button" class="form-control order-product-select" data-product-toggle aria-haspopup="listbox" aria-expanded="false"><span>Select a product</span><span aria-hidden="true">⌄</span></button>
 </td><td><input class="form-control" aria-label="Quantity for added item" data-field="quantity" type="number" min="1" max="999" value="1" required></td><td><input class="form-control" aria-label="Unit price for added item" data-field="unit_price" type="number" data-number-display="decimal" min="0" step=".01" required></td><td><strong data-line-total>—</strong></td><td><button type="button" class="btn btn-outline-danger" data-remove-order-item>Remove</button></td></tr></template>
 <style>
@@ -24,6 +28,7 @@
 <input type="hidden" name="tax_mode" value="recalculate">
 <div class="form-group col-md-4"><label>Tax ({{ number_format(($order->tax_basis_points ?? \App\Models\GeneralSetting::findOrFail(1)->tax_basis_points)/100,2) }}%) · CAD<input class="form-control" type="number" data-number-display="decimal" min="0" step=".01" name="tax" readonly value="{{ old('tax',number_format(($order->tax_cents??0)/100,2,'.','')) }}" required></label></div>
 </div>
+@include('partials.delivery-schedule',['scheduleSavedAt'=>$order->delivery_scheduled_at,'schedulePrefix'=>'amend','scheduleFulfillment'=>'#order-amend-form [data-order-fulfillment]','scheduleInitialFulfillment'=>$order->fulfillment])
 <div class="order-live-totals mb-3" aria-live="polite" aria-atomic="true">
 <h3>Order total preview</h3>
 <p>Product subtotal <strong data-total="subtotal">—</strong></p>
@@ -37,6 +42,7 @@
 <label class="d-block">Reason for change<textarea class="form-control" name="reason" maxlength="1000" required>{{ old('reason') }}</textarea></label><p>Changing an order already in packing or ready for dispatch returns it to admin review. Send it back to warehouse after resolving the changes.</p><button class="btn btn-primary">Save Order Changes</button>
 </form></div>
 <script src="{{ asset('admin-assets/order-amend.js') }}?v={{ filemtime(public_path('admin-assets/order-amend.js')) }}"></script>
+<script src="{{ asset('assets/js/delivery-schedule.js') }}?v={{ filemtime(public_path('assets/js/delivery-schedule.js')) }}"></script>
 @if($order->delivery_service || \App\Models\GeneralSetting::findOrFail(1)->matrix_delivery_enabled)
 <script src="{{ asset('admin-assets/order-delivery.js') }}?v={{ filemtime(public_path('admin-assets/order-delivery.js')) }}"></script>
 @endif

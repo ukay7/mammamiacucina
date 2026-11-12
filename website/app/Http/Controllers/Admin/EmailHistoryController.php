@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 class EmailHistoryController extends Controller {
  public function index(Request $request){
   $search=trim((string)$request->query('search',''));
-  $emails=EmailHistory::select(['id','recipient','subject','type','status','mailer','attempts','available_at','delivery_note','sent_at','message_id','created_at','archived_at'])->when($search!=='',fn($q)=>$q->where('recipient','like','%'.$search.'%'))->latest('id')->paginate(30)->withQueryString();
+  $emails=EmailHistory::select(['id','recipient','alternate_recipient','subject','type','status','mailer','attempts','available_at','delivery_note','sent_at','message_id','created_at','archived_at'])->when($search!=='',fn($q)=>$q->where(fn($q)=>$q->where('recipient','like','%'.$search.'%')->orWhere('alternate_recipient','like','%'.$search.'%')))->latest('id')->paginate(30)->withQueryString();
   return response()->view('admin.settings.email-history',compact('emails','search'))->header('Cache-Control','no-store, private');
  }
  public function show(EmailHistory $email){

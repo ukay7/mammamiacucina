@@ -18,7 +18,7 @@ class Order extends Model
 
     protected function casts(): array
     {
-        return ['ordered_at' => 'datetime', 'deleted_at' => 'datetime', 'deletion_restock' => 'boolean', 'cancellation_restock' => 'boolean'];
+        return ['ordered_at' => 'datetime', 'delivery_scheduled_at' => 'immutable_datetime', 'deleted_at' => 'datetime', 'deletion_restock' => 'boolean', 'cancellation_restock' => 'boolean'];
     }
 
     public function assertEditable(): void

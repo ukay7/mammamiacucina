@@ -7,7 +7,6 @@
     @endif
     @if(filled($doc['brand']['mailing_address']??null))<div class="doc-contact-line doc-address">Mailing Address: {{ $doc['brand']['mailing_address'] }}</div>@endif
     @if(filled($doc['brand']['warehouse_address']??$doc['brand']['address']??null))<div class="doc-contact-line doc-address">Warehouse: {{ $doc['brand']['warehouse_address']??$doc['brand']['address'] }}</div>@endif
-    @if(filled($doc['brand']['tax_number']??null))<div class="doc-contact-line">GST/HST: {{ $doc['brand']['tax_number'] }}</div>@endif
 </td>
 <td class="doc-meta">
     <strong>{{ mb_strtoupper((string)$doc['title']) }}</strong>

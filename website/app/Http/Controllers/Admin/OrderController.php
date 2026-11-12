@@ -86,6 +86,7 @@ class OrderController extends Controller
             $rules[$key] = 'nullable|string|max:255';
         }
         $data = $r->validate($rules);
+        $data += $r->only(\App\Services\DeliverySchedule::FIELDS);
         foreach (['last_name', 'email', 'phone', 'address', 'city', 'province', 'postal_code', 'country'] as $field) {
             $data[$field] = $data[$field] ?? '';
         }

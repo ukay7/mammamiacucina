@@ -1,6 +1,7 @@
 @extends('admin.layout')
 @section('title','Order '.$order->number)
 @section('content')
+<p><a class="btn btn-outline-primary" href="{{ route('customer.documents',['document_search'=>$order->number]) }}">Documents for this order</a></p>
 <div class="customer-order-actions"><a href="{{ route('customer.orders') }}">← My Orders</a><a class="btn btn-outline-primary" href="{{ route('customer.order.print',$order) }}" target="_blank" rel="noopener">Print / Save PDF</a></div>
 @if($order->payment && !$order->payment->paid_at && !$order->payment->released_at)<p><a class="btn btn-primary" href="{{ route('payment.show',$order->payment->reference) }}">Complete / check card payment</a></p>@endif
 @include('partials.transfer-receipt')

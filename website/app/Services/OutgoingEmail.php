@@ -24,7 +24,14 @@ class OutgoingEmail {
   $entry=null;
   try {
    $message=new \Illuminate\Mail\Message(new \Symfony\Component\Mime\Email());$callback($message);
-   $entry=EmailHistory::create(['recipient'=>implode(', ',array_map(fn($a)=>$a->getAddress(),$message->getSymfonyMessage()->getTo())), 'subject'=>$message->getSymfonyMessage()->getSubject(),'type'=>$type,'status'=>'pending']);
+   $primaryRecipients=$message->getSymfonyMessage()->getTo();
+   $alternate=count($primaryRecipients)===1 ? app(CustomerEmailRecipients::class)->alternate($type,$primaryRecipients[0]->getAddress(),$user?->isCustomer()?$user->customer()->first():null) : null;
+   if($alternate){
+    $message->to($alternate);
+    $originalCallback=$callback;
+    $callback=function($m)use($originalCallback,$alternate){$originalCallback($m);$m->to($alternate);};
+   }
+   $entry=EmailHistory::create(['recipient'=>implode(', ',array_map(fn($a)=>$a->getAddress(),$primaryRecipients)), 'alternate_recipient'=>$alternate,'subject'=>$message->getSymfonyMessage()->getSubject(),'type'=>$type,'status'=>'pending']);
    $settings=\App\Models\SmtpSetting::find(1);
    $entry->update(['archive'=>EmailArchive::snapshot($type,$body),'archived_at'=>now()]);
    if($settings?->enabled && $settings->delivery_method==='resend'){

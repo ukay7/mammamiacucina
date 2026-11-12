@@ -5,6 +5,8 @@
 </div>
 <form method="post" action="{{ route('admin.customers.update',$customer) }}">@csrf @method('PUT')
 <div class="row">
+<div class="col-md-6 mb-3"><label for="edit-primary-email">Primary email address</label><input class="form-control" id="edit-primary-email" type="email" value="{{ $customer->email }}" readonly aria-describedby="primary-email-help"><small id="primary-email-help" class="d-block mt-2">Login, verification and password reset use this address.</small></div>
+<div class="col-md-6 mb-3"><label for="edit-alternate-email">Alternate email address (optional)</label><input class="form-control" id="edit-alternate-email" type="email" name="alternate_email" value="{{ old('alternate_email',$customer->alternate_email) }}" maxlength="255" autocomplete="email" aria-describedby="alternate-email-help"><small id="alternate-email-help" class="d-block mt-2">Copies order emails, invoices, receipts and other customer notifications. Verification and password-reset links go only to the primary email.</small></div>
 @foreach(['name'=>['Full name',100],'phone'=>['Phone',40],'address'=>['Street address',255],'city'=>['City',100],'province'=>['Province / State',100],'postal_code'=>['Postal code',30],'country'=>['Country',100],'website'=>['Website',255]] as $field=>$details)
 <div class="col-md-6 mb-3"><label for="edit-{{ $field }}">{{ $details[0] }}</label><input class="form-control" id="edit-{{ $field }}" name="{{ $field }}" value="{{ old($field,$customer->$field) }}" maxlength="{{ $details[1] }}" @required($field==='name')></div>
 @endforeach

@@ -12,5 +12,7 @@
 .doc-financial .doc-product-image{width:28px;height:28px;border-radius:3px}
 .doc-financial .doc-product-no-image{width:28px;min-height:28px;padding-top:8px;font-size:6px;border-radius:3px}
 .doc-financial .doc-lines small{font-size:8px;line-height:1.25}
+.doc-financial .doc-footer{margin-top:10px;padding-top:6px}
+.doc-financial .doc-delivery{padding:8px 12px}
 </style>
 @include('documents.header-style')

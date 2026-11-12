@@ -14,6 +14,8 @@ Route::middleware(CustomerAccess::class.':no')->group(function(){
  Route::post('/account/logout',[Customer::class,'logout'])->name('customer.logout');
 });
 Route::middleware(CustomerAccess::class)->group(function(){
+ Route::get('/admin/my-documents',[\App\Http\Controllers\CustomerDocumentController::class,'index'])->name('customer.documents');
+ Route::get('/admin/my-documents/{kind}/{document}',[\App\Http\Controllers\CustomerDocumentController::class,'customerFile'])->whereNumber('document')->name('customer.documents.file');
  Route::get('/admin/my-profile',[Customer::class,'profile'])->name('customer.profile');
  Route::put('/admin/my-profile',[Customer::class,'updateProfile'])->name('customer.profile.update');
  Route::get('/admin/my-orders',[Customer::class,'orders'])->name('customer.orders');

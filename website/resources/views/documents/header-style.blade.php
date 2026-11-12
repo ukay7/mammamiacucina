@@ -12,5 +12,7 @@
 .doc-header .doc-meta strong{font:700 18px/1.25 Arial,DejaVu Sans,sans-serif;text-transform:uppercase}
 .doc-header .doc-reference{font:700 22px/1.25 Arial,DejaVu Sans,sans-serif;margin:6px 0;text-transform:uppercase;word-wrap:break-word}
 .doc-header .doc-date{font:10px/1.5 Arial,DejaVu Sans,sans-serif}
+.doc-footer{page-break-inside:avoid}
+.doc-registration{margin-top:4px;font:10px/1.5 Arial,DejaVu Sans,sans-serif;color:#645346;text-align:right;page-break-inside:avoid;overflow-wrap:anywhere}
 @media screen and (max-width:600px){.doc-header .doc-logo-cell{width:70px}.doc-header .doc-logo{width:60px;height:60px}.doc-header .doc-company{font-size:14px}.doc-header .doc-contact-line,.doc-header .doc-date{font-size:9px}.doc-header .doc-meta strong{font-size:12px}.doc-header .doc-reference{font-size:16px}}
 </style>

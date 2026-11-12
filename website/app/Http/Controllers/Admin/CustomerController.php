@@ -42,7 +42,7 @@ class CustomerController extends Controller {
   $query=Customer::with('user');
   if($search!=='') $query->where(function($q)use($search){
    if(ctype_digit(ltrim($search,'#'))) $q->orWhere('id',ltrim($search,'#'));
-   foreach(['name','email','phone','business_name','business_bin','business_email','business_phone','city','postal_code'] as $field) $q->orWhere($field,'like','%'.$search.'%');
+   foreach(['name','email','alternate_email','phone','business_name','business_bin','business_email','business_phone','city','postal_code'] as $field) $q->orWhere($field,'like','%'.$search.'%');
   });
   if($request->filled('account_type')) $query->whereHas('user',fn($q)=>$q->where('account_type',$request->input('account_type')));
   if($request->filled('active')) $query->whereHas('user',fn($q)=>$q->where('is_active',(int)$request->input('active')));
@@ -74,19 +74,20 @@ class CustomerController extends Controller {
   $latestOrder=$customer->orders()->orderByDesc('ordered_at')->orderByDesc('id')->first();
   $notes=\App\Models\CustomerNote::with('author')->where('customer_id',$customer->id)->latest('id')->paginate(8,['*'],'notes_page')->withQueryString();
   $accountReceipts=auth()->user()->isSuper()?\App\Models\CustomerReceipt::with('lines','author')->where('customer_id',$customer->id)->latest('id')->paginate(10,['*'],'receipts_page')->withQueryString():null;
-  return view('admin.customers.show',compact('customer','orders','latestOrder','notes','invoices','paymentOrders','balances','accountReceipts'));
+  $documents=app(\App\Services\CustomerDocuments::class)->listing($customer,auth()->user(),request());
+  return view('admin.customers.show',compact('customer','orders','latestOrder','notes','invoices','paymentOrders','balances','accountReceipts','documents'));
  }
  public function storeNote(Request $request,Customer $customer){
   $data=$request->validate(['body'=>'required|string|max:5000']);
   \App\Models\CustomerNote::create(['customer_id'=>$customer->id,'user_id'=>$request->user()->id,'body'=>$data['body']]);
   return redirect()->route('admin.customers.show',$customer)->with('status','Customer note added.');
  }
- public function edit(Customer $customer){return view('admin.customers.edit',compact('customer'));}
+ public function edit(Customer $customer){$documents=app(\App\Services\CustomerDocuments::class)->listing($customer,auth()->user(),request());return view('admin.customers.edit',compact('customer','documents'));}
  public function update(Request $r,Customer $customer){
-  $d=$r->validate(['name'=>'required|string|max:100','phone'=>'nullable|string|max:40','address'=>'nullable|string|max:255','city'=>'nullable|string|max:100','province'=>'nullable|string|max:100','postal_code'=>'nullable|string|max:30','country'=>'nullable|string|max:100','website'=>'nullable|url:http,https|max:255'] + \App\Services\BusinessDetails::rules($customer->account_type==='business'));
+  $d=$r->validate(['name'=>'required|string|max:100','alternate_email'=>'sometimes|nullable|email:filter|max:255','phone'=>'nullable|string|max:40','address'=>'nullable|string|max:255','city'=>'nullable|string|max:100','province'=>'nullable|string|max:100','postal_code'=>'nullable|string|max:30','country'=>'nullable|string|max:100','website'=>'nullable|url:http,https|max:255'] + \App\Services\BusinessDetails::rules($customer->account_type==='business'));
   \Illuminate\Support\Facades\DB::transaction(function()use($customer,$d){
    $customer->user->forceFill(\Illuminate\Support\Arr::only($d,['name','phone']))->save();
-   $customer->update(\Illuminate\Support\Arr::only($d,array_merge(['address','city','province','postal_code','country','website'],\App\Services\BusinessDetails::FIELDS)));
+   $customer->update(\Illuminate\Support\Arr::only($d,array_merge(['alternate_email','address','city','province','postal_code','country','website'],\App\Services\BusinessDetails::FIELDS)));
   });
   return back()->with('status','Customer details updated.');
  }

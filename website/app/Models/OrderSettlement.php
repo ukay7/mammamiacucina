@@ -13,6 +13,11 @@ class OrderSettlement extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 
+    public function order()
+    {
+        return $this->belongsTo(Order::class);
+    }
+
     protected function casts(): array
     {
         return ['amount_cents' => 'integer', 'related_original' => 'boolean', 'received_on' => 'date'];

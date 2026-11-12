@@ -130,7 +130,13 @@ class TransferCheckoutTest extends TestCase
         $update=['revision'=>0,'status'=>'warehouse_pending','payment_status'=>'unpaid','delivery'=>'5','tax'=>'1'];
         $this->patch(route('admin.orders.update',$order),$update)->assertSessionHasNoErrors();
         $this->assertSame('warehouse_pending',$order->fresh()->status);
-        $this->patch(route('admin.orders.update',$order),array_replace($update,['revision'=>$order->fresh()->revision,'status'=>'cancelled']))->assertSessionHasNoErrors();
+        $cancel=array_replace($update,['revision'=>$order->fresh()->revision,'status'=>'cancelled']);
+        $this->patch(route('admin.orders.update',$order),$cancel)->assertSessionHasErrors('restock_inventory');
+        $this->assertSame('warehouse_pending',$order->fresh()->status);
+        $this->assertEquals(8,$product->inventory()->first()->quantity_on_hand);
+        $this->patch(route('admin.orders.update',$order),$cancel+['restock_inventory'=>1])->assertSessionHasNoErrors();
+        $this->assertSame('cancelled',$order->fresh()->status);
+        $this->assertTrue($order->fresh()->cancellation_restock);
         $this->assertEquals(10,$product->inventory()->first()->quantity_on_hand);
     }
 }

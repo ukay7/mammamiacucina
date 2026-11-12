@@ -20,7 +20,8 @@ class CheckoutController extends Controller
     {
         $cart = $service->snapshot();
         $user=auth()->user(); $parts=explode(' ',trim($user?->name ?? ''),2); $profile=['first_name'=>$parts[0],'last_name'=>$parts[1]??'','email'=>$user?->email,'phone'=>$user?->phone,'country'=>'Canada'];
-        $savedAddress=$user->customerRecord()->only(['address','city','province','postal_code','country']);
+        $customer=$user->customerRecord();
+        $savedAddress=$customer->only(['address','city','province','postal_code','country']);
         $profile=array_merge($profile,array_filter($savedAddress,fn($value)=>$value!==null && $value!==''));
         if (! $cart['items']) {
             return redirect()->route('theme.cart')->with('cart_status', 'Your cart is empty.');
@@ -37,14 +38,25 @@ class CheckoutController extends Controller
         session(['checkout_charges' => ['delivery' => $settings->delivery_cents, 'rate' => $settings->tax_basis_points, 'matrix' => (bool) $settings->matrix_delivery_enabled, 'pickup_address' => $settings->pickup_address]]);
         $token = (string) Str::uuid();
         session(['checkout_terms_revision'=>$user->customerRecord()->commercial_revision,'checkout_token' => $token, 'checkout_quote' => $quote]);
+        session(['checkout_company_address'=>app(\App\Services\CustomerDeliveryAddress::class)->company($customer)]);
 
-        return response()->view('pages.checkout', compact('cart', 'token', 'charges', 'profile', 'settings'))->header('Cache-Control', 'no-store, private');
+        return response()->view('pages.checkout', compact('cart', 'token', 'charges', 'profile', 'settings', 'customer'))->header('Cache-Control', 'no-store, private');
     }
 
     public function store(Request $r)
     {
 
         $r->merge(['fulfillment' => $r->input('fulfillment', 'delivery')]);
+        $r->validate(['delivery_address_type'=>'sometimes|required|in:company,alternate']);
+        if ($r->input('fulfillment') === 'delivery') {
+            $addresses=app(\App\Services\CustomerDeliveryAddress::class);
+            $customer=$r->user()->customerRecord();
+            if ($r->input('delivery_address_type') === 'company' && session('last_order_token') !== $r->input('checkout_token')
+                && session('checkout_company_address') !== $addresses->company($customer)) {
+                throw ValidationException::withMessages(['address'=>'The company address changed. Reopen checkout to review the delivery address.']);
+            }
+            $r->merge($addresses->resolve($customer, $r->all()));
+        }
         $d = $r->validate(['fulfillment'=>'required|in:pickup,delivery','delivery_service'=>'nullable|string|max:20','checkout_token' => 'required|uuid', 'first_name' => 'required|string|max:100', 'last_name' => 'required|string|max:100', 'email' => 'required|email|max:255', 'phone' => 'required|string|max:40', 'address' => 'required_if:fulfillment,delivery|nullable|string|max:255', 'city' => 'required_if:fulfillment,delivery|nullable|string|max:100', 'province' => 'required_if:fulfillment,delivery|nullable|string|max:100', 'postal_code' => 'required_if:fulfillment,delivery|nullable|string|max:30', 'country' => 'required_if:fulfillment,delivery|nullable|string|max:100', 'notes' => 'nullable|string|max:2000', 'payment_method' => 'sometimes|required|in:cash,etransfer,card,cheque,credit']);
         $r->validate(['receipt'=>'nullable|file|mimes:jpg,jpeg,png,webp,pdf|max:5120']);
         $d['email'] = $r->user()->email;
@@ -65,6 +77,7 @@ class CheckoutController extends Controller
         if (! session('checkout_token') || ! hash_equals(session('checkout_token'), $d['checkout_token'])) {
             throw ValidationException::withMessages(['cart' => 'Checkout expired. Open checkout again from your cart.']);
         }
+        $d['delivery_scheduled_at'] = app(\App\Services\DeliverySchedule::class)->resolve($r->only(\App\Services\DeliverySchedule::FIELDS), $d['fulfillment'] === 'delivery');
         if ($method === 'card' && ! app(\App\Services\PaymentGateway::class)->ready('helcim')) {
             throw ValidationException::withMessages(['payment_method' => 'Card payment is currently unavailable. Please select another payment method.']);
         }
@@ -73,7 +86,8 @@ class CheckoutController extends Controller
         if (! $quantities || count($quantities) > 100) {
             throw ValidationException::withMessages(['cart' => 'Your cart is empty or invalid. Please review it.']);
         }
-        $order = DB::transaction(function () use ($d, $quantities, $quote) {
+        $addressChoice = $r->input('delivery_address_type', 'alternate');
+        $order = DB::transaction(function () use ($d, $quantities, $quote, $addressChoice) {
             $settings = GeneralSetting::lockForUpdate()->findOrFail(1);
             if ($existing = Order::withTrashed()->where('checkout_token', $d['checkout_token'])->first()) {
                 $existing->assertEditable();
@@ -87,6 +101,12 @@ class CheckoutController extends Controller
                 if (!trim($settings->pickup_address ?? '')) throw ValidationException::withMessages(['fulfillment'=>'Pickup is not available until the store address is configured. Please select delivery.']);
                 $d['pickup_address'] = $settings->pickup_address;
             }
+            $customer=\App\Models\Customer::lockForUpdate()->findOrFail(auth()->user()->customerRecord()->id);
+            $addresses=app(\App\Services\CustomerDeliveryAddress::class);
+            if ($d['fulfillment'] === 'delivery') {
+                $selected=$addresses->resolve($customer, ['delivery_address_type'=>$addressChoice] + $d);
+                if ($selected !== $addresses->normalize($d)) throw ValidationException::withMessages(['address'=>'The company address changed. Reopen checkout to review the delivery address.']);
+            }
             $deliverySnapshot=[];
             if($d['fulfillment'] === 'delivery' && $settings->matrix_delivery_enabled){
                 if(!in_array(strtolower(trim($d['country'])),['canada','ca']))throw ValidationException::withMessages(['country'=>'Delivery is available only within supported Canadian postal areas.']);
@@ -96,7 +116,6 @@ class CheckoutController extends Controller
             }
             $d['delivery_service'] = $deliverySnapshot['delivery_service'] ?? null;
             if($deliverySnapshot)$d['postal_code']=$deliverySnapshot['delivery_to_postal'];
-            $customer=\App\Models\Customer::lockForUpdate()->findOrFail(auth()->user()->customerRecord()->id);
             $terms=app(\App\Services\CustomerTerms::class);
             if((session('checkout_terms_revision')??0)!==$customer->commercial_revision)throw ValidationException::withMessages(['cart'=>'Customer settings changed. Open checkout again.']);
             $products = Product::whereIn('id', array_keys($quantities))->orderBy('id')->lockForUpdate()->get();
@@ -123,7 +142,7 @@ class CheckoutController extends Controller
             $warning=$terms->check($customer,'website',$d['payment_method'],$subtotal+$delivery+$settings->taxFor($subtotal));
             $order = Order::create(array_merge($d,$terms->snapshot($customer,$d['payment_method']), ['order_discount_cents'=>$discount,'credit_warning'=>$warning,'customer_id' => auth()->user()->customerRecord()->id, 'created_by' => auth()->id(), 'source' => 'website', 'number' => 'MMC-'.strtoupper((string) Str::ulid()), 'subtotal_cents' => $subtotal, 'delivery_cents' => ($d['fulfillment'] === 'pickup' ? 0 : ($deliverySnapshot['delivery_cents']??$settings->delivery_cents)), 'tax_cents' => $settings->taxFor($subtotal), 'tax_basis_points'=>$settings->tax_basis_points, 'payment_method' => $d['payment_method'], 'payment_status' => $d['payment_method'] === 'card' ? 'pending' : 'unpaid', 'status' => $d['payment_method'] === 'card' ? 'awaiting_payment' : 'parked_admin', 'warehouse_round' => 0, 'warehouse_sent_at' => null]));
             if($deliverySnapshot) $order->update($deliverySnapshot);
-            if ($d['fulfillment'] === 'delivery') auth()->user()->customerRecord()->update(\Illuminate\Support\Arr::only($d,['address','city','province','postal_code','country']));
+            if ($d['fulfillment'] === 'delivery') $addresses->remember($customer, ['delivery_address_type'=>$addressChoice], $d);
             // The database-generated ID avoids collisions between simultaneous orders.
             $order->update(['number' => 'mmc-'.$order->id]);
             foreach ($lines as [$p,$qty,$price,$inventory,$pricing]) {
@@ -149,7 +168,7 @@ class CheckoutController extends Controller
             try {$r->merge(['revision'=>$order->revision]);app(TransferReceiptController::class)->store($r,$order);} catch (\Throwable $e) {report($e);session()->flash('receipt_status','Order saved. Please upload the receipt from your order page.');}
         }
         session(['last_order_id' => $order->id, 'last_order_token' => $order->checkout_token]);
-        session()->forget(['storefront_cart', 'checkout_token', 'checkout_quote', 'checkout_charges', 'delivery_quote']);
+        session()->forget(['storefront_cart', 'checkout_token', 'checkout_quote', 'checkout_charges', 'checkout_company_address', 'delivery_quote']);
 
         if ($order->payment) {
             return app(PaymentController::class)->start($order->payment, app(OnlinePayments::class));

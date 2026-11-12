@@ -3,6 +3,24 @@ namespace App\Services;
 use App\Models\{GeneralSetting,Order};
 use Illuminate\Support\Facades\Storage;
 class DocumentTheme {
+ private function deliveryDetails(array $order):string {
+  if(($order['fulfillment']??null)==='pickup')return 'Pick up'.(!empty($order['pickup_address'])?': '.$order['pickup_address']:'');
+  $lines=['Delivery: '.implode(', ',array_filter(array_map(fn($field)=>$order[$field]??null,['address','city','province','postal_code','country'])))];
+  if(!empty($order['delivery_scheduled_at']))$lines[]='Delivery date & time: '.\App\Support\BusinessTime::format($order['delivery_scheduled_at'],'D, d M Y, g:i A T').' (Toronto)';
+  $route=[];
+  $service=$order['delivery_service_name']??null;
+  if(!$service && !empty($order['delivery_service']))$service=ucwords(str_replace('_',' ',$order['delivery_service']));
+  if($service)$route[]='Courier: '.$service;
+  foreach(['from'=>'From','to'=>'To'] as $direction=>$label){
+   $postal=$order['delivery_'.$direction.'_postal']??null;
+   $zone=$order['delivery_'.$direction.'_zone']??null;
+   if($direction==='to' && ($service || $zone!==null))$postal=$postal?:($order['postal_code']??null);
+   if($postal || $zone!==null)$route[]=$label.': '.trim(($postal??'').($zone!==null?' (Zone '.$zone.')':''));
+  }
+  if(isset($order['delivery_rate_cents']))$route[]='Saved route rate: CAD '.number_format($order['delivery_rate_cents']/100,2);
+  if($route)$lines[]=implode(' | ',$route);
+  return implode("\n",$lines);
+ }
  public function dateLabel(string $date):string {
   $date=trim($date);
   if($date==='')return $date;
@@ -49,6 +67,6 @@ class DocumentTheme {
   if($receipt)$totals=[($adjustment?'This correction / reversal':'This payment')=>$money(abs($receipt->amount_cents))]+$totals;
   if($order->balance_cents<0)$totals['Refund due']=$money(-$order->balance_cents);
   $billing=array_filter([$c?->business_name?:trim(($o['first_name']??'').' '.($o['last_name']??'')),$c?'Customer account #'.$c->id:null,$c?->address?:($o['address']??null),implode(', ',array_filter([$c?->city?:($o['city']??null),$c?->province?:($o['province']??null),$c?->postal_code?:($o['postal_code']??null)])),$o['email']??null,$o['phone']??null]);
-  return ['brand'=>$this->brand(),'title'=>$title,'number'=>$number,'balance_date'=>\App\Support\BusinessTime::format(now()),'date'=>\App\Support\BusinessTime::format($invoice?->issued_at??$receipt?->created_at??$order->ordered_at),'order_number'=>$order->number,'billing'=>$billing,'summary'=>$summary,'items'=>collect($items)->map(fn($i,$index)=>['image'=>$images[$index]??null,'code'=>$i['qr_code']?:$i['product_code'],'name'=>$i['name'],'quantity'=>$i['quantity'],'original'=>($i['discount_bps']??0)?$money($i['original_unit_cents']):null,'unit'=>$money($i['unit_cents']),'total'=>$money($i['line_cents']),'discount'=>($i['discount_bps']??0)?($i['discount_bps']/100).'% admin special discount':null])->all(),'totals'=>$totals,'instructions'=>$instructions,'payment'=>$receipt?((CustomerTerms::METHODS[$receipt->method]??ucfirst($receipt->method)).' / '.$receipt->entry_label.' / Reference: '.($receipt->reference?:'Cash')):$order->payment_label.' / '.$order->payment_status_label,'delivery'=>$order->fulfillment==='pickup'?'Pickup: '.$order->pickup_address:'Delivery: '.implode(', ',array_filter([$order->address,$order->city,$order->province,$order->postal_code,$order->country])),'notes'=>$receipt?$receipt->note:$order->notes,'notice'=>($adjustment?'This records a payment correction or reversal only. No customer refund or new collection was made. ': '').($invoice?'Invoice amounts are fixed at issuance. Account and payment balances below are current.':'An unpaid or pending order is not proof of payment.').($order->status==='cancelled'?' Order cancelled. No further payment due.':'').($invoice && $order->final_total_cents!==null && $order->final_total_cents!=$invoice->total_cents?' Subsequent order adjustment: '.$money($order->final_total_cents-$invoice->total_cents).'.':''),'discount'=>$o['order_discount_cents']?'Additional order discount: '.$money($o['order_discount_cents']).' (included in product subtotal).':null];
+  return ['brand'=>$this->brand(),'title'=>$title,'number'=>$number,'balance_date'=>\App\Support\BusinessTime::format(now()),'date'=>\App\Support\BusinessTime::format($invoice?->issued_at??$receipt?->created_at??$order->ordered_at),'order_number'=>$order->number,'billing'=>$billing,'summary'=>$summary,'items'=>collect($items)->map(fn($i,$index)=>['image'=>$images[$index]??null,'code'=>$i['qr_code']?:$i['product_code'],'name'=>$i['name'],'quantity'=>$i['quantity'],'original'=>($i['discount_bps']??0)?$money($i['original_unit_cents']):null,'unit'=>$money($i['unit_cents']),'total'=>$money($i['line_cents']),'discount'=>($i['discount_bps']??0)?($i['discount_bps']/100).'% admin special discount':null])->all(),'totals'=>$totals,'instructions'=>$instructions,'payment'=>$receipt?((CustomerTerms::METHODS[$receipt->method]??ucfirst($receipt->method)).' / '.$receipt->entry_label.' / Reference: '.($receipt->reference?:'Cash')):$order->payment_label.' / '.$order->payment_status_label,'delivery'=>$this->deliveryDetails($o),'notes'=>$receipt?$receipt->note:$order->notes,'notice'=>($adjustment?'This records a payment correction or reversal only. No customer refund or new collection was made. ': '').($invoice?'Invoice amounts are fixed at issuance. Account and payment balances below are current.':'An unpaid or pending order is not proof of payment.').($order->status==='cancelled'?' Order cancelled. No further payment due.':'').($invoice && $order->final_total_cents!==null && $order->final_total_cents!=$invoice->total_cents?' Subsequent order adjustment: '.$money($order->final_total_cents-$invoice->total_cents).'.':''),'discount'=>$o['order_discount_cents']?'Additional order discount: '.$money($o['order_discount_cents']).' (included in product subtotal).':null];
  }
 }

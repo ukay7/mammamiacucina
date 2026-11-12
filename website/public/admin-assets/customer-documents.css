@@ -1,0 +1,13 @@
+.customer-documents{min-width:0}.customer-documents-heading{display:flex;align-items:start;justify-content:space-between;gap:16px;margin-bottom:18px}.customer-documents-heading h3{margin:0 0 8px}.customer-documents-heading p{margin:0;color:#756854;font-size:13px}.customer-documents-heading>span{white-space:nowrap;padding:6px 10px;border:1px solid #dfcfb7;border-radius:20px;background:#f7f0e6;font-size:12px}.customer-documents-filters{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:20px}.customer-documents-filters label{margin:0;font-size:12px;font-weight:600;flex:1 1 180px}.customer-documents-filters label:first-child{flex:2 1 260px}.customer-documents-filters .form-control{margin-top:6px}.customer-documents-table{min-width:700px}.customer-documents-table td{vertical-align:top}.customer-documents-table td:first-child{min-width:240px;max-width:420px;overflow-wrap:anywhere}.customer-documents-table small{display:block;line-height:1.5;margin-top:5px;color:#756854}.customer-document-actions{display:flex;gap:8px;flex-wrap:wrap}.customer-documents-empty{padding:28px 12px;text-align:center}.customer-documents-empty p{margin:8px 0 0;color:#756854}@media(max-width:600px){.customer-documents-heading{flex-wrap:wrap}.customer-documents-filters label{flex-basis:100%}.customer-documents-filters .btn{flex:1}.customer-documents-filters .form-control{font-size:16px}}
+.customer-documents{container-type:inline-size;container-name:customer-documents}
+@container customer-documents (max-width:760px){
+ .customer-documents-table{display:block;min-width:0;margin-bottom:16px}
+ .customer-documents-table thead{display:none}
+ .customer-documents-table tbody{display:block}
+ .customer-documents-table tr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 16px;padding:16px 0;border-top:1px solid #dfcfb7}
+ .customer-documents-table td{display:block;border:0;padding:0;min-width:0;overflow-wrap:anywhere}
+ .customer-documents-table td:first-child,.customer-documents-table td:last-child{grid-column:1/-1;min-width:0;max-width:none}
+ .customer-documents-table td[data-label]:before{content:attr(data-label);display:block;font-size:11px;font-weight:600;color:#756854;margin-bottom:4px}
+ .customer-documents-table td:first-child{margin-bottom:4px}
+ .customer-documents-table td:last-child{margin-top:4px}
+}

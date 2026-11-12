@@ -42,7 +42,8 @@ $this->get(route('customer.order.print',$o))->assertOk()->assertViewIs('orders.p
   $this->post('/checkout',['checkout_token'=>session('checkout_token'),'first_name'=>'Jane','last_name'=>'Doe','email'=>$u->email,'phone'=>'555123','address'=>'20 Return Visit','city'=>'Toronto','province'=>'ON','postal_code'=>'M1M1M1','country'=>'Canada'])->assertRedirect('/order-success');
   $this->assertDatabaseCount('customers',1);
   $this->assertSame(2,$u->customerRecord()->orders()->count());
-$this->assertSame('20 Return Visit',$u->customerRecord()->address);
+$this->assertNull($u->customerRecord()->address);
+$this->assertSame('20 Return Visit',$u->customerRecord()->delivery_address['address']);
 $this->assertSame('10 Test',$o->fresh()->address);
 $this->postJson(route('cart.add',$p),['quantity'=>1])->assertOk();
 $this->get('/checkout')->assertOk()->assertSee('20 Return Visit');

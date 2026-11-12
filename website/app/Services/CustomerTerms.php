@@ -10,9 +10,16 @@ class CustomerTerms {
   return array_values(array_filter(array_keys(self::METHODS),fn($m)=>($permissions[$source][$m]??true) && ($m!=='credit'||$c->credit_limit_cents>0) && !($source==='pos'&&$m==='card')));
  }
  public function price(Product $p,Customer $c): array {
-  $base=app(PosCustomer::class)->price($p,$c);
   $rule=DB::table('customer_product_discounts')->where('customer_id',$c->id)->where('product_id',$p->id)->where('enabled',true)->first();
-  $bps=(int)($rule->discount_bps??0);
+  return $this->discountedPrice($p,$c,(int)($rule->discount_bps??0));
+ }
+ public function prices(\Illuminate\Support\Collection $products,Customer $c):array {
+  $c->loadMissing('user');
+  $discounts=DB::table('customer_product_discounts')->where('customer_id',$c->id)->whereIn('product_id',$products->pluck('id'))->where('enabled',true)->pluck('discount_bps','product_id');
+  return $products->mapWithKeys(fn($p)=>[$p->id=>$this->discountedPrice($p,$c,(int)($discounts[$p->id]??0))])->all();
+ }
+ private function discountedPrice(Product $p,Customer $c,int $bps):array {
+  $base=app(PosCustomer::class)->price($p,$c);
   return ['original_unit_cents'=>$base,'discount_bps'=>$bps,'unit_cents'=>$base===null?null:$base-(int)round($base*$bps/10000)];
  }
  public function orderDiscount(Customer $c,int $subtotal): int {return (int)round($subtotal*(int)$c->order_discount_bps/10000);}

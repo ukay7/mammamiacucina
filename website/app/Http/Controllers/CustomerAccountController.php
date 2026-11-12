@@ -59,13 +59,13 @@ class CustomerAccountController extends Controller {
   $order->load('items');
   return response()->view('orders.print',compact('order'))->header('Cache-Control','no-store, private');
  }
- public function profile(Request $r){return view('customer.profile',['user'=>$r->user()]);}
+ public function profile(Request $r){return view('customer.profile',['user'=>$r->user(),'documents'=>app(\App\Services\CustomerDocuments::class)->listing($r->user()->customerRecord(),$r->user(),$r)]);}
  public function updateProfile(Request $r){
-  $d=$r->validate(['name'=>'required|string|max:100','phone'=>'required|string|max:40','address'=>'nullable|string|max:255','city'=>'nullable|string|max:100','province'=>'nullable|string|max:100','postal_code'=>'nullable|string|max:30','country'=>'nullable|string|max:100'] + \App\Services\BusinessDetails::rules($r->user()->account_type==='business'));
+  $d=$r->validate(['name'=>'required|string|max:100','alternate_email'=>'sometimes|nullable|email:filter|max:255','phone'=>'required|string|max:40','address'=>'nullable|string|max:255','city'=>'nullable|string|max:100','province'=>'nullable|string|max:100','postal_code'=>'nullable|string|max:30','country'=>'nullable|string|max:100'] + \App\Services\BusinessDetails::rules($r->user()->account_type==='business'));
   // Only these profile fields may change. Email, account type, verification and permissions are immutable here.
     \Illuminate\Support\Facades\DB::transaction(function() use($r,$d){
    $r->user()->forceFill(\Illuminate\Support\Arr::only($d,['name','phone']))->save();
-   $r->user()->customerRecord()->update(\Illuminate\Support\Arr::only($d,array_merge(['address','city','province','postal_code','country'],\App\Services\BusinessDetails::FIELDS)));
+   $r->user()->customerRecord()->update(\Illuminate\Support\Arr::only($d,array_merge(['alternate_email','address','city','province','postal_code','country'],\App\Services\BusinessDetails::FIELDS)));
   });
   return redirect()->route('customer.profile')->with('status','Your profile has been updated.');
  }

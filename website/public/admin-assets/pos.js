@@ -11,9 +11,11 @@
     };
     const checkout = $('#pos-checkout'), success = $('#pos-success'), form = $('#complete-sale');
     const customerForm=$('#pos-customer-form');
+    const addressPicker=form.querySelector('[data-delivery-address]').deliveryAddressPicker;
+    const schedulePicker=form.querySelector('[data-delivery-schedule]').deliverySchedulePicker;
     let customerId=null, customerVersion=0, customerReady=false, frozenReceipt=null, cashPaymentStatus='paid';
     let quote = null, submitting = false, reviewing = false, pendingScans = 0, frozenPayload = null;
-    let quoteSerial=0, deliverySerial=0, deliveryTimer;
+    let quoteSerial=0, deliverySerial=0, deliveryTimer, deliveryOptionsDirty=false;
     const matrixDelivery=()=>app.dataset.matrix==='1' && $('#fulfillment').value==='delivery';
     let searchSerial = 0, searchTimer, cameraControls, cameraGeneration = 0, lastCode = '', lastSeen = 0;
     const make = (tag, text, className) => {
@@ -61,11 +63,90 @@
         app.querySelectorAll('.pos-discovery input,.pos-discovery button').forEach(el=>el.disabled=!ready);
         $('#review-sale').disabled=!ready||!cart.size;
     }
-    $('#pos-customer-search').addEventListener('input',()=>{
-        const term=$('#pos-customer-search').value.trim().toLowerCase();
-        Array.from($('#pos-customer').options).forEach(option=>option.hidden=!!option.value && option.value!=='new' && !option.textContent.toLowerCase().includes(term));
+    const customerSelect=$('#pos-customer'), customerPicker=$('#pos-customer-picker'), customerToggle=$('#pos-customer-toggle');
+    const customerSearch=$('#pos-customer-search'), customerMenu=$('#pos-customer-menu'), customerOptions=$('#pos-customer-options');
+    let customerMatches=[], activeCustomer=-1;
+    const normalizeCustomer=value=>String(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase();
+    function customerLabel(container,option){
+        container.replaceChildren();
+        if(option?.dataset.profile){
+            const number='#'+option.value;
+            container.append(make('strong',number),document.createTextNode(option.textContent.trim().slice(number.length)));
+        }else container.textContent=option?.textContent || 'Choose a customer…';
+    }
+    function syncCustomerPicker(){customerLabel($('#pos-customer-value'),customerSelect.selectedOptions[0]);}
+    function highlightCustomer(index,scroll=false){
+        activeCustomer=index;
+        Array.from(customerOptions.children).forEach((node,i)=>node.classList.toggle('is-active',i===index));
+        const active=customerOptions.children[index];
+        if(active){
+            customerSearch.setAttribute('aria-activedescendant',active.id);
+            if(scroll)active.scrollIntoView({block:'nearest'});
+        }else customerSearch.removeAttribute('aria-activedescendant');
+    }
+    function filterCustomers(){
+        const term=normalizeCustomer(customerSearch.value.trim()), words=term.split(/\s+/).filter(Boolean);
+        customerMatches=Array.from(customerSelect.options).filter(option=>{
+            if(!option.dataset.profile)return false;
+            const label=normalizeCustomer(option.textContent);
+            if(words.every(word=>label.includes(word)))return true;
+            const digits=term.replace(/\D/g,'');
+            return digits.length>=3 && /^[\d\s()+.-]+$/.test(term)
+                && String(JSON.parse(option.dataset.profile).phone || '').replace(/\D/g,'').includes(digits);
+        });
+        customerOptions.replaceChildren();
+        customerMatches.forEach(option=>{
+            const row=make('div',undefined,'pos-customer-option');
+            row.id='pos-customer-option-'+option.value;row.dataset.value=option.value;row.setAttribute('role','option');
+            row.setAttribute('aria-selected',String(option.value===customerSelect.value));
+            customerLabel(row,option);customerOptions.append(row);
+        });
+        $('#pos-customer-empty').hidden=customerMatches.length>0;
+        const selected=customerMatches.findIndex(option=>option.value===customerSelect.value);
+        highlightCustomer(selected>=0?selected:(customerMatches.length?0:-1));
+    }
+    function closeCustomerPicker(focus=false){
+        customerMenu.hidden=true;customerToggle.setAttribute('aria-expanded','false');customerSearch.setAttribute('aria-expanded','false');
+        customerSearch.removeAttribute('aria-activedescendant');
+        if(focus)customerToggle.focus();
+    }
+    function openCustomerPicker(){
+        if(customerSelect.disabled)return;
+        customerSearch.value='';filterCustomers();customerMenu.hidden=false;
+        customerToggle.setAttribute('aria-expanded','true');customerSearch.setAttribute('aria-expanded','true');customerSearch.focus();
+        highlightCustomer(activeCustomer,true);
+    }
+    function chooseCustomer(value){
+        if(customerSelect.disabled)return;
+        const changed=customerSelect.value!==value;customerSelect.value=value;syncCustomerPicker();closeCustomerPicker(true);
+        if(changed)customerSelect.dispatchEvent(new Event('change',{bubbles:true}));
+    }
+    customerToggle.addEventListener('click',()=>customerMenu.hidden?openCustomerPicker():closeCustomerPicker());
+    customerToggle.addEventListener('keydown',event=>{
+        if(['ArrowDown','ArrowUp'].includes(event.key)){event.preventDefault();openCustomerPicker();}
     });
+    customerSearch.addEventListener('input',filterCustomers);
+    customerSearch.addEventListener('keydown',event=>{
+        if(event.isComposing)return;
+        if(['ArrowDown','ArrowUp'].includes(event.key)){
+            event.preventDefault();if(!customerMatches.length)return;
+            highlightCustomer((activeCustomer+(event.key==='ArrowDown'?1:-1)+customerMatches.length)%customerMatches.length,true);
+        }else if(event.key==='Enter'){
+            event.preventDefault();if(activeCustomer>=0)chooseCustomer(customerMatches[activeCustomer].value);
+        }
+    });
+    customerOptions.addEventListener('click',event=>{const row=event.target.closest('[data-value]');if(row)chooseCustomer(row.dataset.value);});
+    $('#pos-add-customer').addEventListener('click',()=>chooseCustomer('new'));
+    customerPicker.addEventListener('keydown',event=>{
+        if(event.key==='Escape'&&!customerMenu.hidden){event.preventDefault();event.stopPropagation();closeCustomerPicker(true);}
+    });
+    customerPicker.addEventListener('focusout',event=>{if(!customerPicker.contains(event.relatedTarget))closeCustomerPicker();});
+    // Keep focus in the search box when selecting a result with a mouse.
+    customerOptions.addEventListener('mousedown',event=>event.preventDefault());
+    document.addEventListener('click',event=>{if(!customerPicker.contains(event.target))closeCustomerPicker();});
+    $('#pos-customer-fallback').hidden=true;customerPicker.hidden=false;syncCustomerPicker();
     $('#pos-customer').addEventListener('change',()=>{
+        syncCustomerPicker();
         customerVersion++;searchSerial++;stopCamera();customerGate(false);quote=null;
         $('#pos-results').replaceChildren();
         const isNew=$('#pos-customer').value==='new';$('#pos-new-customer').hidden=!isNew;
@@ -78,19 +159,21 @@
     customerForm.onsubmit=async event=>{
         event.preventDefault();if(submitting||checkout.open||frozenPayload)return;
         const select=$('#pos-customer');if(!select.value){feedback('Select a customer first.',true);return;}
-        const button=$('#confirm-customer');button.disabled=true;select.disabled=true;$('#pos-customer-search').disabled=true;customerGate(false);
+        const button=$('#confirm-customer');button.disabled=true;select.disabled=true;customerToggle.disabled=true;customerSearch.disabled=true;closeCustomerPicker();customerGate(false);
         try{
             if(select.value==='new'){
                 const result=await request(app.dataset.customerStore,Object.fromEntries(new FormData(customerForm)));
-                const c=result.customer,option=new Option(customerBusinessPrefix(c)+'#'+c.id+' · '+c.name+' — '+c.email+(c.phone?' '+c.phone:''),c.id);
+                const c=result.customer,option=new Option('#'+c.id+' · '+customerBusinessPrefix(c)+c.name+(c.email?' — '+c.email:'')+(c.phone?' · '+c.phone:''),c.id);
                 option.dataset.profile=JSON.stringify(c);option.dataset.pending=result.pending?'1':'0';select.add(option);select.value=String(c.id);
+                syncCustomerPicker();
                 $('#pos-new-customer').hidden=true;$('#pos-new-customer').querySelectorAll('input,select,textarea').forEach(el=>el.disabled=true);
             }
-            const option=select.selectedOptions[0],profile=JSON.parse(option.dataset.profile);
+            const option=select.selectedOptions[0];let profile=JSON.parse(option.dataset.profile);
             if(option.dataset.pending==='1')throw Error('Business account created/selected. Admin approval is required before placing an order.');
             const id=Number(select.value);
             const url=new URL(app.dataset.products,location.href);url.searchParams.set('customer_id',id);
             const data=await request(url);
+            profile=data.customer||profile;option.dataset.profile=JSON.stringify(profile);
             if(cart.size){
                 const reviewed=await request(app.dataset.quote,{customer_id:customerId,items:items(),fulfillment:'pickup',customer_id:id});
                 reviewed.items.forEach(line=>{cart.get(line.id).unit_cents=line.unit_cents;});
@@ -98,14 +181,15 @@
             customerId=id;customerVersion++;customerGate(true);quote=null;
             form.elements.customer_id.value=id;
             const parts=profile.name.split(' ');form.elements.first_name.value=parts.shift();form.elements.last_name.value=parts.join(' ');
-            for(const key of ['email','phone','address','city','province','postal_code','country'])form.elements[key].value=profile[key]||'';
-            if(!form.elements.country.value)form.elements.country.value='Canada';
+            for(const key of ['email','phone'])form.elements[key].value=profile[key]||'';
+            addressPicker.setCustomer(profile);
+            deliveryOptionsDirty=true;form.elements.delivery_service.value='';
             $('#pos-customer-summary').textContent=customerBusinessPrefix(profile)+profile.name+' · '+(profile.account_type==='business'?'Business':'Individual')+' pricing'+(cart.size?' · Cart prices updated':'');
             $('#confirm-customer').textContent='Customer selected';
             renderResults(data.products);renderCart();$('#scan-code').focus();
             feedback('Customer selected. Search and scans now use '+profile.account_type+' prices.');
         }catch(error){feedback(error.message,true);$('#pos-customer-summary').textContent=error.message;}
-        finally{button.disabled=false;select.disabled=false;$('#pos-customer-search').disabled=false;}
+        finally{button.disabled=false;select.disabled=false;customerToggle.disabled=false;customerSearch.disabled=false;}
     };
     const items = () => Array.from(cart.values()).map(line => ({id:line.id,quantity:line.quantity}));
     function canEdit() { return customerReady && !checkout.open && !success.open && !reviewing && !submitting && !frozenPayload; }
@@ -275,15 +359,15 @@
     form.elements.payment_status.addEventListener('change',()=>{if(form.elements.payment_method.value==='cash')cashPaymentStatus=form.elements.payment_status.value;});
     function configureDelivery(){
         const delivery=$('#fulfillment').value==='delivery';
-        $('#delivery-fields').hidden=!delivery;
-        $('#delivery-fields').querySelectorAll('input').forEach(input=>{input.disabled=!delivery;input.required=delivery;});
+        addressPicker.setDelivery(delivery,submitting||!!frozenPayload);
+        schedulePicker.setDelivery(delivery,submitting||!!frozenPayload);
         form.elements.first_name.required=true;form.elements.phone.required=delivery;
         configurePayment();
         $('#customer-help').textContent=$('#pos-customer-summary').textContent;
         $('#pos-delivery-choice').hidden=!matrixDelivery();
         form.elements.delivery_service.disabled=!matrixDelivery();form.elements.delivery_service.required=matrixDelivery();
     }
-    function clearQuote(){quote=null;$('#quote-lines').replaceChildren();cart.forEach(line=>{const row=make('div',undefined,'pos-quote-line'),description=make('span',line.name+' × '+line.quantity);appendAlternateNames(description,line);row.append(description,make('strong',money(line.unit_cents*line.quantity)));$('#quote-lines').append(row);});$('#complete-button').disabled=true;$('#complete-button').textContent='Complete sale';$('#quote-totals').textContent='Select a delivery service to calculate the total.';}
+    function clearQuote(){quote=null;$('#quote-lines').replaceChildren();cart.forEach(line=>{const row=make('div',undefined,'pos-quote-line'),description=make('span',line.name+' × '+line.quantity);appendAlternateNames(description,line);row.append(description,make('strong',money(line.unit_cents*line.quantity)));$('#quote-lines').append(row);});$('#complete-button').disabled=true;$('#complete-button').textContent='Complete sale';$('#quote-totals').textContent=matrixDelivery()?'Select a delivery service to calculate the total.':'Updating order total…';}
     async function refreshDelivery(){
         if(!matrixDelivery()||frozenPayload||submitting)return;
         const serial=++deliverySerial;quoteSerial++;clearQuote();
@@ -297,6 +381,7 @@
             data.services.forEach(s=>{const option=new Option(s.name+(s.description?' ('+s.description+')':'')+' — '+(s.amount_cents===null?'Unavailable':money(s.amount_cents)),s.code);option.disabled=s.amount_cents===null;option.dataset.notes=s.notes||'';option.dataset.description=s.description||'';select.add(option);});
             select.disabled=false;
             if(data.services.some(s=>s.code===selected&&s.amount_cents!==null))select.value=selected;
+            deliveryOptionsDirty=false;
             message.textContent=data.from_postal+' (Zone '+data.from_zone+') → '+data.to_postal+' (Zone '+data.to_zone+')';
             $('#checkout-error').hidden=true;
             if(select.value)review();
@@ -304,26 +389,36 @@
     }
     async function review(){
         if(!customerReady || submitting || frozenPayload || !cart.size || pendingScans)return;
-        stopCamera();configureDelivery();if(!checkout.open)checkout.showModal();
+        stopCamera();if(!checkout.open)schedulePicker.refreshDefault();configureDelivery();if(!checkout.open)checkout.showModal();
         const serial=++quoteSerial;clearQuote();
-        if(matrixDelivery() && (!form.elements.postal_code.value || !form.elements.delivery_service.value)){refreshDelivery();return;}
+        if(matrixDelivery() && (deliveryOptionsDirty || !form.elements.postal_code.value || !form.elements.delivery_service.value)){refreshDelivery();return;}
         reviewing=true;renderCart();$('#review-sale').textContent='Checking prices & stock…';
         try{
-            const data=await request(app.dataset.quote,{customer_id:customerId,items:items(),fulfillment:$('#fulfillment').value,postal_code:form.elements.postal_code.value,country:form.elements.country.value,delivery_service:form.elements.delivery_service.value});
+            const destination=Object.fromEntries(['address','city','province','postal_code','country','delivery_address_type','delivery_service'].map(key=>[key,form.elements[key].value]));
+            const data=await request(app.dataset.quote,{customer_id:customerId,items:items(),fulfillment:$('#fulfillment').value,...destination});
             if(serial!==quoteSerial)return;
             fillQuote(data);
             if(data.delivery_route?.delivery_service_name)$('#pos-delivery-description').textContent=data.delivery_route.delivery_from_postal+' (Zone '+data.delivery_route.delivery_from_zone+') → '+data.delivery_route.delivery_to_postal+' (Zone '+data.delivery_route.delivery_to_zone+') · '+data.delivery_route.delivery_service_name+' · '+money(data.delivery);
         }catch(error){if(serial===quoteSerial){$('#checkout-error').textContent=error.message;$('#checkout-error').hidden=false;$('#refresh-quote').hidden=false;}}
         finally{reviewing=false;renderCart();$('#review-sale').textContent='Review & Checkout →';}
     }
-    ['postal_code','country'].forEach(key=>form.elements[key].addEventListener('input',()=>{if(!matrixDelivery()||frozenPayload||submitting)return;quoteSerial++;deliverySerial++;clearQuote();form.elements.delivery_service.disabled=true;clearTimeout(deliveryTimer);deliveryTimer=setTimeout(refreshDelivery,350);}));
+    form.addEventListener('delivery-address-change',event=>{
+        if(frozenPayload||submitting||$('#fulfillment').value!=='delivery')return;
+        quoteSerial++;deliverySerial++;clearQuote();clearTimeout(deliveryTimer);
+        const rateChange=!event.detail.field||['postal_code','country'].includes(event.detail.field);
+        deliveryOptionsDirty=deliveryOptionsDirty||rateChange;
+        if(matrixDelivery()&&deliveryOptionsDirty)form.elements.delivery_service.disabled=true;
+        deliveryTimer=setTimeout(matrixDelivery()&&deliveryOptionsDirty?refreshDelivery:review,350);
+    });
     form.elements.delivery_service.addEventListener('change',review);
     $('#review-sale').onclick=review;
     $('#refresh-quote').onclick=review;
     $('#close-checkout').onclick=()=>{if(!submitting&&!frozenPayload)checkout.close();};
     checkout.addEventListener('cancel',event=>{if(submitting||frozenPayload)event.preventDefault();});
     function lockForm(lock){
-        form.querySelectorAll('input,select,textarea').forEach(input=>input.disabled=lock || !!input.closest('[data-business-fields][hidden]') || (input.closest('#delivery-fields') && $('#fulfillment').value!=='delivery') || (input.name==='delivery_service'&&!matrixDelivery()));
+        form.querySelectorAll('input,select,textarea').forEach(input=>input.disabled=lock || !!input.closest('[data-business-fields][hidden]') || (input.name==='delivery_service'&&!matrixDelivery()));
+        addressPicker.setDelivery($('#fulfillment').value==='delivery',lock);
+        schedulePicker.setDelivery($('#fulfillment').value==='delivery',lock);
         $('#close-checkout').disabled=lock;
         if(!lock)configurePayment();
     }
@@ -346,7 +441,7 @@
             $('#success-status').textContent=uploadMessage||data.status+' · '+data.payment_status_label;
             $('#saved-order-link').href=data.order_url;
             $('#receipt-link').href=data.print_url;$('#receipt-link').textContent=data.payment_status==='paid'?'Print receipt / PDF':'Print order / PDF';success.showModal();form.reset();cashPaymentStatus='paid';customerForm.reset();customerId=null;customerVersion++;customerGate(false);$('#pos-new-customer').hidden=true;$('#pos-new-customer').querySelectorAll('input,select,textarea').forEach(el=>el.disabled=true);$('#pos-customer-summary').textContent='Select a customer to start the next sale.';$('#pos-results').replaceChildren();
-            $('#product-search').value='';$('#pos-feedback').hidden=true;
+            syncCustomerPicker();closeCustomerPicker();$('#product-search').value='';$('#pos-feedback').hidden=true;
         }catch(error){
             const certain=[401,403,419,422].includes(error.status);
             if(certain){frozenPayload=null;quote=null;lockForm(false);$('#refresh-quote').hidden=error.status!==422;}
@@ -355,8 +450,8 @@
             $('#complete-button').textContent=certain?'Complete sale':'Retry confirmation';
         }finally{submitting=false;$('#complete-button').disabled=!quote&&!frozenPayload;if(!frozenPayload)lockForm(false);}
     };
-    $('#new-sale').onclick=()=>{success.close();$('#pos-customer-search').focus();};
-    success.addEventListener('close',()=>$('#scan-code').focus());
+    $('#new-sale').onclick=()=>{success.close();customerToggle.focus();};
+    success.addEventListener('close',()=>customerToggle.focus());
     window.addEventListener('beforeunload',event=>{stopCamera();if(cart.size||frozenPayload){event.preventDefault();event.returnValue='';}});
     window.addEventListener('pagehide',stopCamera);
     document.addEventListener('visibilitychange',()=>{if(document.hidden)stopCamera();});

@@ -27,7 +27,7 @@ class PosController extends Controller
         } else {
             $query->searchTerm($term, false, true);
         }
-        return response()->json(['products' => $query->orderBy('premium_marketing_name')->limit(20)->get()->map(function ($product) use ($profile) {
+        return response()->json(['customer'=>$profile->only(['id','name','email','phone','account_type','address','city','province','postal_code','country','business_name','delivery_address']), 'products' => $query->orderBy('premium_marketing_name')->limit(20)->get()->map(function ($product) use ($profile) {
             return ['id' => $product->id, 'name' => $product->premium_marketing_name, 'barcode' => $product->barcode_number,
                 'subtitle' => $product->italian_subtitle, 'source_name' => $product->original_description,
                 'qr_code' => $product->qr_code, 'code' => $product->product_code, 'active' => $product->is_active,
@@ -41,6 +41,8 @@ class PosController extends Controller
     {
         $data = $request->validate(['customer_id'=>'required|integer','items' => 'required|array|min:1|max:100', 'items.*.id' => 'required|integer|distinct',
             'items.*.quantity' => 'required|integer|min:1|max:9999', 'fulfillment' => 'required|in:pickup,delivery','postal_code'=>'nullable|string|max:30','country'=>'nullable|string|max:100','delivery_service'=>'nullable|string|max:20']);
+        $data += $request->validate(['delivery_address_type'=>'sometimes|required|in:company,alternate',
+            'address'=>'nullable|string|max:255','city'=>'nullable|string|max:100','province'=>'nullable|string|max:100']);
         return response()->json($service->quote($data['items'], $data['fulfillment'], $request->user()->id,$data));
     }
 
@@ -52,6 +54,8 @@ class PosController extends Controller
             'address' => 'nullable|string|max:255', 'city' => 'nullable|string|max:100', 'province' => 'nullable|string|max:100',
             'postal_code' => 'nullable|string|max:30', 'country' => 'nullable|string|max:100', 'notes' => 'nullable|string|max:2000',
             'payment_method' => 'required|in:cash,etransfer,cheque,credit', 'payment_status' => 'required|in:paid,unpaid'] + \App\Services\BusinessDetails::rules(!$request->filled('customer_id') && $request->input('account_type')==='business'));
+        $data += $request->validate(['delivery_address_type'=>'sometimes|required|in:company,alternate']);
+        $data += $request->only(\App\Services\DeliverySchedule::FIELDS);
         $order = $service->complete($data['quote'], $data, $request->user()->id)->refresh();
         return response()->json(['number' => $order->number, 'total' => $order->final_total_cents,
             'receipt_url'=>route('orders.transfer-receipt.store',$order),'revision'=>$order->revision,'status'=>$order->status_label,'payment_method'=>$order->payment_method,'payment_status'=>$order->payment_status,'payment_status_label'=>$order->payment_status_label,'order_url'=>route('admin.pos.order',$order),'print_url' => route('admin.pos.receipt', $order)]);

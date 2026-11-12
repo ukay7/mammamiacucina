@@ -10,6 +10,7 @@
  async function quote(){
   const run=++serial;clearTimeout(timer);
   const isPickup=pickup();
+  form.querySelector('[data-delivery-address]')?.deliveryAddressPicker.setDelivery(!isPickup);
   form.querySelectorAll('[data-delivery-field]').forEach(el=>{el.hidden=isPickup;el.querySelectorAll('input,select').forEach(input=>{input.disabled=isPickup;input.required=!isPickup;});});
   document.querySelector('#checkout-pickup-address').hidden=!isPickup;
   document.querySelector('#checkout-delivery-label').textContent=isPickup?'Pick up':'Delivery';
@@ -38,7 +39,7 @@
    feedback.textContent=route+' · '+d.delivery_service_name+' · '+money(d.delivery_cents)+'. '+(service.selectedOptions[0].dataset.description||'');valid=true;button.disabled=false;
   }catch(e){if(run!==serial)return;service.disabled=true;feedback.textContent=e.message||'Unable to calculate delivery.';feedback.className='mmc-error-alert';}
  }
- [postal,country].forEach(el=>el.addEventListener('input',()=>{serial++;invalidate();if(service)service.disabled=true;clearTimeout(timer);timer=setTimeout(quote,350);}));
+ form.addEventListener('delivery-address-change',event=>{if(event.detail.field && !['postal_code','country'].includes(event.detail.field))return;serial++;invalidate();if(service)service.disabled=true;clearTimeout(timer);timer=setTimeout(quote,350);});
  form.addEventListener('submit',e=>{if(!valid){e.preventDefault();e.stopImmediatePropagation();quote();}},true);
  window.addEventListener('pageshow',quote);service?.addEventListener('change',quote);fulfillment.addEventListener('change',quote);
  function paymentNote(){document.querySelector('#checkout-transfer-note').hidden=payment.value!=='etransfer';}

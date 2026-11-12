@@ -6,6 +6,9 @@ class EmailHistory extends Model {
  protected $guarded=['id'];
  protected $hidden=['payload','archive'];
  public function order(){return $this->belongsTo(Order::class);}
+ public function recipients():array {
+  return $this->alternate_recipient ? [$this->recipient,$this->alternate_recipient] : [$this->recipient];
+ }
  protected static function booted():void {
   static::addGlobalScope('active_order',fn($query)=>$query->where(fn($q)=>$q->whereNull('order_id')->orWhereHas('order')));
  }

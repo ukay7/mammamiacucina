@@ -1,0 +1,14 @@
+.delivery-address-picker{min-width:0;margin:20px 0;padding:18px;border:1px solid #d9c5a7;border-radius:8px;background:#fcf8f1}
+.delivery-address-picker legend{float:none;width:auto;font-size:17px;font-weight:600;line-height:1.4;padding:0 5px;margin:0 0 12px}
+.delivery-address-options{display:flex;flex-wrap:wrap;gap:12px 20px;margin-bottom:12px}
+.delivery-address-options label{display:flex!important;align-items:center;gap:8px;margin:0!important;font-weight:600;cursor:pointer}
+.delivery-address-options input[type=radio]{display:inline-block;width:18px!important;height:18px!important;min-width:18px;padding:0;margin:0;accent-color:#a37b39}
+.delivery-address-options input:disabled+span{opacity:.6}
+.delivery-company-summary{white-space:pre-line;overflow-wrap:anywhere;line-height:1.6;margin:8px 0}
+.delivery-address-hint{font-size:13px;line-height:1.5;margin:8px 0 14px;color:#756854}
+.delivery-address-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.delivery-address-grid label{display:block;margin:0;font-size:13px;font-weight:600}
+.delivery-address-grid .form-control{width:100%;margin-top:5px;min-width:0}
+.delivery-address-wide{grid-column:1/-1}
+.delivery-address-picker [hidden],.delivery-address-picker[hidden]{display:none!important}
+@media(max-width:550px){.delivery-address-grid{grid-template-columns:1fr}.delivery-address-picker{padding:12px}.delivery-address-grid .form-control{font-size:16px}}

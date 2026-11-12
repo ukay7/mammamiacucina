@@ -1,0 +1,8 @@
+.delivery-schedule{border:1px solid #dbc9aa;border-radius:8px;padding:16px;margin:18px 0;background:#fbf7ef;min-width:0}
+.delivery-schedule[hidden]{display:none!important}
+.delivery-schedule legend{float:none;width:auto;padding:0 6px;margin:0;font-size:16px;font-weight:700;color:#654b32}
+.delivery-schedule p{margin:4px 0 12px;font-size:13px;line-height:1.5;color:#6c5d4c}
+.delivery-schedule-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.delivery-schedule-fields label{display:block;margin:0;font-size:14px;font-weight:600}
+.delivery-schedule-fields input{display:block;box-sizing:border-box;width:100%;min-width:0;margin-top:6px;min-height:42px;background:#fff;color:#30271e}
+@media(max-width:380px){.delivery-schedule-fields{grid-template-columns:1fr}}

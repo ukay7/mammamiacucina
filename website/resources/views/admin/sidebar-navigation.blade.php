@@ -12,6 +12,7 @@ $active = static fn($item) => str_starts_with($item['match'], 'path:')
 @if(auth()->user()->isCustomer())
 <li><a href="{{ route('customer.orders') }}"><i class="fas fa-home" aria-hidden="true"></i><span>My Orders</span></a></li>
 <li class="{{ request()->routeIs('customer.profile*') ? 'active' : '' }}"><a href="{{ route('customer.profile') }}"><i class="fas fa-user" aria-hidden="true"></i><span>My Profile</span></a></li>
+<li class="{{ request()->routeIs('customer.documents*')?'active':'' }}"><a href="{{ route('customer.documents') }}"><i class="fas fa-file-alt" aria-hidden="true"></i><span>My Documents</span></a></li>
 @else
 @foreach($sections as $heading => $items)
 @php

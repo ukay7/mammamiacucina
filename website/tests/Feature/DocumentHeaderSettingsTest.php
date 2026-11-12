@@ -13,6 +13,19 @@ class DocumentHeaderSettingsTest extends TestCase
 {
     use RefreshDatabase;
 
+    private function assertRegistrationInFooter(string $html): void
+    {
+        $dom = new \DOMDocument;
+        @$dom->loadHTML($html);
+        $xpath = new \DOMXPath($dom);
+        $headers = $xpath->query('//table[contains(@class,"doc-header")]');
+        $this->assertGreaterThan(0, $headers->length);
+        foreach ($headers as $header) $this->assertStringNotContainsString('GST/HST', $header->textContent);
+        $registrations = $xpath->query('//footer//div[contains(@class,"doc-registration")]');
+        $this->assertSame($headers->length, $registrations->length);
+        foreach ($registrations as $registration) $this->assertStringContainsString('GST/HST: 737385034RT0001', $registration->textContent);
+    }
+
     private function login(): void
     {
         $this->actingAs(User::factory()->create(['role_id' => Role::where('is_super', true)->value('id'), 'is_active' => true]));
@@ -97,6 +110,14 @@ class DocumentHeaderSettingsTest extends TestCase
         $this->put(route('admin.settings.update'), $this->payload(['document_company_name' => 'Unauthorized']))->assertForbidden();
     }
 
+    public function test_footer_uses_only_configured_registration_and_escapes_it(): void
+    {
+        $this->assertSame('', trim(view('documents.registration', ['doc' => ['brand' => ['tax_number' => null]]])->render()));
+        $html = view('documents.registration', ['doc' => ['brand' => ['tax_number' => '<script>example</script>']]])->render();
+        $this->assertStringContainsString('&lt;script&gt;example&lt;/script&gt;', $html);
+        $this->assertStringNotContainsString('<script>', $html);
+    }
+
     public function test_financial_documents_share_header_keep_disclaimers_and_do_not_rewrite_history(): void
     {
         $this->login();
@@ -109,17 +130,20 @@ class DocumentHeaderSettingsTest extends TestCase
         $theme = app(DocumentTheme::class);
         foreach ([$theme->order($order), $theme->order($order, $invoice), $theme->order($order, receipt: $entry)] as $doc) {
             $html = view('documents.financial', ['doc' => $doc, 'pdf' => true])->render();
+            $this->assertRegistrationInFooter($html);
             foreach (['Mamma Mia Cucina INC.', 'Contact Us:', 'Info@mammamiacucina.ca', 'Mailing Address:', '1 Sir Bodwin Place',
                 'Warehouse:', '471 Jevlan Dr', 'GST/HST: 737385034RT0001', 'Monday, 02 Nov 2026 13:12 EST',
                 'Order confirmations, invoices and payment receipts are separate records; they do not create additional charges.'] as $text) $this->assertStringContainsString($text, $html);
             $this->assertStringContainsString($doc['notice'], $html);
         }
         $this->assertSame($before, [$order->fresh()->getRawOriginal(), $invoice->fresh()->getRawOriginal(), $entry->fresh()->getRawOriginal()]);
-        $this->get(route('admin.orders.print', $order))->assertOk()->assertSee('Mamma Mia Cucina INC.')->assertSee('GST/HST: 737385034RT0001');
-        $this->get('/admin/products/export?format=pdf')->assertOk()->assertSee('Mamma Mia Cucina INC.')->assertSee('GST/HST: 737385034RT0001');
-        $this->get('/admin/orders/export?format=print&from=2026-11-01&to=2026-11-03')->assertOk()->assertSee('Mamma Mia Cucina INC.')->assertSee('GST/HST: 737385034RT0001');
+        foreach ([route('admin.orders.print', $order), '/admin/products/export?format=pdf', '/admin/orders/export?format=print&from=2026-11-01&to=2026-11-03'] as $url) {
+            $response = $this->get($url)->assertOk()->assertSee('Mamma Mia Cucina INC.')->assertSee('GST/HST: 737385034RT0001');
+            $this->assertRegistrationInFooter($response->getContent());
+        }
         $html = view('admin.orders.packing-print', ['order' => $order])->render();
         $this->assertStringContainsString('Mamma Mia Cucina INC.', $html);
         $this->assertStringContainsString('Check quantities before dispatch.', $html);
+        $this->assertRegistrationInFooter($html);
     }
 }

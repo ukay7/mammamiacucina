@@ -45,6 +45,11 @@ class PosSale
     public function quote(array $items, string $fulfillment, int $userId, array $destination=[]): array
     {
         $profile = app(PosCustomer::class)->resolve((int) ($destination['customer_id'] ?? 0));
+        $addressSnapshot = [];
+        if ($fulfillment === 'delivery' && isset($destination['delivery_address_type'])) {
+            $addressSnapshot = app(CustomerDeliveryAddress::class)->resolve($profile, $destination, false);
+            $destination = array_replace($destination, $addressSnapshot);
+        }
         $lines = $this->lines($items, $profile);
         $settings = GeneralSetting::findOrFail(1);
         $subtotal = array_sum(array_map(fn ($line) => $line['unit_cents'] * $line['quantity'], $lines));
@@ -60,6 +65,7 @@ class PosSale
         $tax = $settings->taxFor($subtotal);
         $data = ['token' => (string) Str::uuid(), 'user_id' => $userId, 'expires' => now()->addMinutes(30)->timestamp,
             'commercial_revision'=>$profile->commercial_revision,'customer_id'=>$profile->id,'pricing_type'=>$profile->user->account_type,'matrix'=>(bool)$settings->matrix_delivery_enabled,'delivery_route'=>$route,'items' => $this->snapshot($lines), 'fulfillment' => $fulfillment, 'delivery' => $delivery, 'rate' => $settings->tax_basis_points];
+        if ($addressSnapshot) $data['delivery_address'] = $addressSnapshot + ['type'=>$destination['delivery_address_type']];
         return ['credit_order_warning'=>app(CustomerTerms::class)->warning($profile,$subtotal+$delivery+$tax),'allowed_methods'=>app(CustomerTerms::class)->allowed($profile,'pos'),'credit_warning'=>app(CustomerTerms::class)->warning($profile),'order_discount_cents'=>$discount,'order_discount_bps'=>$profile->order_discount_bps,'delivery_route'=>$route,'quote' => Crypt::encryptString(json_encode($data)), 'subtotal' => $subtotal, 'delivery' => $delivery,
             'tax' => $tax, 'total' => $subtotal + $delivery + $tax, 'tax_percent' => $settings->tax_basis_points / 100,
             'items' => array_map(fn ($line) => ['id'=>$line['product']->id,'name' => $line['product']->premium_marketing_name, 'quantity' => $line['quantity'],
@@ -86,6 +92,18 @@ class PosSale
                 return $existing;
             }
             if ($quote['expires'] < now()->timestamp) $this->fail('Sale review expired. Review the sale again.');
+            $deliverySchedule = app(DeliverySchedule::class)->resolve($customer, $quote['fulfillment'] === 'delivery');
+            $profile = app(PosCustomer::class)->resolve((int) ($customer['customer_id'] ?? 0), true);
+            if (($quote['customer_id'] ?? null) !== $profile->id || ($quote['pricing_type'] ?? null) !== $profile->user->account_type) $this->fail('Customer or pricing type changed. Review the sale again.');
+            if(($quote['commercial_revision']??0)!==$profile->commercial_revision)$this->fail('Customer settings changed. Review the sale again.');
+            $addresses = app(CustomerDeliveryAddress::class);
+            if ($quote['fulfillment'] === 'delivery') {
+                $selected = $addresses->resolve($profile, $customer);
+                if (isset($quote['delivery_address']) && $quote['delivery_address'] !== $selected + ['type'=>$customer['delivery_address_type'] ?? 'alternate']) {
+                    $this->fail('Delivery address changed. Review the sale again before placing the order.');
+                }
+                $customer = array_replace($customer, $selected);
+            }
             $route=[];
             if($quote['fulfillment']==='delivery'){
                 if(($quote['matrix']??false)!==(bool)$settings->matrix_delivery_enabled)$this->fail('Delivery settings changed. Review the sale again.');
@@ -100,9 +118,6 @@ class PosSale
             if ($quote['rate'] !== $settings->tax_basis_points || $quote['delivery'] !== $delivery) {
                 $this->fail('Delivery or tax changed. Review the sale again before collecting payment.');
             }
-            $profile = app(PosCustomer::class)->resolve((int) ($customer['customer_id'] ?? 0), true);
-            if (($quote['customer_id'] ?? null) !== $profile->id || ($quote['pricing_type'] ?? null) !== $profile->user->account_type) $this->fail('Customer or pricing type changed. Review the sale again.');
-            if(($quote['commercial_revision']??0)!==$profile->commercial_revision)$this->fail('Customer settings changed. Review the sale again.');
             $parts = explode(' ', trim($profile->name), 2);
             $customer['first_name']=$parts[0];$customer['last_name']=$parts[1] ?? '';
             $customer['email']=$profile->email;$customer['phone']=trim($customer['phone'] ?? '') ?: $profile->phone;
@@ -120,7 +135,7 @@ class PosSale
             $transfer = in_array($customer['payment_method'],['etransfer','cheque','credit']);
             $customer['payment_status'] = $transfer ? 'unpaid' : $customer['payment_status'];
             if (!in_array($customer['payment_status'], ['paid', 'unpaid'], true)) $this->fail('Choose Paid or Unpaid for this sale.');
-            if($profile && !$pickup)$profile->update(\Illuminate\Support\Arr::only($customer,['address','city','province','postal_code','country']));
+            if (!$pickup) $addresses->remember($profile, $customer, $customer);
             $details = [];
             foreach (['first_name','last_name','email','phone','address','city','province','postal_code','country'] as $field) {
                 $details[$field] = $customer[$field] ?? '';
@@ -134,6 +149,7 @@ class PosSale
                 'customer_id'=>$profile?->id, 'checkout_token' => $quote['token'], 'number' => 'POS-'.Str::ulid(),
                 'notes' => $customer['notes'] ?? null, 'source' => 'pos', 'created_by' => $userId,
                 'fulfillment' => $quote['fulfillment'], 'pickup_address'=>$pickup ? $settings->pickup_address : null,
+                'delivery_scheduled_at' => $deliverySchedule,
                 'status' => $warehouseSale ? 'ready_to_dispatch' : 'warehouse_pending',
                 'warehouse_round'=>1,
                 'warehouse_sent_at'=>now(),

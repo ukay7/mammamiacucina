@@ -6,7 +6,7 @@
 @foreach($groups as $group)
 <section class="valuation-section">
 @include('documents.header')
-<table class="doc-info"><tr>@foreach($summary['currencies'] as $currency=>$currencyGroup)<td><h2>Grand total ({{ $currency }})</h2><strong>{{ $currency }} {{ $currencyGroup['total'] }}</strong><div>{{ $currencyGroup['products'] }} {{ \Illuminate\Support\Str::plural('product',$currencyGroup['products']) }} · {{ $currencyGroup['needs_setup'] }} excluded (needs setup)</div></td>@endforeach</tr>
+<table class="doc-info"><tr>@foreach($summary['currencies'] as $currency=>$currencyGroup)<td @if(count($summary['currencies'])===1) colspan="2" @endif><h2>Grand total ({{ $currency }})</h2><strong>{{ $currency }} {{ $currencyGroup['total'] }}</strong><div>{{ $currencyGroup['products'] }} {{ \Illuminate\Support\Str::plural('product',$currencyGroup['products']) }} · {{ $currencyGroup['needs_setup'] }} excluded (needs setup)</div></td>@endforeach</tr>
 <tr><td><h2>Stock scope</h2><div>{{ $warehouse }}</div><div>{{ $summary['records'] }} matching products · {{ $summary['missing_prices'] }} missing prices · {{ $summary['unset_quantities'] }} inventory not set · {{ $summary['needs_setup'] }} need setup</div>@if(count($groups)>1)<div>Column section {{ $loop->iteration }} of {{ count($groups) }}. Identity and valuation columns repeat for reference.</div>@endif</td><td><h2>Valuation basis</h2><div>Piece: discounted quoted price × pieces per carton.</div><div>Carton: discounted quoted price × 1.</div><div>Inventory value = cost per carton × cartons in stock.</div><div>Missing prices contribute 0 (red); Needs setup is excluded.</div></td></tr></table>
 @if(array_filter(\Illuminate\Support\Arr::except($filters,['per_page','warehouse'])))<p class="doc-notice">Filters: @foreach(array_filter(\Illuminate\Support\Arr::except($filters,['per_page','warehouse']),fn($value)=>$value!==null && $value!=='') as $key=>$value){{ str_replace('_',' ',ucfirst($key)) }}: {{ $value }}{{ !$loop->last?' · ':'' }}@endforeach</p>@endif
 <h2>{{ $group['title'] }}</h2>
@@ -28,6 +28,6 @@
 @endforeach
 @endif
 </tbody></table>
-<footer class="doc-footer"><strong>Thank you for choosing {{ rtrim($doc['brand']['name'],'.') }}.</strong><p>Inventory valuation as of {{ app(\App\Services\DocumentTheme::class)->dateLabel($doc['date']) }}. Line values are rounded to two decimals before totaling. Products marked Needs setup are excluded from totals. Unconfigured quantities contribute 0; negative quantities retain their sign. EUR and CAD stay separate; no currency conversion is applied.</p></footer>
+<footer class="doc-footer"><strong>Thank you for choosing {{ rtrim($doc['brand']['name'],'.') }}.</strong><p>Inventory valuation as of {{ app(\App\Services\DocumentTheme::class)->dateLabel($doc['date']) }}. Line values are rounded to two decimals before totaling. Products marked Needs setup are excluded from totals. Unconfigured quantities contribute 0; negative quantities retain their sign. EUR and CAD stay separate; no currency conversion is applied.</p>@include('documents.registration')</footer>
 </section>@endforeach
 </main></body></html>

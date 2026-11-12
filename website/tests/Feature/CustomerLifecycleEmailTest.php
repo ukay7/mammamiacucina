@@ -69,7 +69,8 @@ class CustomerLifecycleEmailTest extends TestCase
         $service->order($order, 'order_confirmation', 'order-created:'.$order->id);
         $service->order($order, 'order_confirmation', 'order-created:'.$order->id);
         $entry = EmailHistory::firstOrFail();
-        $this->assertSame(1, EmailHistory::count());
+        $this->assertSame(2, EmailHistory::count());
+        $this->assertSame(1, EmailHistory::where('type', 'new_order_notification')->count());
         $this->assertStringContainsString('Amount due: $100.00', $entry->payload['body']);
         $this->assertStringNotContainsString('Buyer', DB::table('email_history')->value('payload'));
         $order->update(['subtotal_cents' => 8000]);

@@ -13,3 +13,21 @@
 @media(max-width:700px){.pos-customer-body{grid-template-columns:1fr;padding:14px}.pos-customer-actions{align-items:stretch}.pos-customer-actions button{width:100%}.pos-results{max-height:350px}}
 
 @media(min-width:1101px){.pos-intro{display:none}.pos-customer-body{grid-template-columns:minmax(180px,.7fr) minmax(240px,1fr)}.pos-results{max-height:30vh}.pos-customer-step .pos-panel-heading{padding:10px 18px}.pos-customer-step .pos-panel-heading h2{font-size:21px}}
+
+/* Searchable customer picker, shared by existing and newly created accounts. */
+.pos-customer-step{position:relative;z-index:5;overflow:visible}
+.pos-customer-body{grid-template-columns:minmax(0,1fr)}
+.pos-customer-picker{position:relative;min-width:0}
+.pos-customer-picker label{display:block;margin:0 0 6px;font-size:12px;font-weight:600}
+#pos-app .pos-customer-toggle{height:auto;min-height:44px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;white-space:normal;font-weight:400;cursor:pointer}
+.pos-customer-toggle>span:first-child{min-width:0;overflow-wrap:anywhere}
+.pos-customer-toggle:disabled{cursor:wait;opacity:.65}
+.pos-customer-toggle strong,.pos-customer-option strong{font-weight:700;color:#30271e}
+.pos-customer-menu{position:absolute;top:100%;left:0;right:0;margin-top:5px;padding:12px;background:#fff;border:1px solid #b28a45;border-radius:10px;box-shadow:0 12px 30px #30271e26;z-index:10}
+.pos-customer-options{max-height:min(280px,40vh);overflow-y:auto;overscroll-behavior:contain;margin-top:10px}
+.pos-customer-option{padding:11px 10px;border-bottom:1px solid #f0e7d8;border-radius:5px;cursor:pointer;font-size:14px;font-weight:400;line-height:1.6;overflow-wrap:anywhere}
+.pos-customer-option:hover,.pos-customer-option.is-active{background:#f7efdf}
+.pos-customer-option[aria-selected="true"]{box-shadow:inset 3px 0 #b28a45}
+.pos-customer-empty{margin:14px 6px;color:var(--pos-muted);font-size:13px}
+.pos-customer-create{display:block;width:100%;padding:12px 10px;margin-top:8px;text-align:left;background:#fffaf2;border:1px solid var(--pos-line);border-radius:6px;color:#8f0920;font-weight:600;cursor:pointer}
+@media(max-width:600px){.pos-customer-menu{padding:10px}.pos-customer-option{padding:12px 8px}}

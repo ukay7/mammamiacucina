@@ -15,7 +15,7 @@
 @else{{ \App\Support\NumberDisplay::field($cell,$selectedColumns[$index]) }}@endif
 </td>@endforeach</tr>@empty<tr><td colspan="{{ count($headers) }}">No products match the selected filters.</td></tr>@endforelse
 </tbody></table></div>
-<footer class="doc-footer"><strong>Thank you for choosing {{ rtrim($doc['brand']['name'],'.') }}.</strong><p>Product details and published prices shown above reflect this export. This catalogue is not an invoice or proof of payment.</p></footer>
+<footer class="doc-footer"><strong>Thank you for choosing {{ rtrim($doc['brand']['name'],'.') }}.</strong><p>Product details and published prices shown above reflect this export. This catalogue is not an invoice or proof of payment.</p>@include('documents.registration')</footer>
 </main>
 <script src="{{ asset('admin-assets/product-print.js') }}?v={{ filemtime(public_path('admin-assets/product-print.js')) }}"></script>
 </body></html>

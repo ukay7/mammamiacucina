@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\EmailHistory;
+use App\Models\Customer;
 use App\Models\EmailTemplate;
 use App\Models\Order;
 use App\Models\User;
@@ -11,22 +12,27 @@ use Illuminate\Support\Str;
 
 class CustomerEmails
 {
-    public function queue(string $key, string $type, string $recipient, array $values, ?array $document = null): void
+    public function queue(string $key, string $type, string $recipient, array $values, ?array $document = null, ?Customer $customer = null): void
     {
         $orderId = null;
-        if (preg_match('/^order-(?:created|status|paid):(\d+)(?::|$)/', $key, $match)) {
+        if (preg_match('/^order-(?:created|status|paid|office):(\d+)(?::|$)/', $key, $match)) {
             $orderId = $match[1];
         } elseif (preg_match('/^(settlement|invoice-email):(\d+)$/', $key, $match)) {
             $orderId = \Illuminate\Support\Facades\DB::table($match[1] === 'settlement' ? 'order_settlements' : 'customer_invoices')->where('id', $match[2])->value('order_id');
         }
-        if ($orderId && !Order::whereKey($orderId)->exists()) return;
+        if ($orderId) {
+            $order = Order::find($orderId);
+            if (! $order) return;
+            $customer ??= $order->customer;
+        }
         if (! filter_var($recipient, FILTER_VALIDATE_EMAIL)) {
             return;
         }
         $message = EmailTemplate::renderMessage($type, $values + ['site_name' => 'Mamma Mia Cucina']);
+        $alternate = app(CustomerEmailRecipients::class)->alternate($type, $recipient, $customer);
         // Unique event key is the final concurrency guard; payload is encrypted at rest.
         EmailHistory::firstOrCreate(['event_key' => $key], [
-            'order_id' => $orderId, 'recipient' => $recipient, 'type' => $type, 'subject' => $message['subject'], 'status' => 'queued',
+            'order_id' => $orderId, 'recipient' => $recipient, 'alternate_recipient' => $alternate, 'type' => $type, 'subject' => $message['subject'], 'status' => 'queued',
             'available_at' => now(), 'payload' => ['body' => $message['body'], 'document' => $document, 'idempotency_key' => 'mmc-'.Str::uuid()],
         ]);
     }
@@ -38,17 +44,17 @@ class CustomerEmails
         }
         if ($user->email_verified_at) {
             $this->queue('business-active:'.$user->id, 'business_active', $user->email,
-                ['name' => $user->name, 'account_url' => route('customer.login')]);
+                ['name' => $user->name, 'account_url' => route('customer.login')], customer: $user->customer()->first());
         } else {
             $this->queue('business-approved:'.$user->id, 'business_approved', $user->email,
-                ['name' => $user->name, 'verification_url' => URL::temporarySignedRoute('customer.invite', now()->addDays(2), ['user' => $user->id, 'hash' => sha1($user->email)])]);
+                ['name' => $user->name, 'verification_url' => URL::temporarySignedRoute('customer.invite', now()->addDays(2), ['user' => $user->id, 'hash' => sha1($user->email)])], customer: $user->customer()->first());
         }
     }
 
     public function order(Order $order, string $type, string $key, ?int $amount = null): void
     {
         $order = $order->fresh(['items', 'payment', 'settlements']);
-        if (! $order || $order->trashed() || ! $order->email) {
+        if (! $order || $order->trashed() || (! $order->email && $type !== 'order_confirmation')) {
             return;
         }
         $money = fn ($c) => $c === null ? 'To be confirmed' : ($c < 0 ? '-' : '').'$'.number_format(abs($c) / 100, 2).' '.($order->currency ?: 'CAD');
@@ -69,6 +75,9 @@ class CustomerEmails
             'order_url' => route('order.track', $order->tracking_token), 'account_url' => route('customer.login'),
             'instructions' => $instructions, 'environment' => $test ? 'TEST ORDER — no live payment is represented by this email.' : '',
         ];
+        if ($order->fulfillment === 'delivery' && $order->delivery_scheduled_at) {
+            $values['fulfillment'] .= "\nDelivery date & time: ".\App\Support\BusinessTime::format($order->delivery_scheduled_at, 'D, d M Y, g:i A T').' (Toronto)';
+        }
         $document = in_array($type, ['order_confirmation', 'payment_received']) ? [
             'values' => $values, 'date' => \App\Support\BusinessTime::format(now()), 'subtotal' => $money($order->subtotal_cents),
             'delivery' => $money($order->delivery_cents), 'tax' => $money($order->tax_cents),
@@ -81,7 +90,16 @@ class CustomerEmails
                 $document['doc']['totals'] = ['This payment'=>$money($amount)] + $document['doc']['totals'];
             }
         }
-        $this->queue($key, $type, $order->email, $values, $document);
+        $this->queue($key, $type, (string) $order->email, $values, $document, $order->customer);
+        if ($type === 'order_confirmation') {
+            // A separate internal event gives the office its own delivery/retry history.
+            // Never route this message through a customer's alternate address.
+            $this->queue('order-office:'.$order->id, 'new_order_notification', config('mail.order_notification_address'),
+                $values + ['customer_email' => $order->email ?: 'Not provided',
+                    'source' => $order->source === 'pos' ? 'Quick Sale / POS' : 'Website',
+                    'placed_by' => $order->creator?->name ?: trim($order->first_name.' '.$order->last_name),
+                    'admin_order_url' => route('admin.orders.show', $order)], $document);
+        }
     }
 
     public function changed(Order $order): void

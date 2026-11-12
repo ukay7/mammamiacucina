@@ -1,4 +1,5 @@
 <section class="order-delivery-detail" style="margin:18px 0;padding:16px;border:1px solid #e5d8bf;border-radius:6px;break-inside:avoid">
+@include('partials.order-delivery-schedule')
 <h3 style="font-family:Georgia,serif;font-size:18px;color:#65451e;margin:0 0 10px">{{ $order->fulfillment==='pickup'?'Pick up':'Delivery service & route' }}</h3>
 @if($order->fulfillment==='pickup')
 <p>Pick up</p>

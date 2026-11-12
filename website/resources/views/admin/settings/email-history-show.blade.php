@@ -4,7 +4,7 @@
 <a href="{{ route('admin.email.history') }}" class="btn btn-outline-primary mb-3">← Email History</a>
 <div class="panel panel-content">
 <h2>{{ $email->subject }}</h2>
-<p><strong>To:</strong> {{ $email->recipient }}<br>
+<p><strong>To:</strong> {{ implode(", ", $email->recipients()) }}<br>
 <strong>Status:</strong> {{ ucfirst(str_replace('_',' ',$email->status)) }}<br>
 <strong>Sent at:</strong> {{ \App\Support\BusinessTime::format($email->sent_at) ?? 'Not confirmed' }} ({{ \App\Support\BusinessTime::zone() }})<br>
 <strong>Message ID:</strong> <span style="overflow-wrap:anywhere">{{ $email->message_id ?? '—' }}</span></p>

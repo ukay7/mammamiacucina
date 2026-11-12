@@ -24,6 +24,20 @@ class OrderAmendment
         return (int) $parts[0] * 100 + (int) str_pad($parts[1] ?? '', 2, '0');
     }
 
+    public function productPrices(Order $order, \Illuminate\Support\Collection $products): array
+    {
+        $order->loadMissing('customer.user');
+        if ($order->customer?->user) {
+            return app(CustomerTerms::class)->prices($products, $order->customer);
+        }
+
+        // Legacy orders without a customer account keep the individual-price default.
+        return $products->mapWithKeys(function ($product) {
+            $base = $product->total_selling_price_cad === null ? null : (int) round((float) $product->total_selling_price_cad * 100);
+            return [$product->id => ['original_unit_cents' => $base, 'discount_bps' => 0, 'unit_cents' => $base]];
+        })->all();
+    }
+
     public function amend(Order $order, array $data, int $user): void
     {
         DB::transaction(function () use ($order, $data, $user) {
@@ -39,12 +53,17 @@ class OrderAmendment
             if ($order->payment && (! $order->payment->paid_at || $order->payment->attention || $order->payment->released_at)) {
                 $this->fail('Resolve or cancel the outstanding gateway checkout before editing its order.');
             }
+            $previousSchedule = $order->delivery_scheduled_at;
+            if (array_key_exists('delivery_date', $data) || array_key_exists('delivery_time', $data)) {
+                $order->delivery_scheduled_at = app(DeliverySchedule::class)->resolve($data, $data['fulfillment'] === 'delivery', $previousSchedule);
+            }
             $items = $order->items()->orderBy('product_id')->get()->keyBy('id');
             if (array_diff(array_keys($data['items']), $items->keys()->all()) || count($data['items']) !== $items->count()) {
                 $this->fail('Order items changed. Reload before editing.');
             }
             $ids = $items->pluck('product_id')->filter()->merge(array_column($data['add_items'] ?? [], 'product_id'))->unique()->sort()->values();
             $products = Product::whereIn('id', $ids)->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+            $prices = $this->productPrices($order, $products);
             $inventories = Inventory::whereIn('product_id', $ids)->orderBy('product_id')->lockForUpdate()->get()->keyBy('product_id');
             $oldTotal = $order->final_total_cents;
             if (! $order->payment && $order->manual_collected_cents === null) {
@@ -102,7 +121,8 @@ class OrderAmendment
                     $this->fail('Product is already in the order. Change its existing quantity.');
                 }
                 $qty = (int) $row['quantity'];
-                $unit = isset($row['unit_price']) && $row['unit_price'] !== '' ? self::cents($row['unit_price']) : ($p->total_selling_price_cad === null ? null : (int) round((float) $p->total_selling_price_cad * 100));
+                $pricing = $prices[$p->id];
+                $unit = isset($row['unit_price']) && $row['unit_price'] !== '' ? self::cents($row['unit_price']) : $pricing['unit_cents'];
                 if ($unit === null) {
                     $this->fail('Enter a selling price for '.$p->premium_marketing_name.'.');
                 }
@@ -112,7 +132,9 @@ class OrderAmendment
                     $movement = $stock($p->id, $qty, $p->premium_marketing_name);
                     $shortage = max(0, $qty - max(0, $movement['before']));
                 }
-                $order->items()->create(['product_id' => $p->id, 'name' => $p->premium_marketing_name, 'product_code' => $p->product_code, 'qr_code' => $p->qr_code, 'stock_deducted' => $tracked, 'inventory_shortage_quantity' => $shortage, 'quantity' => $qty, 'unit_cents' => $unit, 'line_cents' => $qty * $unit]);
+                $order->items()->create(['product_id' => $p->id, 'name' => $p->premium_marketing_name, 'product_code' => $p->product_code, 'qr_code' => $p->qr_code, 'stock_deducted' => $tracked, 'inventory_shortage_quantity' => $shortage, 'quantity' => $qty, 'unit_cents' => $unit, 'line_cents' => $qty * $unit,
+                    'original_unit_cents' => $unit === $pricing['unit_cents'] ? $pricing['original_unit_cents'] : $unit,
+                    'discount_bps' => $unit === $pricing['unit_cents'] ? $pricing['discount_bps'] : 0]);
             }
             if ($order->items()->count() > 100) {
                 $this->fail('An order can contain up to 100 different products.');
@@ -127,6 +149,7 @@ class OrderAmendment
             $routeFields=['delivery_service','delivery_service_name','delivery_from_postal','delivery_to_postal','delivery_from_zone','delivery_to_zone','delivery_rate_cents'];
             if($data['fulfillment']==='pickup'){
                 $route=array_fill_keys($routeFields,null);
+                $order->delivery_scheduled_at = null;
             }elseif($order->delivery_service || $settings->matrix_delivery_enabled){
                 if(!in_array(strtolower(trim($data['country']??'')),['canada','ca']))$this->fail('Choose a supported Canadian delivery address.');
                 $postal=DeliveryQuote::postal($data['postal_code']??'');
@@ -172,8 +195,11 @@ class OrderAmendment
             }
             $order->revision++;
             $order->save();
+            $scheduleNote = $previousSchedule?->timestamp !== $order->delivery_scheduled_at?->timestamp
+                ? ' · Delivery date & time (Toronto): '.(\App\Support\BusinessTime::format($previousSchedule) ?? 'Not set').' → '.(\App\Support\BusinessTime::format($order->delivery_scheduled_at) ?? 'Not set')
+                : '';
             $after = $order->items()->get()->map(fn ($i) => ['name' => $i->name, 'quantity' => $i->quantity, 'unit_cents' => $i->unit_cents])->all();
-            $order->events()->create(['user_id' => $user, 'description' => 'Order amended: '.$data['reason'].' · fulfillment '.$order->fulfillment.' · total CAD '.number_format(($oldTotal ?? 0) / 100, 2).' → '.number_format($order->final_total_cents / 100, 2).' · Items before: '.json_encode($before, JSON_UNESCAPED_UNICODE).' · Items after: '.json_encode($after, JSON_UNESCAPED_UNICODE), 'created_at' => now()]);
+            $order->events()->create(['user_id' => $user, 'description' => 'Order amended: '.$data['reason'].$scheduleNote.' · fulfillment '.$order->fulfillment.' · total CAD '.number_format(($oldTotal ?? 0) / 100, 2).' → '.number_format($order->final_total_cents / 100, 2).' · Items before: '.json_encode($before, JSON_UNESCAPED_UNICODE).' · Items after: '.json_encode($after, JSON_UNESCAPED_UNICODE), 'created_at' => now()]);
         }, 3);
     }
 
