@@ -254,6 +254,41 @@ class OrderController extends Controller
         return response()->view('orders.print', compact('order'))->header('Cache-Control', 'no-store, private');
     }
 
+    public function deliveryPrint(Request $request, Order $order)
+    {
+        return $this->deliveryDocument($request, $order, true);
+    }
+
+    public function deliveryForm(Request $request, Order $order)
+    {
+        return $this->deliveryDocument($request, $order, false);
+    }
+
+    private function deliveryDocument(Request $request, Order $order, bool $envelope)
+    {
+        $this->readable($order);
+        $request->validate(['download' => 'nullable|boolean']);
+        $pdf = $request->boolean('download');
+        $doc = app(\App\Services\OrderDeliveryDocuments::class)->data($order, $envelope);
+        $html = view($envelope ? 'documents.delivery-envelope' : 'documents.delivery-form', [
+            'doc' => $doc, 'pdf' => $pdf, 'backUrl' => route('admin.orders.show', $order),
+            'downloadUrl' => $request->url().'?download=1',
+        ])->render();
+        $headers = ['Cache-Control' => 'no-store, private', 'X-Content-Type-Options' => 'nosniff'];
+        if (! $pdf) return response($html)->withHeaders($headers);
+
+        abort_unless(extension_loaded('gd'), 503, 'PHP GD must be enabled before rendering document logos.');
+        $renderer = new \Dompdf\Dompdf(new \Dompdf\Options([
+            'isRemoteEnabled' => false, 'isPhpEnabled' => false, 'defaultFont' => 'DejaVu Sans', 'defaultMediaType' => 'print',
+        ]));
+        $renderer->loadHtml($html);
+        $renderer->setPaper($envelope ? \App\Services\OrderDeliveryDocuments::ENVELOPE_PAPER : 'A4');
+        $renderer->render();
+        $filename = ($envelope ? 'delivery-envelope-' : 'delivery-form-').\Illuminate\Support\Str::slug($order->number).'.pdf';
+        return response($renderer->output())->withHeaders($headers + ['Content-Type' => 'application/pdf',
+            'Content-Disposition' => \Symfony\Component\HttpFoundation\HeaderUtils::makeDisposition('attachment', $filename)]);
+    }
+
     public function updateStatus(Request $r, Order $order, OrderManagement $service)
     {
         $d = $r->validate(['revision' => 'required|integer|min:0', 'status' => 'required|in:'.implode(',', array_keys(Order::STATUSES)), 'q' => 'nullable|string|max:200', 'page' => 'nullable|integer|min:1', 'from' => 'nullable|date_format:Y-m-d', 'to' => 'nullable|date_format:Y-m-d']);

@@ -141,6 +141,8 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         Route::get('/orders/export', [OrderController::class, 'export'])->middleware(AdminAccess::class.':orders.view|warehouse.pack')->name('orders.export');
         Route::get('/orders/{order}/items/{item}/image', [OrderController::class, 'itemImage'])->middleware(AdminAccess::class.':orders.view|warehouse.pack')->name('orders.item-image');
         Route::get('/orders/{order}/print', [OrderController::class, 'printOrder'])->middleware(AdminAccess::class.':orders.view|warehouse.pack')->name('orders.print');
+        Route::get('/orders/{order}/delivery-print', [OrderController::class, 'deliveryPrint'])->middleware(AdminAccess::class.':orders.view|warehouse.pack')->name('orders.delivery-print');
+        Route::get('/orders/{order}/delivery-form', [OrderController::class, 'deliveryForm'])->middleware(AdminAccess::class.':orders.view|warehouse.pack')->name('orders.delivery-form');
         Route::middleware(AdminAccess::class.':gateways.manage')->group(function () {
             Route::get('/settings/gateways', [GatewaySettingController::class, 'edit'])->name('gateways.edit');
             Route::put('/settings/gateways', [GatewaySettingController::class, 'update'])->name('gateways.update');

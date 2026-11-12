@@ -32,6 +32,7 @@
 <div class="wh-detail-navigation" aria-label="Order actions">
     <a class="btn btn-outline-primary" href="{{ route($order->status==='completed'?'admin.orders.completed':'admin.orders.index') }}"><i class="fas fa-arrow-left" aria-hidden="true"></i> Back to Orders</a>
     <a class="btn btn-outline-primary" href="{{ route('admin.orders.print',$order) }}" target="_blank" rel="noopener"><i class="fas fa-print" aria-hidden="true"></i> {{ $printLabel??(($receiptView??false)?'Print Receipt':'Print Packing Slip') }}</a>
+    @include('admin.orders.delivery-actions')
     @if($showOrderLinks??false)
         @if($order->invoice)<a class="btn btn-outline-primary" href="{{ route('admin.invoices.show',$order->invoice) }}" target="_blank" rel="noopener"><i class="fas fa-file-invoice" aria-hidden="true"></i> Invoice {{ $order->invoice->label }}</a>@endif
         <a class="btn btn-outline-primary" href="{{ route('admin.orders.payments',$order) }}"><i class="fas fa-money-check-alt" aria-hidden="true"></i> Payments &amp; receipts</a>
