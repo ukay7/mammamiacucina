@@ -16,6 +16,8 @@ return ['permissions' => ['quotations.view'=>'View and print quotations', 'quota
     'categories.view' => 'View categories',
     'categories.manage' => 'Manage categories',
     'products.view' => 'View complete product catalogue',
+    'pricing-lists.view' => 'View and print saved pricing lists',
+    'pricing-lists.manage' => 'Create, edit, duplicate and delete pricing lists',
     'products.manage' => 'Create, edit and assign products',
     'suppliers.view' => 'View suppliers and their linked products',
     'suppliers.manage' => 'Create, edit and delete unused suppliers',

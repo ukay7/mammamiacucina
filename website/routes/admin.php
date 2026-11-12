@@ -101,6 +101,25 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         Route::post('/customers/{customer}/verify-email', [\App\Http\Controllers\Admin\CustomerController::class,'verifyEmail'])->middleware(AdminAccess::class.':customers.manage')->name('customers.verify-email');
         Route::get('/customers/create', [\App\Http\Controllers\Admin\CustomerController::class,'create'])->middleware(AdminAccess::class.':customers.manage')->name('customers.create');
         Route::post('/customers', [\App\Http\Controllers\Admin\CustomerController::class,'store'])->middleware(AdminAccess::class.':customers.manage')->name('customers.store');
+        Route::prefix('pricing-lists')->name('pricing-lists.')->group(function () {
+            $controller=\App\Http\Controllers\Admin\PricingListController::class;
+            Route::middleware(AdminAccess::class.':pricing-lists.manage')->group(function () use ($controller) {
+                Route::get('/create',[$controller,'create'])->name('create');
+                Route::post('/preview',[$controller,'previewNew'])->name('preview-new');
+                Route::post('/',[$controller,'store'])->name('store');
+                Route::get('/{pricingList}/edit',[$controller,'edit'])->name('edit');
+                Route::post('/{pricingList}/preview',[$controller,'preview'])->name('preview');
+                Route::put('/{pricingList}',[$controller,'update'])->name('update');
+                Route::post('/{pricingList}/duplicate',[$controller,'duplicate'])->name('duplicate');
+                Route::delete('/{pricingList}',[$controller,'destroy'])->name('destroy');
+            });
+            Route::middleware(AdminAccess::class.':pricing-lists.view|pricing-lists.manage')->group(function () use ($controller) {
+                Route::get('/',[$controller,'index'])->name('index');
+                Route::get('/{pricingList}/pdf',[$controller,'pdf'])->name('pdf');
+                Route::get('/{pricingList}/document',[$controller,'document'])->name('document');
+                Route::get('/{pricingList}',[$controller,'show'])->name('show');
+            });
+        });
         Route::resource('quotations', \App\Http\Controllers\Admin\QuotationController::class)->except(['index','show'])->middleware(AdminAccess::class.':quotations.manage');
         Route::get('/quotations', [\App\Http\Controllers\Admin\QuotationController::class,'index'])->middleware(AdminAccess::class.':quotations.view|quotations.manage')->name('quotations.index');
         Route::get('/quotations/{quotation}/print', [\App\Http\Controllers\Admin\QuotationController::class,'print'])->middleware(AdminAccess::class.':quotations.view|quotations.manage')->name('quotations.print');

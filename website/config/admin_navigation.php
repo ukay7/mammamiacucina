@@ -21,6 +21,7 @@ return [
         $link('enquiries.manage', 'admin.enquiries.index', 'admin.enquiries.*', 'Customer Enquiries', 'envelope'),
     ],
     'Reports' => [
+        $link('pricing-lists.view|pricing-lists.manage', 'admin.pricing-lists.index', 'admin.pricing-lists.*', 'Pricing Lists', 'tags'),
         $link('orders.view', 'admin.reports.overdue-cheques', 'admin.reports.overdue-cheques', 'Overdue Cheques', 'money-check'),
         $link('inventory.view', 'admin.reports.inventory', 'admin.reports.inventory*', 'Inventory Dashboard', 'boxes'),
         $link('inventory.view', 'admin.reports.inventory-valuation', 'admin.reports.inventory-valuation*', 'Inventory Valuation', 'calculator'),

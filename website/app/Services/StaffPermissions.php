@@ -20,6 +20,7 @@ class StaffPermissions
             'admin.stock-counts.index' => ['stock-counts.manage' => 'Create and cancel count tasks'],
             'admin.banners.index' => ['banners.manage' => 'Manage banners'],
             'admin.quotations.index' => ['quotations.manage' => 'Create, edit and delete'],
+            'admin.pricing-lists.index' => ['pricing-lists.manage' => 'Create, edit, duplicate and delete'],
             'admin.customers.index' => ['customers.manage' => 'Manage customers, terms, discounts and notes', 'customers.invoice-email' => 'Email invoices'],
             'admin.customers.business-requests' => ['customers.approve' => 'Approve businesses'],
             'admin.reports.index' => ['payments.manage' => 'Verify and resolve payments', 'payments.refund' => 'Refund through gateway'],
