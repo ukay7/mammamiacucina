@@ -29,6 +29,28 @@ class WarehouseWorkflowTest extends TestCase
         $this->get(route('admin.pos.index'))->assertForbidden();
     }
 
+    public function test_check_all_products_is_only_available_to_super_admin_while_packing(): void
+    {
+        [$order, , $admin, $worker] = $this->fixture();
+        $url = route('admin.orders.show', $order);
+        $this->get($url)->assertOk()->assertDontSee('data-warehouse-check-all', false);
+        $this->moveStatus($order, 'warehouse_pending')->assertOk();
+        $this->get($url)->assertOk()->assertSee('data-warehouse-check-all', false)->assertSee('Check All');
+
+        $this->actingAs($worker)->get($url)->assertOk()
+            ->assertSee('data-packed-check', false)->assertDontSee('data-warehouse-check-all', false);
+        $role = Role::create(['name' => 'Packing Manager', 'is_super' => false, 'permissions' => ['orders.view', 'orders.manage', 'warehouse.pack']]);
+        $manager = User::factory()->create(['role_id' => $role->id, 'is_active' => true]);
+        $this->actingAs($manager)->get($url)->assertOk()
+            ->assertSee('data-packed-check', false)->assertDontSee('data-warehouse-check-all', false);
+
+        $this->actingAs($admin);
+        $this->pack($order, 'save')->assertSessionHasNoErrors();
+        $this->get($url)->assertOk()->assertSee('data-warehouse-check-all', false);
+        $this->pack($order, 'ready')->assertSessionHasNoErrors();
+        $this->get($url)->assertOk()->assertDontSee('data-warehouse-check-all', false);
+    }
+
     public function test_order_images_require_order_access_and_matching_item(): void
     {
         [$order, $product, $admin, $worker] = $this->fixture();

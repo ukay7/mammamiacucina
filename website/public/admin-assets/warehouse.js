@@ -5,6 +5,18 @@
  const tell=(message,error=false)=>{feedback.textContent=message;feedback.classList.toggle('alert',error);feedback.classList.toggle('alert-danger',error);feedback.setAttribute('role',error?'alert':'status');};
  function sync(row){const check=row.querySelector('[data-packed-check]'),issue=row.querySelector('[data-item-note]').value.trim()!=='';if(issue)check.checked=false;row.classList.toggle('has-issue',issue);row.classList.toggle('is-packed',check.checked&&!issue);row.querySelector('[data-item-state]').textContent=issue?'~ Issue / shortage':check.checked?'✓ Packed':'Awaiting packing';}
  rows.forEach(row=>{row.querySelector('[data-packed-check]').addEventListener('change',()=>{dirty=true;sync(row);});row.querySelector('[data-item-note]').addEventListener('input',()=>{dirty=true;sync(row);});row.querySelector('[data-shortage]').onclick=()=>{const note=row.querySelector('[data-item-note]');if(!note.value.trim())note.value='Shortage';dirty=true;sync(row);note.focus();};sync(row);});
+ const checkAll=form.querySelector('[data-warehouse-check-all]');
+ if(checkAll)checkAll.addEventListener('click',()=>{
+  let checked=0,unresolved=0;
+  rows.forEach(row=>{
+   const check=row.querySelector('[data-packed-check]');
+   if(check.disabled)return;
+   if(row.querySelector('[data-item-note]').value.trim()){unresolved++;return;}
+   if(check.checked)return;
+   check.checked=true;check.dispatchEvent(new Event('change',{bubbles:true}));checked++;
+  });
+  form.querySelector('[data-warehouse-check-all-result]').textContent=(checked?`${checked} product${checked===1?'':'s'} checked. Save Packing Progress to keep these changes.`:'No additional products checked.')+(unresolved?` ${unresolved} product${unresolved===1?' has':'s have'} unresolved notes and ${unresolved===1?'was':'were'} left unchecked.`:'');
+ });
  function scan(code){code=code.trim();if(!code)return;const matches=rows.filter(row=>row.dataset.barcode&&row.dataset.barcode===code);if(matches.length!==1){tell(matches.length?'This barcode matches multiple items. Tick the correct row manually.':'No item in this order matches that barcode.',true);return;}const row=matches[0];if(row.querySelector('[data-item-note]').value.trim()){tell('Resolve the item note before packing '+row.dataset.name+'.');return;}const check=row.querySelector('[data-packed-check]');if(check.checked){tell(row.dataset.name+' is already packed.');return;}check.checked=true;dirty=true;sync(row);row.scrollIntoView({block:'nearest',behavior:'smooth'});tell('Packed: '+row.dataset.name+'. Save progress to keep this change.');}
  document.querySelector('#warehouse-match').onclick=()=>{scan(input.value);input.value='';input.focus();};input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();scan(input.value);input.value='';}});
  const video=document.querySelector('#warehouse-video'),start=document.querySelector('#warehouse-camera-start'),area=document.querySelector('#warehouse-camera');

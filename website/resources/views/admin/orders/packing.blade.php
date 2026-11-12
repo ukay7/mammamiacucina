@@ -13,6 +13,9 @@ $canPack=auth()->user()->hasAdminPermission('warehouse.pack') && in_array($order
 @if($canPack)
 <div class="warehouse-scanner"><h3>Scan to pack</h3><p>Scan barcode or QR to pack the <strong>full quantity</strong>. Check quantities first, then save progress.</p><div class="warehouse-actions"><input class="form-control" id="warehouse-code" aria-label="Scan or enter product barcode" placeholder="Scan or enter barcode" autocomplete="off"><button type="button" class="btn btn-outline-primary" id="warehouse-match">Match barcode</button><button type="button" class="btn btn-primary" id="warehouse-camera-start">Scan with camera</button></div><div id="warehouse-camera" hidden><video id="warehouse-video" autoplay muted playsinline></video><button type="button" class="btn btn-outline-primary" id="warehouse-camera-stop">Stop camera</button></div><p id="warehouse-scan-result" role="status" aria-live="polite"></p></div>
 <form data-warehouse-form method="post" action="{{ route('admin.orders.packing',$order) }}">@csrf<input type="hidden" name="revision" value="{{ $order->revision }}">
+@if(auth()->user()->isSuper())
+<div class="warehouse-actions align-items-center"><button type="button" class="btn btn-outline-primary" data-warehouse-check-all>Check All</button><span class="text-muted" data-warehouse-check-all-result role="status" aria-live="polite"></span></div>
+@endif
 @endif
 <div class="table-responsive"><table class="table warehouse-table"><thead><tr><th scope="col">Packed</th><th scope="col">Product / Barcode</th><th scope="col">Qty</th><th scope="col">Item notes / shortage</th><th scope="col">Status</th></tr></thead><tbody>
 @foreach($order->items as $item)
