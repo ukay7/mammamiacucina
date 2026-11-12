@@ -98,18 +98,20 @@ class BusinessReportController extends Controller
             $headers = match ($kind) {
                 'payments' => ['Order', 'Customer', 'Recorded at', 'Method', 'Provider', 'Entry', 'Amount CAD', 'Reference'],
                 'methods' => ['Method', 'Provider', 'Transactions', 'Orders', 'Received CAD', 'Refunded CAD', 'Net CAD', 'Reversed CAD', 'Method adjustments CAD'],
-                'customers' => ['Customer', 'Email', 'Orders', 'Order value CAD', 'Net received CAD', 'Due CAD', 'Refund due CAD', 'Unconfirmed totals'],
+                'customers' => ['Customer number', 'Business name', 'Customer', 'Email', 'Orders', 'Order value CAD', 'Net received CAD', 'Due CAD', 'Refund due CAD', 'Unconfirmed totals'],
                 default => ['Order', 'Customer', 'Email', 'Order date', 'Status', 'Method', 'Source', 'Fulfillment', 'Planned date', 'Order total CAD', 'Net received CAD', 'Amount due CAD', 'Refund due CAD'],
             };
+            if ($kind === 'sales') array_splice($headers, 1, 0, ['Business name']);
             fputcsv($out, $headers, ',', '"', '');
             $money = fn ($v) => $v === null ? 'Unconfirmed' : number_format($v / 100, 2, '.', '');
             foreach ($query->cursor() as $r) {
                 $values = match ($kind) {
                     'payments' => [$r->number, $r->first_name.' '.$r->last_name, \App\Support\BusinessTime::format($r->occurred_at), $r->method, $r->provider, $r->entry_type, $money($r->amount_cents), $r->reference],
                     'methods' => [$r->method, $r->provider, $r->transactions, $r->orders, $money($r->received), $money($r->refunded), $money($r->net), $money($r->reversed), $money($r->adjustments)],
-                    'customers' => [$r->first_name.' '.$r->last_name, $r->email, $r->orders, $money($r->value), $money($r->received), $money($r->due), $money($r->refund_due), $r->unpriced],
+                    'customers' => [$r->customer_id ?? '', $r->business_name ?? '', $r->first_name.' '.$r->last_name, $r->email, $r->orders, $money($r->value), $money($r->received), $money($r->due), $money($r->refund_due), $r->unpriced],
                     default => [$r->number, $r->first_name.' '.$r->last_name, $r->email, \App\Support\BusinessTime::format($r->ordered_at), Order::STATUSES[$r->status] ?? $r->status, $r->payment_method, $r->source, $r->fulfillment, $r->fulfillment_date, $money($r->total_cents), $money($r->net_cents), $money($r->balance_cents === null ? null : max(0, $r->balance_cents)), $money($r->balance_cents === null ? null : max(0, -$r->balance_cents))],
                 };
+                if ($kind === 'sales') array_splice($values, 1, 0, [$r->business_name ?? '']);
                 fputcsv($out, array_map(fn ($v) => preg_match('/^[=+@\-\t\r]/', (string) $v) ? "'".$v : ($v ?? ''), $values), ',', '"', '');
             }
             fclose($out);

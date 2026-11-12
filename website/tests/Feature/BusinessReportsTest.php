@@ -105,18 +105,28 @@ class BusinessReportsTest extends TestCase
     public function test_customer_grouping_pagination_and_safe_exports(): void
     {
         $this->login();
-        $a = User::factory()->create(['account_type' => 'individual', 'role_id' => null])->customerRecord();
+        $a = User::factory()->create(['account_type' => 'business', 'role_id' => null])->customerRecord();
+        $a->update(['business_name' => 'Report Bakery']);
         $b = User::factory()->create(['account_type' => 'individual', 'role_id' => null])->customerRecord();
-        $this->order(['customer_id' => $a->id, 'email' => 'same@example.test', 'first_name' => '=FORMULA']);
+        $businessOrder = $this->order(['customer_id' => $a->id, 'email' => 'same@example.test', 'first_name' => '=FORMULA']);
         $this->order(['customer_id' => $b->id, 'email' => 'same@example.test']);
         $this->order(['email' => 'guest@example.test']);
         $this->order(['email' => 'GUEST@example.test']);
         $response = $this->get('/admin/reports/view/customers')->assertOk();
         $this->assertEquals(3, $response->viewData('rows')->total());
-        $this->assertEquals(1, $this->get('/admin/reports/view/sales?customer=id:'.$a->id)->assertOk()->viewData('rows')->total());
+        $response->assertSeeInOrder(['#'.$a->id, 'Report Bakery', '=FORMULA Customer', 'same@example.test']);
+        $this->assertSame('Report Bakery', $response->viewData('rows')->firstWhere('customer_id', $a->id)->business_name);
+        $customerCsv = $this->get('/admin/reports/export/customers')->assertOk()->streamedContent();
+        $customerCsvRows = array_map(fn ($line) => str_getcsv($line, ',', '"', ''), explode("\n", trim($customerCsv)));
+        $this->assertSame(['Customer number', 'Business name', 'Customer', 'Email'], array_slice($customerCsvRows[0], 0, 4));
+        $customerCsvRow = collect(array_slice($customerCsvRows, 1))->first(fn ($row) => $row[0] === (string) $a->id);
+        $this->assertSame([(string) $a->id, 'Report Bakery', "'=FORMULA Customer", 'same@example.test'], array_slice($customerCsvRow, 0, 4));
+        $this->assertEquals(1, $this->get('/admin/reports/view/sales?customer=id:'.$a->id)->assertOk()->assertSeeInOrder([$businessOrder->number,'Report Bakery','=FORMULA Customer'])->viewData('rows')->total());
         $this->assertEquals(2, $this->get('/admin/reports/view/sales?customer=email:guest@example.test')->assertOk()->viewData('rows')->total());
         $csv = $this->get('/admin/reports/export/sales')->assertOk()->streamedContent();
         $this->assertStringContainsString("'=FORMULA", $csv);
+        $this->assertSame(['Order','Business name','Customer'],array_slice(str_getcsv(strtok($csv,"\n"),',','"',''),0,3));
+        $this->assertStringContainsString('Report Bakery',$csv);
         $this->getJson('/admin/reports/view/sales?from=2026-10-20&to=2026-10-01')->assertUnprocessable();
         $this->getJson('/admin/reports/view/sales?from=2020-01-01&to=2026-10-01')->assertUnprocessable();
         $this->get('/admin/reports/view/unknown')->assertNotFound();

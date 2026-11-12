@@ -6,6 +6,7 @@
 @if($order->payment_status === 'paid')
 <p><strong>Paid — payment verified by administration.</strong></p>
 @elseif(!$order->trashed() && !in_array($order->status,['cancelled','completed']))
+@if($order->payment_method==='etransfer')@include('partials.etransfer-instructions')@endif
 <p>Upload a receipt or cheque photo now or later. Administration will verify funds received or cheque clearance separately from fulfillment.</p>
 <p><strong>{{ $order->transfer_receipt_path ? 'Payment submitted — awaiting admin verification.' : 'Unpaid — awaiting admin verification. Proof pending.' }}</strong></p>
 @endif

@@ -55,7 +55,8 @@ class PricingListController extends Controller
         [$token,$list]=$service->preview($request,$existing);
         if ($existing) $list->id=$existing->id;
         return response()->json(['token'=>$token,'number'=>$list->number,'count'=>count($list->items),
-            'html'=>view('documents.pricing-list',['list'=>$list,'pdf'=>false])->render()]);
+            'html'=>view('documents.pricing-list',['list'=>$list,'pdf'=>false])->render()])
+            ->header('Cache-Control','private, no-store, no-transform');
     }
 
     public function store(Request $request,PricingLists $service) { return $this->saved($service->save($request,null)); }
@@ -67,7 +68,12 @@ class PricingListController extends Controller
     }
 
     public function show(PricingList $pricingList) { return view('admin.pricing-lists.show',['list'=>$pricingList]); }
-    public function document(PricingList $pricingList) { return response()->view('documents.pricing-list',['list'=>$pricingList,'pdf'=>false]); }
+    public function document(PricingList $pricingList)
+    {
+        // Preserve email addresses in the sandboxed preview without relying on injected scripts.
+        return response()->view('documents.pricing-list',['list'=>$pricingList,'pdf'=>false])
+            ->header('Cache-Control','private, no-store, no-transform');
+    }
 
     public function pdf(PricingList $pricingList)
     {

@@ -50,6 +50,7 @@
 <p class="pos-help my-3">This order will be sent to the warehouse for packing.</p>
 @endif
 <p id="pos-credit-warning" role="status"></p>
+<div id="pos-etransfer-account" hidden>@include('partials.etransfer-instructions')</div>
 <div id="pos-transfer-upload" hidden><label>Receipt / cheque photo (optional)<input class="form-control" type="file" id="pos-transfer-file" accept="image/jpeg,image/png,image/webp,application/pdf"></label><p class="pos-help">Upload now or later from My POS Orders. JPG, PNG, WebP or PDF, maximum 5 MB. Admin verifies payment separately from fulfillment.</p></div>
 <label>Notes (optional)<textarea class="form-control" name="notes" rows="2" maxlength="2000"></textarea></label>
 @include('partials.delivery-address',['addressPrefix'=>'pos-delivery'])

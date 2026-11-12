@@ -26,7 +26,7 @@
 </tbody></table>
 <footer class="doc-footer">
 @if($list->notes)<p class="price-notes">{{ $list->notes }}</p>@endif
-<p><strong>Orders &amp; current pricing</strong> · {{ $doc['brand']['phone'] }} · {{ $doc['brand']['email'] }}</p>
+<p><strong>Orders &amp; current pricing</strong> · {{ $doc['brand']['phone'] }} · <!--email_off-->{{ $doc['brand']['email'] }}<!--/email_off--></p>
 <p>All prices in CAD. — indicates a price not specified; please contact us. Confirm availability, applicable taxes and delivery charges when ordering.</p>
 <p>Thank you for choosing {{ rtrim($doc['brand']['name'],'.') }}.</p>
 @include('documents.registration')

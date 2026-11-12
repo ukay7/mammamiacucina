@@ -24,7 +24,9 @@ class AdminAccess
             abort_unless(collect(explode('|',$permission))->contains(fn($ability)=>$user->hasAdminPermission($ability)), 403);
         }
         $response = $next($request);
+        $noTransform = $response->headers->hasCacheControlDirective('no-transform');
         $response->headers->set('Cache-Control', 'no-store, private');
+        if ($noTransform) $response->headers->addCacheControlDirective('no-transform');
 
         return $response;
     }

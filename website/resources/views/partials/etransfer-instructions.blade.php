@@ -1,0 +1,2 @@
+@php($etransferEmail = (\App\Models\GeneralSetting::find(1) ?? new \App\Models\GeneralSetting)->eTransferEmail())
+<p class="etransfer-instructions" style="margin:12px 0;overflow-wrap:anywhere">@unless($etransferVerify ?? false)Send your payment to @endunless<strong>E-transfer account: {{ $etransferEmail }}</strong>.<br>@if($etransferVerify ?? false)Verify that the e-transfer was received in this account before clearing the payment. Attach the transfer receipt.@else Then upload your e-transfer receipt.@endif</p>

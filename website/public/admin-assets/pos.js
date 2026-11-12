@@ -353,6 +353,7 @@
         form.elements.payment_status.querySelector('[value=unpaid]').textContent=credit?'Unpaid · On Credit':manual?'Unpaid · Awaiting Admin Verification':'Unpaid · collect on '+($('#fulfillment').value==='pickup'?'pickup':'delivery');
         form.elements.payment_status.value=method==='cash'?cashPaymentStatus:'unpaid';
         $('#pos-transfer-upload').hidden=!manual;
+        $('#pos-etransfer-account').hidden=method!=='etransfer';
         $('#pos-credit-warning').textContent=credit?($('#pos-credit-warning').dataset.projected||''):($('#pos-credit-warning').dataset.current||'');
     }
     form.elements.payment_method.addEventListener('change',configurePayment);

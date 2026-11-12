@@ -27,7 +27,7 @@
 @include('admin.orders.payment-controls')
 @unless($order->trashed())@include('partials.transfer-receipt')@endunless
 @if(!$order->trashed() && auth()->user()->hasAdminPermission('orders.manage') && $order->balance_cents!==0 && $order->final_total_cents!==null && (!$order->payment || ($order->payment->paid_at && $order->balance_cents>0)))
-<form method="post" enctype="multipart/form-data" action="{{ route('admin.orders.settlement',$order) }}" class="payment-entry">@csrf
+<form method="post" enctype="multipart/form-data" action="{{ route('admin.orders.settlement',$order) }}" class="payment-entry" data-etransfer-payment-form>@csrf
 <h2>Record {{ $order->balance_cents<0?'a refund':'a payment' }}</h2>
 @if($order->payment_method==='etransfer')
 <p>Record only funds you have verified in the bank account. Partial payments remain pending; once the full amount is confirmed, this pending order is sent to warehouse. Attach a receipt here if none has been uploaded to the order.</p>
@@ -35,9 +35,11 @@
 <p>Record a completed transaction. This form does not charge a card or initiate a bank transfer.</p>
 <input type="hidden" name="revision" value="{{ $order->revision }}"><input type="hidden" name="direction" value="{{ $order->balance_cents<0?'refund':'collect' }}">
 <div class="fields"><label>Amount (CAD)<input class="form-control" name="amount" type="number" data-number-display="decimal" min="0.01" step="0.01" max="{{ abs($order->balance_cents)/100 }}" value="{{ old('amount',number_format(abs($order->balance_cents)/100,2,'.','')) }}" required></label><label>Method<select class="form-control" name="method">@foreach(['cash'=>'Cash','card'=>'Card','etransfer'=>'E-transfer','paypal'=>'PayPal','cheque'=>'Cheque'] as $value=>$label)<option value="{{ $value }}" @selected(old('method',$order->payment_method)===$value)>{{ $label }}</option>@endforeach</select></label><label>Transaction reference (required except cash)<input class="form-control" name="reference" maxlength="255" value="{{ old('reference') }}"></label><label>Receipt (JPG, PNG, WebP or PDF; max 5 MB)<input class="form-control" type="file" name="receipt" accept="image/jpeg,image/png,image/webp,application/pdf"></label></div>
+@if($order->balance_cents>0)<div data-etransfer-account @if(old('method',$order->payment_method)!=='etransfer') hidden @endif>@include('partials.etransfer-instructions',['etransferVerify'=>true])</div>@endif
 <label class="mt-3">Notes<textarea class="form-control" name="note" maxlength="1000" required>{{ old('note') }}</textarea></label>
 <label class="my-3"><input type="checkbox" name="received" value="1" required> I confirm this money has actually been {{ $order->balance_cents<0?'refunded':'received' }}.</label><button class="btn btn-primary">Record {{ $order->balance_cents<0?'refund':'payment' }}</button>
 </form>
+<script defer src="{{ asset('admin-assets/etransfer-payment.js') }}?v={{ filemtime(public_path('admin-assets/etransfer-payment.js')) }}"></script>
 @endif
 <details class="panel panel-content"><summary>Order &amp; payment audit history</summary>@foreach($order->events as $event)<p class="mt-3"><strong>{{ \App\Support\BusinessTime::format($event->created_at,'d M Y H:i T') }} · {{ $event->author?->name ?? 'System' }}</strong><br>{{ $event->description }}</p>@endforeach</details>
 @endsection

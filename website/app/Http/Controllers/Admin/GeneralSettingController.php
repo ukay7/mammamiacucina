@@ -40,7 +40,9 @@ class GeneralSettingController extends Controller
             'mailing_address' => 'sometimes|nullable|string|max:2000',
             'document_warehouse_address' => 'sometimes|nullable|string|max:2000',
             'gst_hst_number' => 'sometimes|nullable|string|max:80',
+            'etransfer_email' => 'sometimes|required|email:rfc|max:255',
         ]);
+        if (isset($d['etransfer_email'])) $d['etransfer_email'] = strtolower(trim($d['etransfer_email']));
         foreach (['document_company_name', 'mailing_address', 'document_warehouse_address', 'gst_hst_number'] as $field) {
             if (isset($d[$field])) $d[$field] = trim($d[$field]);
         }
@@ -78,7 +80,7 @@ class GeneralSettingController extends Controller
 
                 return (int) $parts[0] * 100 + (int) str_pad($parts[1] ?? '', 2, '0');
             };
-            $extra=array_intersect_key($d,array_flip(['pickup_address','warehouse_postal_code','matrix_delivery_enabled','email','phone','opening_hours','facebook_url','instagram_url','twitter_url','document_company_name','mailing_address','document_warehouse_address','gst_hst_number']));
+            $extra=array_intersect_key($d,array_flip(['pickup_address','warehouse_postal_code','matrix_delivery_enabled','email','phone','opening_hours','facebook_url','instagram_url','twitter_url','document_company_name','mailing_address','document_warehouse_address','gst_hst_number','etransfer_email']));
             if (array_key_exists('youtube',$d)) $extra['youtube_video_id']=GeneralSetting::youtubeId($d['youtube']);
             if ($bannerPath) {$oldBanner=$settings->page_banner_path;$extra['page_banner_path']=$bannerPath;}
             if ($path) {$old=$settings->logo_path;$extra['logo_path']=$path;}

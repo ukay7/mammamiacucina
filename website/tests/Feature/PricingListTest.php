@@ -43,15 +43,23 @@ class PricingListTest extends TestCase
     public function test_preview_confirmation_and_pdf_leave_catalogue_and_financial_tables_unchanged(): void
     {
         $this->actingAs($this->admin()); $product=$this->product();
+        GeneralSetting::find(1)->update(['email'=>'pricing@example.test']);
         $tables=['products','product_price_reviews','orders','order_items','quotations','customer_invoices','email_history'];
         $before=[]; foreach($tables as $table) $before[$table]=DB::table($table)->get()->toJson();
         $preview=$this->postJson(route('admin.pricing-lists.preview-new'),$this->data($product))->assertOk();
+        $preview->assertHeader('Content-Type','application/json');
+        $this->assertStringContainsString('no-transform',$preview->headers->get('Cache-Control'));
+        $this->assertSame(2,substr_count($preview->json('html'),'<!--email_off-->pricing@example.test<!--/email_off-->'));
         $this->assertSame(0,PricingList::count());
         $this->assertStringContainsString('$21.50',$preview->json('html'));
         $this->assertStringContainsString('$3.58',$preview->json('html'));
         $this->assertStringNotContainsString('$999.99',$preview->json('html'));
         $this->postJson(route('admin.pricing-lists.store'),['preview_token'=>$preview->json('token'),'items'=>[]])->assertOk();
         $list=PricingList::firstOrFail();
+        $document=$this->get(route('admin.pricing-lists.document',$list))->assertOk();
+        $this->assertStringContainsString('no-transform',$document->headers->get('Cache-Control'));
+        $this->assertStringContainsString('no-store',$document->headers->get('Cache-Control'));
+        $this->assertSame(2,substr_count($document->getContent(),'<!--email_off-->pricing@example.test<!--/email_off-->'));
         $this->assertSame(2150,$list->items[0]['box_cents']);
         $this->assertSame(358,$list->items[0]['each_cents']);
         $this->assertSame('hidden search',$list->filters['q']);

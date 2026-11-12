@@ -40,6 +40,7 @@
             <div class="form-group"><label data-receipt-label="reference">Reference / cheque number</label><input class="form-control" data-receipt-field="reference" maxlength="150"></div>
             <div class="form-group" data-cheque-only hidden><label data-receipt-label="cheque_date">Cheque date</label><input class="form-control" data-receipt-field="cheque_date" type="date"></div>
             <div class="form-group" data-cheque-only hidden><label data-receipt-label="bank">Bank (optional)</label><input class="form-control" data-receipt-field="bank" maxlength="150"></div>
+            <div class="receipt-wide" data-etransfer-only hidden>@include('partials.etransfer-instructions',['etransferVerify'=>true])</div>
             <div class="form-group receipt-wide"><label data-receipt-label="proof">Supporting image / PDF (up to 5 MB)</label><input class="form-control" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" data-receipt-field="proof"><small>E-transfer proof is required. Bank receipt or cheque photo can also be attached.</small></div>
             <div class="form-group receipt-wide"><label data-receipt-label="note">Notes (optional)</label><textarea class="form-control" data-receipt-field="note" rows="2" maxlength="2000"></textarea></div>
             <label class="receipt-wide" data-verified-only><input type="checkbox" value="1" data-receipt-field="verified"> I verified this money was actually received; an uploaded screenshot alone is not confirmation.</label>
