@@ -56,7 +56,37 @@ Run `php artisan test`. Catalogue tests cover original field preservation, leadi
 
 Manage Products opens View and Edit in modals. Saving in the editor keeps the modal open; closing it refreshes the list. Product Images & Videos accepts up to 10 JPEG, PNG, WebP, GIF, MP4 or WebM files per save, 50 MB each. Files are stored privately and previewed through a product-view permission route. New uploads append in selection order; set Display order and save to arrange images and videos together. Mark Remove on save to delete an attachment. Existing spreadsheet imports preserve media.
 
-Run migrations for the product_media table. For production video uploads, set PHP upload_max_filesize=50M and post_max_size=512M, and the site's Nginx client_max_body_size to 512m, then reload the relevant services. Existing server limits can reject large uploads before the application receives them. Local bundled PHP limits are configured accordingly.
+Run migrations for the product_media table. Set PHP upload_max_filesize=100M and post_max_size=512M, and the site's Nginx client_max_body_size to 512m, then reload the relevant services. Catalogue page images accept up to 100 MB; other upload forms retain their own application limits. Existing server limits can reject large uploads before the application receives them.
+
+For an existing live installation, apply the updated application code and update the per-site PHP settings below. This preserves other `.user.ini` options and backs up the previous file. The original `deploy-admin.sh` already configures Nginx to allow 512 MB requests; retain that limit so a 100 MB file plus multipart form overhead fits. No database migration is needed for this limit change. Do not rerun the original first-install script on an existing database.
+
+```bash
+sudo python3 - <<'PY'
+from datetime import datetime, timezone
+from pathlib import Path
+import re
+import shutil
+
+p = Path('/var/www/mammamiacucina-app/website/public/.user.ini')
+s = p.read_text() if p.exists() else ''
+if p.exists():
+    backup = Path('/var/backups') / ('mmc-upload-' + datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S'))
+    backup.mkdir(mode=0o700)
+    shutil.copy2(p, backup / 'php-user.ini')
+    print('Settings backup:', backup)
+for key, value in {'upload_max_filesize': '100M', 'post_max_size': '512M'}.items():
+    pattern = rf'^[ \t]*{key}[ \t]*=.*$'
+    line = f'{key}={value}'
+    s = re.sub(pattern, line, s, flags=re.M) if re.search(pattern, s, re.M) else s.rstrip() + '\n' + line + '\n'
+p.write_text(s)
+PY
+sudo chown mmcdeploy:www-data /var/www/mammamiacucina-app/website/public/.user.ini
+sudo chmod 644 /var/www/mammamiacucina-app/website/public/.user.ini
+sudo nginx -t
+sudo systemctl reload php8.4-fpm
+```
+
+Verify on the live Add/Edit catalogue page with a 50–100 MB PNG/JPG/WebP. PHP CLI does not read the web directory's `.user.ini`; `php --ini` alone cannot confirm the effective FPM upload limit. If the upload returns HTTP 413 before reaching Laravel, inspect the site's effective Nginx `client_max_body_size` and any upstream proxy limit.
 
 ## Home banners
 

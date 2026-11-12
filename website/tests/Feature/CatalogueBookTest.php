@@ -64,6 +64,43 @@ class CatalogueBookTest extends TestCase
         $this->assertSame($count, Category::count());
     }
 
+    public function test_catalogue_accepts_50_mb_uploads_and_100_mb_replacements(): void
+    {
+        Storage::fake('local');
+        $this->login();
+        $this->get(route('admin.catalogue.create'))->assertOk()->assertSee('up to 100 MB');
+        $this->post(route('admin.catalogue.store'), $this->data() + ['image' => $this->photo()->size(50 * 1024)])
+            ->assertRedirect(route('admin.catalogue.index'))->assertSessionHasNoErrors();
+        $page = CataloguePage::latest('id')->firstOrFail();
+        $old = $page->image_path;
+        Storage::disk('local')->assertExists($old);
+        $this->get(route('admin.catalogue.edit', $page))->assertOk()->assertSee('up to 100 MB');
+        $this->put(route('admin.catalogue.update', $page), $this->data() + ['image' => $this->photo()->size(100 * 1024)])
+            ->assertRedirect(route('admin.catalogue.index'))->assertSessionHasNoErrors();
+        Storage::disk('local')->assertMissing($old);
+        Storage::disk('local')->assertExists($page->fresh()->image_path);
+    }
+
+    public function test_100_mb_boundary_and_oversized_uploads_preserve_existing_pages(): void
+    {
+        Storage::fake('local');
+        $this->login();
+        $this->post(route('admin.catalogue.store'), $this->data() + ['image' => $this->photo()->size(100 * 1024)])
+            ->assertRedirect(route('admin.catalogue.index'))->assertSessionHasNoErrors();
+        $page = CataloguePage::latest('id')->firstOrFail();
+        $count = CataloguePage::count();
+        $old = $page->image_path;
+        $this->post(route('admin.catalogue.store'), $this->data() + ['image' => $this->photo()->size(100 * 1024 + 1)])
+            ->assertSessionHasErrors(['image' => 'The page image must not be larger than 100 MB.']);
+        $this->put(route('admin.catalogue.update', $page), $this->data() + ['image' => $this->photo()->size(100 * 1024 + 1)])
+            ->assertSessionHasErrors('image');
+        $this->assertDatabaseCount('catalogue_pages', $count);
+        $this->assertSame($old, $page->fresh()->image_path);
+        $this->assertSame(0, $page->fresh()->revision);
+        Storage::disk('local')->assertExists($old);
+        $this->assertCount(1, Storage::disk('local')->allFiles('catalogue-pages'));
+    }
+
     public function test_shared_categories_custom_labels_and_order(): void
     {
         $category = Category::first();

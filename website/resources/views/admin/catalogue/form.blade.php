@@ -14,6 +14,6 @@
 <label for="published">Visibility</label><select class="form-control" id="published" name="is_active"><option value="1" @selected(old('is_active',$page->is_active))>Published</option><option value="0" @selected(!old('is_active',$page->is_active))>Draft</option></select>
 </div><div>
 @if($page->exists)<img src="{{ route('admin.catalogue.preview',[$page,'v'=>$page->revision]) }}" alt="{{ $page->title }}" style="width:100%;height:350px;object-fit:contain;background:#eee5d5">@endif
-<label for="image">Page image {{ $page->exists?'(leave empty to keep current image)':'' }}</label><input class="form-control" id="image" type="file" name="image" accept="image/png,image/jpeg,image/webp" @required(!$page->exists)><small>PNG, JPG or WebP, up to 10 MB. Use a portrait page with readable text.</small>
+<label for="image">Page image {{ $page->exists?'(leave empty to keep current image)':'' }}</label><input class="form-control" id="image" type="file" name="image" accept="image/png,image/jpeg,image/webp" @required(!$page->exists)><small>PNG, JPG or WebP, up to 100 MB. Use a portrait page with readable text.</small>
 </div></div></div></form>
 @endsection

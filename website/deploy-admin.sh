@@ -42,7 +42,7 @@ sudo -H -u mmcdeploy php artisan config:cache
 sudo -H -u mmcdeploy php artisan view:cache
 # Configure uploads for this application only.
 cat > public/.user.ini <<'INI'
-upload_max_filesize=50M
+upload_max_filesize=100M
 post_max_size=512M
 max_file_uploads=20
 INI

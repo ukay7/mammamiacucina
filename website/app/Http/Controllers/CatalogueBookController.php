@@ -104,7 +104,7 @@ class CatalogueBookController extends Controller
 
     private function save(Request $request, CataloguePage $page)
     {
-        $data = $request->validate(['title' => 'required|string|max:255', 'category_id' => 'nullable|exists:categories,id', 'custom_label' => 'required_without:category_id|nullable|string|max:255', 'image' => ($page->exists ? 'nullable' : 'required').'|file|image|mimes:jpg,jpeg,png,webp|max:10240', 'sort_order' => 'required|integer|min:0|max:1000000', 'is_active' => 'required|boolean', 'revision' => 'required|integer|min:0']);
+        $data = $request->validate(['title' => 'required|string|max:255', 'category_id' => 'nullable|exists:categories,id', 'custom_label' => 'required_without:category_id|nullable|string|max:255', 'image' => ($page->exists ? 'nullable' : 'required').'|file|image|mimes:jpg,jpeg,png,webp|max:102400', 'sort_order' => 'required|integer|min:0|max:1000000', 'is_active' => 'required|boolean', 'revision' => 'required|integer|min:0'], ['image.max' => 'The page image must not be larger than 100 MB.']);
         $path = null;
         $old = null;
         try {
