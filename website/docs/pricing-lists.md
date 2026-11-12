@@ -27,6 +27,10 @@ Access is controlled through the existing Roles & Permissions screen: Pricing Li
 
 Two additive migrations create `pricing_lists` and its numbering reservations: `2026_11_12_170000_create_pricing_lists.php` and `2026_11_12_171000_add_pricing_list_numbers.php`. The latter backfills existing pricing-list references without renumbering them. No product/customer/order columns are modified. Deploy the migrations using the usual deployment account, refresh config/views, and verify PHP GD is enabled. Do not run `migrate:fresh` or reseed an existing installation.
 
+The listing selects only summary columns, then counts products in a separate, unsorted query for the current page. Product/image and company snapshots are loaded only when opening an individual list. This prevents MySQL error 1038 (out of sort memory) when saved snapshots are large, including when filters require a filesort. Ordering uses `updated_at` and `id` so pagination remains deterministic when timestamps match.
+
+Deploy `2026_11_13_020000_add_pricing_list_listing_index.php` for the supporting `(deleted_at, updated_at, id)` index. This migration does not rewrite saved lists, prices, images or numbers. The fix does not require raising MySQL's global sort buffer.
+
 Focused verification:
 
 ```sh

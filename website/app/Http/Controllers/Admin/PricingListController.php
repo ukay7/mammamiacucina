@@ -15,14 +15,20 @@ class PricingListController extends Controller
     {
         $filters=$request->validate(['search'=>'nullable|string|max:200','tier'=>'nullable|in:individual,business',
             'from'=>'nullable|date_format:Y-m-d','to'=>'nullable|date_format:Y-m-d|after_or_equal:from']);
-        $lists=PricingList::query()
+        // Keep large JSON/image snapshots out of MySQL's sort buffer.
+        $lists=PricingList::query()->select(['id','number','title','recipient_name','pricing_tier','effective_date','valid_until','updated_at'])
             ->when($filters['search']??null,function($q,$term){
                 $q->where(fn($q)=>$q->where('title','like','%'.$term.'%')->orWhere('recipient_name','like','%'.$term.'%')
                     ->orWhere('number',preg_match('/^(?:PL-)?0*(\d+)$/i',$term,$m)?'PL-'.str_pad($m[1],5,'0',STR_PAD_LEFT):$term));
             })->when($filters['tier']??null,fn($q,$tier)=>$q->where('pricing_tier',$tier))
             ->when($filters['from']??null,fn($q,$date)=>$q->whereDate('effective_date','>=',$date))
             ->when($filters['to']??null,fn($q,$date)=>$q->whereDate('effective_date','<=',$date))
-            ->latest('updated_at')->paginate(20)->withQueryString();
+            ->latest('updated_at')->latest('id')->paginate(20)->withQueryString();
+        // Count only this page's products, without sorting or transferring their snapshots.
+        $jsonLength=in_array(DB::connection()->getDriverName(),['mysql','mariadb'])?'JSON_LENGTH':'json_array_length';
+        $counts=$lists->isEmpty()?collect():PricingList::query()->whereKey($lists->getCollection()->modelKeys())
+            ->select('id')->selectRaw($jsonLength.'(items) AS product_count')->pluck('product_count','id');
+        foreach ($lists as $list) $list->setAttribute('product_count',(int)($counts[$list->id]??0));
         return view('admin.pricing-lists.index',compact('lists','filters'));
     }
 

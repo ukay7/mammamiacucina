@@ -91,6 +91,42 @@ class PricingListTest extends TestCase
         $this->assertSame(['each_cents'=>null,'box_cents'=>null],$rows[$missing->id]['defaults']['business']);
     }
 
+    public function test_index_paginates_large_snapshots_as_small_summaries_with_correct_product_counts(): void
+    {
+        $this->actingAs($this->admin());
+        $this->freezeTime();
+        $ids=[];
+        for ($i=1; $i<=22; $i++) {
+            $list=PricingList::create(['number'=>'PL-'.str_pad((string)$i,5,'0',STR_PAD_LEFT), 'title'=>'List '.$i,
+                'pricing_tier'=>'business', 'effective_date'=>'2026-11-12', 'valid_until'=>'2026-12-31',
+                'recipient_name'=>'Example Cafe', 'filters'=>[], 'brand_snapshot'=>['name'=>'Example'],
+                'items'=>array_fill(0,$i===22?3:1,['name'=>'Cake','image'=>$i===22?str_repeat('x',1024*1024):null])]);
+            $ids[]=$list->id;
+        }
+        $snapshot=PricingList::findOrFail(end($ids))->getRawOriginal('items');
+        $deleted=PricingList::create(['number'=>'PL-99999','title'=>'Deleted list','pricing_tier'=>'business',
+            'effective_date'=>'2026-11-12','filters'=>[],'brand_snapshot'=>[],'items'=>[]]);
+        $deleted->delete();
+
+        $response=$this->get(route('admin.pricing-lists.index'))->assertOk()->assertDontSee('Deleted list');
+        $lists=$response->viewData('lists');
+        $this->assertSame(22,$lists->total());
+        $this->assertSame(array_slice(array_reverse($ids),0,20),$lists->pluck('id')->all());
+        $this->assertSame(3,(int)$lists->first()->product_count);
+        foreach ($lists as $list) {
+            foreach (['items','brand_snapshot','customer_snapshot','filters','notes'] as $field) {
+                $this->assertArrayNotHasKey($field,$list->getAttributes());
+            }
+        }
+        $second=$this->get(route('admin.pricing-lists.index',['page'=>2]))->assertOk()->viewData('lists');
+        $this->assertSame(array_slice(array_reverse($ids),20),$second->pluck('id')->all());
+        $filtered=$this->get(route('admin.pricing-lists.index',['search'=>'PL-00022','tier'=>'business',
+            'from'=>'2026-11-01','to'=>'2026-11-30']))->assertOk()->viewData('lists');
+        $this->assertSame(1,$filtered->total());
+        $this->assertSame(3,(int)$filtered->first()->product_count);
+        $this->assertSame($snapshot,PricingList::findOrFail(end($ids))->getRawOriginal('items'));
+    }
+
     public function test_editor_saved_views_filters_duplicate_edit_and_delete(): void
     {
         $this->actingAs($this->admin()); $product=$this->product();
@@ -174,7 +210,7 @@ class PricingListTest extends TestCase
         $this->actingAs($admin)->postJson(route('admin.pricing-lists.store'),['preview_token'=>$second->json('token')])->assertOk();
         $list=PricingList::where('number',$number)->firstOrFail();
         $this->assertSame($number,$list->number);
-        $this->assertSame(2,$list->id);
+        $this->assertGreaterThan(PricingList::where('number',$other->json('number'))->value('id'),$list->id);
         $this->get(route('admin.pricing-lists.index',['search'=>$number]))->assertOk()->assertSee($number)->assertDontSee($other->json('number'));
         $this->get(route('admin.pricing-lists.document',$list))->assertOk()->assertSee($number);
         $this->get(route('admin.pricing-lists.pdf',$list))->assertOk()->assertHeader('Content-Disposition','inline; filename="'.$number.'.pdf"');
@@ -216,10 +252,11 @@ class PricingListTest extends TestCase
         $migration->up();
         $columns=array_values(array_diff(\Illuminate\Support\Facades\Schema::getColumnListing('pricing_lists'),['number']));
         $this->assertSame($before,DB::table('pricing_lists')->select($columns)->orderBy('id')->get()->toJson());
-        $this->assertSame('PL-00001',$list->fresh()->number);
-        $this->assertSame('PL-00002',PricingList::withTrashed()->findOrFail($deleted->id)->number);
+        $legacyNumber=fn($id)=>'PL-'.str_pad((string)$id,5,'0',STR_PAD_LEFT);
+        $this->assertSame($legacyNumber($list->id),$list->fresh()->number);
+        $this->assertSame($legacyNumber($deleted->id),PricingList::withTrashed()->findOrFail($deleted->id)->number);
         $next=$this->postJson(route('admin.pricing-lists.preview-new'),$this->data($product))->assertOk();
-        $this->assertSame('PL-00003',$next->json('number'));
+        $this->assertSame($legacyNumber($deleted->id+1),$next->json('number'));
     }
 
     public function test_invalid_selection_prices_dates_and_untrusted_metadata_are_rejected(): void
