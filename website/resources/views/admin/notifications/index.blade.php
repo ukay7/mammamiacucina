@@ -1,0 +1,15 @@
+@extends('admin.layout')
+@section('title','Notifications')
+@section('content')
+@include('admin.notifications.style')
+<div class="nt-heading"><p>Create email campaigns, test your message, then follow every recipient’s delivery and engagement.</p><div class="nt-actions">
+@if(auth()->user()->hasAdminPermission('notifications.manage'))<a class="btn btn-primary" href="{{ route('admin.notifications.create') }}">＋ New notification</a>@endif
+<a class="btn btn-outline-primary" href="{{ route('admin.notifications.suppressions') }}">Unsubscribed &amp; suppressed</a>
+@if(auth()->user()->hasAdminPermission('notifications.configure'))<a class="btn btn-outline-primary" href="{{ route('admin.notifications.settings') }}">Delivery settings</a>@endif</div></div>
+@include('admin.notifications.health')
+<form class="panel nt-panel nt-filters" method="get"><label>Find a notification<input class="form-control" name="q" value="{{ request('q') }}" placeholder="Number, title or subject"></label><label>Status<select class="form-control" name="status"><option value="">All statuses</option>@foreach(['draft','queued','paused','completed','cancelled'] as $status)<option value="{{ $status }}" @selected(request('status')===$status)>{{ ucfirst($status) }}</option>@endforeach</select></label><label>From<input class="form-control" name="from" type="date" value="{{ request('from') }}"></label><label>To<input class="form-control" name="to" type="date" value="{{ request('to') }}"></label><button class="btn btn-primary">Filter</button><a class="btn btn-outline-primary" href="{{ route('admin.notifications.index') }}">Clear</a></form>
+<div class="panel nt-panel"><div class="table-responsive"><table class="table nt-table"><thead><tr><th>Notification</th><th>Channel / status</th><th>Recipients</th><th>Accepted</th><th>Opened*</th><th>Created / scheduled</th><th></th></tr></thead><tbody>
+@forelse($campaigns as $campaign)<tr><td><a href="{{ route('admin.notifications.show',$campaign) }}"><strong>{{ $campaign->number }} · {{ $campaign->title }}</strong></a><small>{{ $campaign->subject }}</small></td><td>Email<br><span class="nt-badge" data-state="{{ $campaign->status }}">{{ ucfirst($campaign->status) }}</span></td><td>{{ $campaign->recipients_count }}</td><td>{{ $campaign->accepted_count }}</td><td>{{ $campaign->opened_count }}</td><td>{{ \App\Support\BusinessTime::format($campaign->created_at) }}@if($campaign->scheduled_at)<small>Send: {{ \App\Support\BusinessTime::format($campaign->scheduled_at) }}</small>@endif</td><td><a class="btn btn-sm btn-outline-primary" href="{{ route('admin.notifications.show',$campaign) }}">View report</a></td></tr>
+@empty<tr><td colspan="7" class="text-center py-5">No notifications yet. Create a draft to get started.</td></tr>@endforelse
+</tbody></table></div>{{ $campaigns->links() }}<p class="nt-muted mb-0">* Opens are estimates. Privacy tools may load images automatically or block them. Accepted means the sending provider accepted the message.</p></div>
+@endsection

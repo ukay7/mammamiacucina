@@ -1,0 +1,2 @@
+@if(!$sender?->ready())<div class="alert alert-warning">Email delivery is not ready. Enable and test the saved sender in <strong>Manage Email → Email Configuration</strong> before sending notifications.</div>@endif
+@if(!$worker?->worker_ran_at || $worker->worker_ran_at->lt(now()->subMinutes(5)))<div class="nt-health">Queue worker: {{ $worker?->worker_ran_at?'last ran '.\App\Support\BusinessTime::format($worker->worker_ran_at):'has not run yet' }}. Queued messages wait until the scheduled worker is running.</div>@endif

@@ -64,6 +64,7 @@ return [
         $link('settings.manage', 'admin.delivery.index', 'admin.delivery.*', 'Delivery Rates', 'truck'),
         $link('gateways.manage', 'admin.gateways.edit', 'admin.gateways.*', 'Gateway Settings', 'credit-card'),
         $group('Manage Email', 'envelope', [
+            $link('notifications.view|notifications.manage|notifications.send|notifications.configure', 'admin.notifications.index', 'admin.notifications.*', 'Notifications', 'bell'),
             $link('settings.manage', 'admin.email.edit', 'admin.email.edit', 'Email Configuration', 'cog'),
             $link('settings.manage', 'admin.email.templates.index', 'admin.email.templates.*', 'Email Templates', 'file-alt'),
             $link('settings.manage', 'admin.email.history', 'admin.email.history*', 'Email History', 'history'),

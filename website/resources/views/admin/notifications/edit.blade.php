@@ -1,0 +1,31 @@
+@extends('admin.layout')
+@section('title',$campaign->exists?'Edit '.$campaign->number:'New Notification')
+@section('content')
+@include('admin.notifications.style')
+<link rel="stylesheet" href="{{ asset('admin-assets/vendor/select2/select2.min.css') }}">
+<div class="nt-heading"><p>Choose recipients, compose your message and save a draft. Test it in your inbox before sending in bulk.</p><a class="btn btn-outline-primary" href="{{ $campaign->exists?route('admin.notifications.show',$campaign):route('admin.notifications.index') }}">{{ $campaign->exists?'View report':'Back to notifications' }}</a></div>
+<div class="nt-editor-layout"><form id="notification-editor" class="panel nt-panel" method="post" action="{{ $campaign->exists?route('admin.notifications.update',$campaign):route('admin.notifications.store') }}">@csrf @if($campaign->exists)@method('PUT')@endif<input type="hidden" name="revision" value="{{ $campaign->revision }}">
+<div class="nt-grid"><label>Internal title<input class="form-control" name="title" maxlength="150" value="{{ old('title',$campaign->title) }}" required placeholder="For example: November product update"></label><label>Channel<select class="form-control" disabled><option>Email</option></select></label></div>
+<fieldset class="nt-fieldset"><legend>Recipients</legend><div class="nt-radio"><label><input type="radio" name="audience_mode" value="selected" @checked(old('audience_mode',$campaign->audience_mode)==='selected')> Selected customers &amp; new emails</label><label><input type="radio" name="audience_mode" value="all" @checked(old('audience_mode',$campaign->audience_mode)==='all')> All customers</label></div>
+<label for="notification-recipients">Search customers or type a new email</label><select id="notification-recipients" class="form-control" name="audience[]" multiple>@foreach($choices as $value=>$label)<option value="{{ $value }}" selected>{{ $label }}</option>@endforeach</select>
+<p class="nt-muted">Search by customer number, business, name or email. Press Enter to add a new address. All customers includes active accounts and customers without a login; additional email addresses are included too.</p>
+<label>Customer type<select class="form-control" name="customer_type">@foreach(['all'=>'Business & individual','business'=>'Business customers','individual'=>'Individual customers'] as $value=>$label)<option value="{{ $value }}" @selected(old('customer_type',$campaign->customer_type)===$value)>{{ $label }}</option>@endforeach</select></label>
+<input type="hidden" name="include_alternate" value="0"><label class="nt-check"><input type="checkbox" name="include_alternate" value="1" @checked(old('include_alternate',$campaign->include_alternate))> Include customers’ alternate email addresses</label>
+<p class="nt-muted mb-0">Duplicate addresses receive one email. Unsubscribed and suppressed addresses are excluded. The customer type filter applies to selected and all customers.</p></fieldset>
+<label for="notification-subject">Subject<input id="notification-subject" class="form-control" name="subject" maxlength="200" required value="{{ old('subject',$campaign->subject) }}" placeholder="Your email subject"></label>
+<label for="notification-body">Message body<textarea id="notification-body" class="form-control" name="body" rows="13" maxlength="30000" required placeholder="Write your message here. Paste full https:// links where needed.">{{ old('body',$campaign->body) }}</textarea></label><p class="nt-muted">Line breaks and web links are preserved. Company contact details and an unsubscribe link are added automatically.</p>
+<div class="nt-radio">@foreach(['track_opens'=>'Track estimated opens','track_clicks'=>'Track link clicks'] as $field=>$label)<input type="hidden" name="{{ $field }}" value="0"><label class="nt-check"><input type="checkbox" name="{{ $field }}" value="1" @checked(old($field,$campaign->$field))> {{ $label }}</label>@endforeach</div>
+<p class="nt-muted">Tracking cannot prove that a person read the message. Email privacy tools and link scanners affect results.</p>
+<div id="notification-preview-error" class="alert alert-danger" role="alert" hidden></div><div class="nt-actions"><button type="submit" class="btn btn-primary">Save draft</button><button type="button" id="notification-preview-button" class="btn btn-outline-primary">Preview email</button></div></form>
+<aside><section class="panel nt-panel"><h2>Test before sending</h2>@if($campaign->exists)
+<p>Tests use the <strong>saved draft</strong>. Save edits first. Only the test address receives this message.</p>
+@if($campaign->tested_revision===$campaign->revision && $campaign->tested_settings_revision===$sender?->revision)<div class="alert alert-success">This version passed a test at {{ \App\Support\BusinessTime::format($campaign->tested_at) }}.</div>@else<p class="nt-muted">This version has not passed a test yet.</p>@endif
+@if(auth()->user()->hasAdminPermission('notifications.send'))@include('admin.notifications.test-form')@endif
+<a class="d-block mt-3" href="{{ route('admin.notifications.show',[$campaign,'tests'=>1]) }}">View test sends</a>
+@else<p>Save your draft to send a test email.</p>@endif</section>
+@if($campaign->exists && auth()->user()->hasAdminPermission('notifications.send'))<section class="panel nt-panel"><h2>Prepare bulk send</h2><p>After checking the test inbox, review the exact recipient list and confirm sending.</p>@include('admin.notifications.review-form')</section>@endif
+</aside></div>
+<dialog id="notification-preview-dialog" class="nt-dialog"><div class="nt-heading"><h2>Email preview</h2><button id="notification-close-preview" type="button" class="btn btn-outline-primary">Close</button></div><iframe id="notification-preview-frame" title="Email preview" sandbox=""></iframe></dialog>
+<script>window.notificationEditor = {{ Illuminate\Support\Js::from(['customers'=>route('admin.notifications.customers'),'preview'=>route('admin.notifications.preview'),'csrf'=>csrf_token()]) }};</script>
+<script src="{{ asset('admin-assets/vendor/select2/select2.full.min.js') }}" defer></script><script src="{{ asset('admin-assets/notifications.js') }}?v={{ filemtime(public_path('admin-assets/notifications.js')) }}" defer></script>
+@endsection

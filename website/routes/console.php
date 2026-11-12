@@ -15,6 +15,7 @@ Artisan::command('suppliers:backfill {--dry-run : Preview mappings without savin
 
 Schedule::command('payments:reconcile')->everyMinute()->withoutOverlapping(10);
 Schedule::command('emails:deliver')->everyMinute()->withoutOverlapping(10)->runInBackground();
+Schedule::command('notifications:send')->everyMinute()->withoutOverlapping(5)->runInBackground();
 
 \Illuminate\Support\Facades\Artisan::command('invoices:backfill', function () {
  $count=0;

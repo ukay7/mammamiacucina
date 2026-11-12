@@ -6,7 +6,7 @@ use Illuminate\Support\Str;
 use Symfony\Component\Mime\{Email,Address};
 
 class ResendEmail {
- public function send(SmtpSetting $settings,Email $message,string $body,?string $idempotencyKey=null,array $attachments=[]):string {
+ public function send(SmtpSetting $settings,Email $message,string $body,?string $idempotencyKey=null,array $attachments=[],?string $html=null,array $headers=[]):string {
   if(!$settings->api_key)throw new \RuntimeException('Email API key is missing.');
   $response=Http::withToken($settings->api_key)->acceptJson()->withHeaders(['Idempotency-Key'=>$idempotencyKey??(string)Str::uuid()])
    ->connectTimeout(10)->timeout(25)->withOptions(['allow_redirects'=>false])
@@ -14,6 +14,8 @@ class ResendEmail {
     'from'=>($message->getFrom()[0]??new Address($settings->from_address,$settings->from_name))->toString(),
     'to'=>array_map(fn($a)=>$a->getAddress(),$message->getTo()),
     'subject'=>$message->getSubject(),'text'=>$body,
+    ...($html!==null ? ['html'=>$html] : []),
+    ...($headers ? ['headers'=>$headers] : []),
     ...($attachments ? ['attachments'=>$attachments] : []),
    ]);
   // Never expose provider responses, credentials or email contents in exceptions.

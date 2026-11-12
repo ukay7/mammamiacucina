@@ -101,6 +101,35 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         Route::post('/customers/{customer}/verify-email', [\App\Http\Controllers\Admin\CustomerController::class,'verifyEmail'])->middleware(AdminAccess::class.':customers.manage')->name('customers.verify-email');
         Route::get('/customers/create', [\App\Http\Controllers\Admin\CustomerController::class,'create'])->middleware(AdminAccess::class.':customers.manage')->name('customers.create');
         Route::post('/customers', [\App\Http\Controllers\Admin\CustomerController::class,'store'])->middleware(AdminAccess::class.':customers.manage')->name('customers.store');
+        Route::prefix('notifications')->name('notifications.')->middleware(AdminAccess::class.':notifications.view|notifications.manage|notifications.send|notifications.configure')->group(function () {
+            $c=\App\Http\Controllers\Admin\NotificationController::class;
+            Route::get('/',[$c,'index'])->name('index');
+            Route::get('/suppressions',[$c,'suppressions'])->name('suppressions');
+            Route::middleware(AdminAccess::class.':notifications.configure')->group(function() use($c) {
+                Route::get('/settings',[$c,'settings'])->name('settings');
+                Route::put('/settings',[$c,'saveSettings'])->name('settings.update');
+            });
+            Route::middleware(AdminAccess::class.':notifications.manage')->group(function() use($c) {
+                Route::get('/create',[$c,'create'])->name('create');
+                Route::get('/customers',[$c,'customers'])->name('customers');
+                Route::post('/preview',[$c,'preview'])->name('preview');
+                Route::post('/',[$c,'store'])->name('store');
+                Route::get('/{campaign}/edit',[$c,'edit'])->name('edit');
+                Route::put('/{campaign}',[$c,'update'])->name('update');
+                Route::post('/{campaign}/duplicate',[$c,'duplicate'])->name('duplicate');
+                Route::delete('/{campaign}',[$c,'destroy'])->name('destroy');
+            });
+            Route::middleware(AdminAccess::class.':notifications.send')->group(function() use($c) {
+                Route::post('/{campaign}/test',[$c,'test'])->middleware('throttle:3,1')->name('test');
+                Route::post('/{campaign}/review',[$c,'review'])->name('review');
+                Route::get('/{campaign}/review-recipients',[$c,'reviewExport'])->name('review-export');
+                Route::post('/{campaign}/queue',[$c,'queue'])->name('queue');
+                Route::post('/{campaign}/action',[$c,'action'])->name('action');
+            });
+            Route::get('/{campaign}/export',[$c,'export'])->name('export');
+            Route::get('/{campaign}/deliveries/{delivery}',[$c,'delivery'])->name('delivery');
+            Route::get('/{campaign}',[$c,'show'])->name('show');
+        });
         Route::prefix('pricing-lists')->name('pricing-lists.')->group(function () {
             $controller=\App\Http\Controllers\Admin\PricingListController::class;
             Route::middleware(AdminAccess::class.':pricing-lists.manage')->group(function () use ($controller) {
