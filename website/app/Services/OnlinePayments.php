@@ -355,6 +355,8 @@ class OnlinePayments
 
     public function refund(Payment $payment, int $userId, ?int $expectedCents = null, ?int $refundCents = null, array $stockChoice = []): void
     {
+        $refundOrder = $payment->order()->withTrashed()->firstOrFail();
+        if ($refundOrder->refund_credit_cents || $refundOrder->pending_refund_cents) throw new RuntimeException('This order has customer refunds or pending refund cheques. Reconcile those records before requesting a gateway refund.');
         $payment->order()->withTrashed()->firstOrFail()->assertEditable();
         $current = $payment->fresh();
         if ($current->status !== 'refunded' && ($refundCents ?? ($current->amount_cents - $current->refunded_cents)) === $current->amount_cents - $current->refunded_cents && !in_array($current->order->status, ['cancelled', 'completed', 'delivered', 'out_for_delivery'], true)) {
@@ -363,6 +365,7 @@ class OnlinePayments
         $this->sync($payment);
         $this->locked($payment, function ($p, $order) use ($userId, $expectedCents, $refundCents) {
             $order->assertEditable();
+            if ($order->refund_credit_cents || $order->pending_refund_cents) throw new RuntimeException('Customer refunds changed. Reconcile those records before requesting a gateway refund.');
             if ($p->manual_resolution) throw new RuntimeException('This payment is managed manually. Record refunds completed outside the system.');
             if ($p->status === 'refunded') {
                 return;

@@ -75,7 +75,8 @@ class CustomerController extends Controller {
   $notes=\App\Models\CustomerNote::with('author')->where('customer_id',$customer->id)->latest('id')->paginate(8,['*'],'notes_page')->withQueryString();
   $accountReceipts=auth()->user()->isSuper()?\App\Models\CustomerReceipt::with('lines','author')->where('customer_id',$customer->id)->latest('id')->paginate(10,['*'],'receipts_page')->withQueryString():null;
   $documents=app(\App\Services\CustomerDocuments::class)->listing($customer,auth()->user(),request());
-  return view('admin.customers.show',compact('customer','orders','latestOrder','notes','invoices','paymentOrders','balances','accountReceipts','documents'));
+  $accountRefunds=auth()->user()->isSuper()?\App\Models\CustomerRefund::summary()->with('lines','order:id,number','author')->where('customer_id',$customer->id)->latest('id')->paginate(10,['*'],'refunds_page')->withQueryString():null;
+  return view('admin.customers.show',compact('customer','orders','latestOrder','notes','invoices','paymentOrders','balances','accountReceipts','accountRefunds','documents'));
  }
  public function storeNote(Request $request,Customer $customer){
   $data=$request->validate(['body'=>'required|string|max:5000']);

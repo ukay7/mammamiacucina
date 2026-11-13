@@ -6,6 +6,8 @@ document.addEventListener('submit',event=>{
  // Customer receipt forms require a signed allocation preview and explicit
  // confirmation, enforced again on the server by the Super Admin-only service.
  if(form.matches('[data-customer-receipt],[data-receipt-action]'))return;
+ // Refunds also require their own signed preview and explicit confirmation.
+ if(form.matches('[data-refund-form],[data-refund-action]'))return;
  // Supplier status/receiving forms have their own required confirmation checkbox.
  if(form.matches('[data-supplier-receiving],[data-supplier-status]'))return;
  if(form.dataset.cancellationConfirmed==='1'){delete form.dataset.cancellationConfirmed;return;}

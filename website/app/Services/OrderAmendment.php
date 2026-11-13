@@ -219,6 +219,7 @@ class OrderAmendment
             }
             $amount = self::cents($data['amount']);
             $balance = $order->balance_cents;
+            if ($data['direction'] === 'refund' && $amount > $order->net_received_cents - (int)$order->pending_refund_cents) $this->fail('Pending customer refund cheques reserve these funds. Resolve them before recording another refund.');
             if ($amount <= 0 || ($data['direction'] === 'collect' ? $balance < $amount : -$balance < $amount)) {
                 $this->fail('The amount exceeds the current amount due or refund due.');
             }

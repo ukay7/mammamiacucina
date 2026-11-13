@@ -1,6 +1,7 @@
 @extends('admin.layout')
 @section('title','Payments · '.$order->number)
 @section('content')
+@include('admin.orders.refunds')
 <p><a href="{{ route('admin.orders.show',$order) }}">← Back to {{ $order->number }}</a> · {{ $order->first_name }} {{ $order->last_name }} · {{ $order->status_label }}</p>
 <style>.payment-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin:20px 0}.payment-metrics>div{padding:22px;background:#fffaf1;border:1px solid #dec9a8;border-radius:10px}.payment-metrics strong{display:block;font-size:25px;color:#44291d}.payment-entry{max-width:780px;padding:24px;background:#fffaf1;border:1px solid #dec9a8;border-radius:10px}.payment-entry .fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}.payment-entry label{display:block}.payment-positive{color:#247341}.payment-negative{color:#a00920}</style>
 <div class="payment-metrics">

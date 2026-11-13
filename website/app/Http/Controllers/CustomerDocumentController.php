@@ -55,6 +55,16 @@ class CustomerDocumentController extends Controller
         $data = ['pdf' => $download, 'backUrl' => $backUrl, 'downloadUrl' => $downloadUrl];
         $view = 'documents.financial';
         switch ($kind) {
+            case 'refund':
+                $record->load('refund'); // The document listing deliberately omits large snapshots.
+                $refund=$record->refund; $snapshot=$record->snapshot;
+                $data += ['customer'=>$customer,'refund'=>$refund,'event'=>$record,'snapshot'=>$snapshot,
+                    'doc'=>['brand'=>$refund->snapshot['brand'],'title'=>$snapshot['confirmed_cents']?'Refund Confirmation':'Refund Cheque Record','number'=>$refund->number,'date'=>\App\Support\BusinessTime::format($record->created_at)]];
+                $view='documents.customer-refund'; break;
+            case 'credit-note':
+                $data += ['customer'=>$customer,'refund'=>$record->refundLine->refund,'credit'=>$record,
+                    'doc'=>['brand'=>$record->snapshot['brand'],'title'=>'Credit Note','number'=>$record->number,'date'=>$record->snapshot['refund_date']]];
+                $view='documents.order-credit'; break;
             case 'order': $data['doc'] = $theme->order($record); break;
             case 'invoice': $data['doc'] = $theme->order($record->order, $record); break;
             case 'settlement': $data['doc'] = $theme->order($record->order, receipt: $record); break;

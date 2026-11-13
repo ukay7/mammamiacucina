@@ -206,7 +206,7 @@ class ManualPaymentControls
                     $o->payment_method = array_key_first($effective);
                 }
             }
-            $o->payment_status = $o->net_received_cents >= ($o->final_total_cents ?? PHP_INT_MAX) && $o->status !== 'cancelled' ? 'paid' : 'unpaid';
+            $o->payment_status = $o->net_received_cents >= ($o->adjusted_total_cents ?? PHP_INT_MAX) && $o->status !== 'cancelled' ? 'paid' : 'unpaid';
             $o->revision++;
             // A bookkeeping correction is not a new collection or a customer refund.
             $o->saveQuietly();

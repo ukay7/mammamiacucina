@@ -74,7 +74,7 @@ class BusinessReports
 
     public function orderSummary($query): array
     {
-        return (array) (clone $query)->selectRaw("COUNT(*) AS orders, COALESCE(SUM(CASE WHEN status != 'cancelled' THEN total_cents ELSE 0 END),0) AS value, COALESCE(SUM(net_cents),0) AS received, COALESCE(SUM(CASE WHEN balance_cents > 0 THEN balance_cents ELSE 0 END),0) AS due, COALESCE(SUM(CASE WHEN balance_cents < 0 THEN -balance_cents ELSE 0 END),0) AS refund_due, SUM(CASE WHEN total_cents IS NULL THEN 1 ELSE 0 END) AS unpriced")->first();
+        return (array) (clone $query)->selectRaw("COUNT(*) AS orders, COALESCE(SUM(CASE WHEN status != 'cancelled' THEN total_cents ELSE 0 END),0) AS value, COALESCE(SUM(credit_cents),0) AS credits, COALESCE(SUM(CASE WHEN status != 'cancelled' THEN adjusted_total_cents ELSE 0 END),0) AS adjusted_value, COALESCE(SUM(net_cents),0) AS received, COALESCE(SUM(CASE WHEN balance_cents > 0 THEN balance_cents ELSE 0 END),0) AS due, COALESCE(SUM(CASE WHEN balance_cents < 0 THEN -balance_cents ELSE 0 END),0) AS refund_due, SUM(CASE WHEN total_cents IS NULL THEN 1 ELSE 0 END) AS unpriced")->first();
     }
 
     public function report(string $kind, array $f): array
@@ -119,7 +119,7 @@ class BusinessReports
             }
             $summary = $this->orderSummary($query);
             if ($kind === 'customers') {
-                $rows = (clone $query)->selectRaw("customer_id, CASE WHEN customer_id IS NULL THEN LOWER(email) ELSE '' END AS guest_email, MAX(business_name) AS business_name, MAX(first_name) AS first_name, MAX(last_name) AS last_name, MAX(email) AS email, COUNT(*) AS orders, SUM(CASE WHEN status != 'cancelled' THEN total_cents ELSE 0 END) AS value, SUM(net_cents) AS received, SUM(CASE WHEN balance_cents > 0 THEN balance_cents ELSE 0 END) AS due, SUM(CASE WHEN balance_cents < 0 THEN -balance_cents ELSE 0 END) AS refund_due, SUM(CASE WHEN total_cents IS NULL THEN 1 ELSE 0 END) AS unpriced")
+                $rows = (clone $query)->selectRaw("customer_id, CASE WHEN customer_id IS NULL THEN LOWER(email) ELSE '' END AS guest_email, MAX(business_name) AS business_name, MAX(first_name) AS first_name, MAX(last_name) AS last_name, MAX(email) AS email, COUNT(*) AS orders, SUM(CASE WHEN status != 'cancelled' THEN total_cents ELSE 0 END) AS value, SUM(credit_cents) AS credits, SUM(net_cents) AS received, SUM(CASE WHEN balance_cents > 0 THEN balance_cents ELSE 0 END) AS due, SUM(CASE WHEN balance_cents < 0 THEN -balance_cents ELSE 0 END) AS refund_due, SUM(CASE WHEN total_cents IS NULL THEN 1 ELSE 0 END) AS unpriced")
                     ->groupBy('customer_id')->groupByRaw("CASE WHEN customer_id IS NULL THEN LOWER(email) ELSE '' END")->orderByDesc('value')->orderBy('customer_id')->orderBy('guest_email');
             } else {
                 $rows = (clone $query)->select('b.*');

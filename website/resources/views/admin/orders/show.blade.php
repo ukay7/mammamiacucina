@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="{{ asset('admin-assets/order-detail.css') }}?v={{ filemtime(public_path('admin-assets/order-detail.css')) }}">
 
 @include('admin.orders.detail-header',['printLabel'=>'Print Order / PDF','showFinancialSummary'=>true,'showOrderLinks'=>true])
+@include('admin.orders.refunds')
 
 <div class="order-detail-notices">
     @if($order->status === 'cancelled' && $order->cancellation_restock !== null)

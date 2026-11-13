@@ -29,6 +29,7 @@ class OrderManagement
             $tax = $money($d['tax']);
             $status = $d['status'];
             $payment = $d['payment_status'];
+            if (($order->refund_credit_cents || $order->pending_refund_cents) && ($payment !== $order->payment_status || $delivery !== (int)$order->delivery_cents || $tax !== (int)$order->tax_cents)) $fail('This order has customer refunds. Preserve its original charges and use the payment/refund records for financial changes.');
             if ($order->fulfillment === 'pickup' && $delivery !== 0) $fail('Pickup orders must have zero delivery charge.');
             if ($order->payment) {
                 if ($payment !== $order->payment_status || $delivery !== (int) $order->delivery_cents || $tax !== (int) $order->tax_cents) {

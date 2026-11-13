@@ -102,6 +102,7 @@ class BusinessReportController extends Controller
                 default => ['Order', 'Customer', 'Email', 'Order date', 'Status', 'Method', 'Source', 'Fulfillment', 'Planned date', 'Order total CAD', 'Net received CAD', 'Amount due CAD', 'Refund due CAD'],
             };
             if ($kind === 'sales') array_splice($headers, 1, 0, ['Business name']);
+            if (!in_array($kind,['payments','methods'])) $headers = array_merge($headers,['Credit notes CAD','Adjusted order value CAD']);
             fputcsv($out, $headers, ',', '"', '');
             $money = fn ($v) => $v === null ? 'Unconfirmed' : number_format($v / 100, 2, '.', '');
             foreach ($query->cursor() as $r) {
@@ -112,6 +113,7 @@ class BusinessReportController extends Controller
                     default => [$r->number, $r->first_name.' '.$r->last_name, $r->email, \App\Support\BusinessTime::format($r->ordered_at), Order::STATUSES[$r->status] ?? $r->status, $r->payment_method, $r->source, $r->fulfillment, $r->fulfillment_date, $money($r->total_cents), $money($r->net_cents), $money($r->balance_cents === null ? null : max(0, $r->balance_cents)), $money($r->balance_cents === null ? null : max(0, -$r->balance_cents))],
                 };
                 if ($kind === 'sales') array_splice($values, 1, 0, [$r->business_name ?? '']);
+                if (!in_array($kind,['payments','methods'])) $values = array_merge($values,[$money($kind==='customers'?$r->credits:$r->credit_cents),$money($kind==='customers'?$r->value-$r->credits:$r->adjusted_total_cents)]);
                 fputcsv($out, array_map(fn ($v) => preg_match('/^[=+@\-\t\r]/', (string) $v) ? "'".$v : ($v ?? ''), $values), ',', '"', '');
             }
             fclose($out);

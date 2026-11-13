@@ -28,6 +28,8 @@ class OrderSettlement extends Model
         return $this->belongsTo(CustomerReceiptLine::class, 'customer_receipt_line_id');
     }
 
+    public function refundLine() { return $this->belongsTo(CustomerRefundLine::class, 'customer_refund_line_id'); }
+
     public function getKindAttribute(): string
     {
         return $this->entry_kind ?: ($this->amount_cents < 0 ? 'refund' : 'payment');

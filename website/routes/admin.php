@@ -88,6 +88,17 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         Route::post('/customers/{customer}/discounts', [\App\Http\Controllers\Admin\CustomerTermsController::class,'saveDiscounts'])->middleware(AdminAccess::class.':customers.manage')->name('customers.discounts.save');
         Route::post('/customers/{customer}/notes', [\App\Http\Controllers\Admin\CustomerController::class,'storeNote'])->middleware([AdminAccess::class.':orders.view',AdminAccess::class.':customers.manage'])->name('customers.notes.store');
         Route::middleware(\App\Http\Middleware\SuperAdminOnly::class)->group(function () {
+            $refunds = \App\Http\Controllers\Admin\CustomerRefundController::class;
+            Route::get('/customers/{customer}/refunds/create', [$refunds, 'create'])->name('customers.refunds.create');
+            Route::get('/customers/{customer}/refunds/orders', [$refunds, 'orders'])->name('customers.refunds.orders');
+            Route::post('/customers/{customer}/refunds/preview', [$refunds, 'preview'])->name('customers.refunds.preview');
+            Route::post('/customers/{customer}/refunds', [$refunds, 'store'])->name('customers.refunds.store');
+            Route::get('/customers/{customer}/refunds/{refund}', [$refunds, 'show'])->name('customers.refunds.show');
+            Route::get('/customers/{customer}/refunds/{refund}/document', [$refunds, 'document'])->name('customers.refunds.document');
+            Route::get('/customers/{customer}/refunds/{refund}/credits/{credit}', [$refunds, 'credit'])->name('customers.refunds.credit');
+            Route::get('/customers/{customer}/refunds/{refund}/lines/{line}/proof', [$refunds, 'proof'])->name('customers.refunds.proof');
+            Route::post('/customers/{customer}/refunds/{refund}/lines/{line}/preview', [$refunds, 'actionPreview'])->name('customers.refunds.action-preview');
+            Route::post('/customers/{customer}/refunds/{refund}/lines/{line}', [$refunds, 'action'])->name('customers.refunds.action');
             $receipts = \App\Http\Controllers\Admin\CustomerReceiptController::class;
             Route::get('/customers/{customer}/receipts/create', [$receipts, 'create'])->name('customers.receipts.create');
             Route::post('/customers/{customer}/receipts/preview', [$receipts, 'preview'])->name('customers.receipts.preview');

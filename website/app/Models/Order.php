@@ -30,6 +30,7 @@ class Order extends Model
 
     public function deletionBlockReason(): ?string
     {
+        if ($this->refunds()->exists()) return 'This order has refund records. Preserve the order and its credit notes for the audit history.';
         if ($this->trashed()) {
             return 'This order is already deleted.';
         }
@@ -88,6 +89,13 @@ class Order extends Model
         return $this->hasMany(OrderSettlement::class);
     }
 
+    public function refunds() { return $this->hasMany(CustomerRefund::class); }
+    public function credits() { return $this->hasMany(OrderCredit::class); }
+    public function getAdjustedTotalCentsAttribute(): ?int
+    {
+        return $this->final_total_cents === null ? null : $this->final_total_cents - (int)$this->refund_credit_cents;
+    }
+
     public function getCollectedCentsAttribute(): int
     {
         if ($this->payment) {
@@ -125,11 +133,11 @@ class Order extends Model
         if ($this->status === 'cancelled') {
             return -$this->net_received_cents;
         }
-        if ($this->payment_status === 'refunded' && $this->net_received_cents === 0) {
+        if ($this->payment_status === 'refunded' && $this->net_received_cents === 0 && !(int)$this->refund_credit_cents) {
             return 0;
         }
 
-        return ($this->final_total_cents ?? 0) - $this->net_received_cents;
+        return ($this->adjusted_total_cents ?? 0) - $this->net_received_cents;
     }
 
     public function getStatusOptionsAttribute(): array
@@ -164,6 +172,9 @@ class Order extends Model
 
     public function getPaymentStatusLabelAttribute(): string
     {
+        if ((int)$this->refund_credit_cents > 0) {
+            return $this->balance_cents > 0 ? 'Partially refunded · Balance due' : ($this->adjusted_total_cents === 0 ? 'Fully refunded' : 'Partially refunded · Paid');
+        }
         if ($this->payment_status === 'pending') {
             return 'Unpaid · Bank Processing';
         }

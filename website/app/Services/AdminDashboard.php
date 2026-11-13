@@ -13,7 +13,7 @@ class AdminDashboard {
   return DB::table('orders as o')->whereNull('o.deleted_at')->leftJoin('payments as p',fn($join)=>$join->on('p.order_id','=','o.id')->whereNull('p.superseded_at'))->leftJoinSub($settlements,'s','s.order_id','=','o.id')
    ->where('o.currency','CAD')->where(fn($q)=>$q->whereNull('p.id')->orWhere('p.mode','live'))
    ->select('o.id','o.number','o.first_name','o.last_name','o.status','o.payment_method','o.ordered_at','o.created_at')
-   ->selectRaw("$total AS total_cents, $net AS net_cents, CASE WHEN o.status = 'cancelled' THEN -$net WHEN o.payment_status = 'refunded' AND $net = 0 THEN 0 WHEN $total IS NULL THEN NULL ELSE $total - $net END AS balance_cents");
+   ->selectRaw("$total AS total_cents, o.refund_credit_cents AS credit_cents, ($total - CAST(o.refund_credit_cents AS SIGNED)) AS adjusted_total_cents, $net AS net_cents, CASE WHEN o.status = 'cancelled' THEN -$net WHEN o.payment_status = 'refunded' AND $net = 0 AND o.refund_credit_cents = 0 THEN 0 WHEN $total IS NULL THEN NULL ELSE $total - CAST(o.refund_credit_cents AS SIGNED) - $net END AS balance_cents");
  }
  public function build(User $user,int $days): array {
   $data=['days'=>$days,'start'=>\App\Support\BusinessTime::today()->subDays($days-1),'end'=>\App\Support\BusinessTime::now(),'sales'=>null,'stock'=>null];
