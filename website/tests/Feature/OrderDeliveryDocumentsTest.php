@@ -27,7 +27,8 @@ class OrderDeliveryDocumentsTest extends TestCase
             'address'=>'100 Customer Head Office','city'=>'Markham','province'=>'ON','postal_code'=>'L3P 1A1','country'=>'Canada']);
         $product=Product::create(['category_id'=>1,'slug'=>Str::uuid(),'premium_marketing_name'=>'Current catalogue cake',
             'qr_code'=>Str::uuid(),'is_active'=>true,'size_diameter_cm'=>'18','unit_weight_g'=>85,'pieces_per_pack'=>12,
-            'pack_weight_kg'=>1.02,'uom'=>'Pack','total_selling_price_cad'=>123.45,'business_selling_price_cad'=>98.76]);
+            'pack_weight_kg'=>1.02,'dna'=>['net_carton_kg'=>'10.2','pieces_per_carton'=>120],
+            'uom'=>'Pack','total_selling_price_cad'=>123.45,'business_selling_price_cad'=>98.76]);
         $order=Order::create(['checkout_token'=>Str::uuid(),'number'=>'MMC-DELIVERY-QA','source'=>'website','customer_id'=>$customer->id,
             'first_name'=>'Alex','last_name'=>'Receiver','email'=>'order-contact@example.test','phone'=>'+1 416 555 0123',
             'address'=>'975 Sample Receiving Road, Unit 4','city'=>'Woodbridge','province'=>'ON','postal_code'=>'L4H 2Z7','country'=>'Canada',
@@ -53,19 +54,19 @@ class OrderDeliveryDocumentsTest extends TestCase
         }
     }
 
-    public function test_form_contains_delivery_details_and_sizes_without_financial_fields(): void
+    public function test_form_uses_product_record_columns_and_delivery_handover_without_printed_amounts(): void
     {
         $f=$this->fixture();
         $response=$this->get(route('admin.orders.delivery-form',$f['order']))->assertOk();
         foreach (['Sample Bakery &amp; Cafe','Alex Receiver','Customer account #'.$f['customer']->id,
             '100 Customer Head Office','975 Sample Receiving Road, Unit 4','order-contact@example.test','+1 416 555 0123',
-            '14 Nov 2026, 9:45 AM EST','Bullet','M2N (Zone 8)','Saved order cake','MMC-CAKE-18','18 cm','85 g / piece',
-            '12 pieces / pack','1.02 kg / pack','Receiver name','Receiver signature','side receiving entrance'] as $text) {
+            '14 Nov 2026, 9:45 AM EST','Bullet','M2N (Zone 8)','Current catalogue cake','MMC-CAKE-18',
+            'Premium Marketing Name','Delivery Order Handover Form','Payment handed over','side receiving entrance'] as $text) {
             $response->assertSee($text, false);
         }
         $text=html_entity_decode(strip_tags($response->getContent()));
-        foreach (['$','CAD','123.45','246.90','58.76','32.10','150.00','17.7%',
-            'Account summary','Unit price','Line total','Subtotal','Balance due','Payment instructions','Saved route rate'] as $forbidden) {
+        foreach (['123.45','246.90','58.76','32.10','150.00','17.7%','Saved order cake',
+            'Receiver name','Receiver signature','Size / pack','Account summary','Unit price','Line total','Subtotal','Balance due','Payment instructions','Saved route rate'] as $forbidden) {
             $this->assertStringNotContainsString($forbidden,$text);
         }
         $this->assertStringContainsString('no-store',$response->headers->get('Cache-Control'));
@@ -73,7 +74,14 @@ class OrderDeliveryDocumentsTest extends TestCase
         $dom=new \DOMDocument; @$dom->loadHTML($response->getContent()); $xpath=new \DOMXPath($dom);
         $this->assertSame(0,$xpath->query('//table[contains(@class,"doc-header")]//*[contains(text(),"GST/HST")]')->length);
         $this->assertSame(1,$xpath->query('//footer//div[contains(@class,"doc-registration")]')->length);
-        $this->assertSame('2',trim($xpath->query('//tbody/tr/td[last()]')->item(0)->textContent));
+        $cells=$xpath->query('//table[contains(@class,"delivery-products")]/tbody/tr/td');
+        $this->assertSame(8,$cells->length);
+        foreach ([0=>'1',2=>'MMC-CAKE-18',3=>'Current catalogue cake',4=>'10.2',5=>'1.02',6=>'120',7=>'2'] as $i=>$value) {
+            $this->assertSame($value,trim($cells->item($i)->textContent));
+        }
+        $this->assertSame(10,$xpath->query('//table[contains(@class,"handover-table")]/tbody/tr')->length);
+        $this->assertSame('CAD$',trim($xpath->query('//table[contains(@class,"handover-table")]/tbody/tr[8]/td[6]')->item(0)->textContent));
+        $this->assertSame(1,$xpath->query('//table[contains(@class,"handover-table")]/tbody/tr[1]/td[@rowspan="3"]')->length);
     }
 
     public function test_envelope_keeps_order_destination_when_profile_addresses_change(): void
@@ -145,8 +153,11 @@ class OrderDeliveryDocumentsTest extends TestCase
         for ($i=2;$i<=30;$i++) $order->items()->create(['product_id'=>$f['product']->id,'name'=>'Delivery item '.$i,
             'product_code'=>'ITEM-'.$i,'quantity'=>3,'unit_cents'=>99999,'line_cents'=>299997]);
         $html=$this->get(route('admin.orders.delivery-form',$order))->assertOk()->assertSee('data:image/jpeg;base64,',false)->getContent();
-        $this->assertSame(1,substr_count($html,'Receiver signature'));
-        $this->assertLessThan(strpos($html,'Receiver signature'),strpos($html,'Delivery item 30'));
+        $this->assertSame(1,substr_count($html,'<h2>Delivery Order Handover Form</h2>'));
+        $this->assertLessThan(strpos($html,'<h2>Delivery Order Handover Form</h2>'),strpos($html,'ITEM-30'));
+        $dom=new \DOMDocument; @$dom->loadHTML($html); $xpath=new \DOMXPath($dom);
+        $this->assertSame(30,$xpath->query('//table[contains(@class,"delivery-products")]/tbody/tr')->length);
+        $this->assertSame('30',trim($xpath->query('//table[contains(@class,"delivery-products")]/tbody/tr[last()]/td[1]')->item(0)->textContent));
         $this->assertStringNotContainsString('999.99',$html);
         $pdf=$this->get(route('admin.orders.delivery-form',[$order,'download'=>1]))->assertOk();
         $this->assertGreaterThan(1,preg_match_all('/\/Type\s*\/Page\b/',$pdf->getContent()));
@@ -163,6 +174,21 @@ class OrderDeliveryDocumentsTest extends TestCase
             $response->assertDontSee('14 Nov 2026, 9:45 AM EST')->assertDontSee('Courier:')->assertDontSee('18 cm');
             $this->get(route('admin.orders.'.$kind,[$order,'download'=>'invalid']))->assertSessionHasErrors('download');
         }
-        $this->get(route('admin.orders.delivery-form',$order))->assertSee('Saved order cake')->assertSee('MMC-CAKE-18');
+        $html=$this->get(route('admin.orders.delivery-form',$order))->assertSee('Saved order cake')->assertSee('MMC-CAKE-18')
+            ->assertSee('Pickup Order Handover Form')->assertSee('Received by')->assertDontSee('Payment received')->assertDontSee('Payment handed over')->getContent();
+        $dom=new \DOMDocument; @$dom->loadHTML($html); $xpath=new \DOMXPath($dom);
+        $this->assertSame(4,$xpath->query('//table[contains(@class,"handover-table")]/tbody/tr')->length);
+        foreach ([5,6,7] as $column) $this->assertSame('—',trim($xpath->query('//table[contains(@class,"delivery-products")]/tbody/tr/td['.$column.']')->item(0)->textContent));
+    }
+
+    public function test_carton_data_is_not_invented_from_pack_or_unpublished_pricing_inputs(): void
+    {
+        $f=$this->fixture();
+        $f['product']->update(['dna'=>[],'pack_weight_kg'=>null,'premium_marketing_name'=>'<b>Premium & special</b>']);
+        $f['product']->pricingDraft()->create(['inputs'=>['pieces_per_carton'=>999],'options'=>[],'revision'=>1]);
+        $response=$this->get(route('admin.orders.delivery-form',$f['order']))->assertOk()
+            ->assertSee('&lt;b&gt;Premium &amp; special&lt;/b&gt;',false)->assertDontSee('<b>Premium & special</b>',false);
+        $dom=new \DOMDocument; @$dom->loadHTML($response->getContent()); $xpath=new \DOMXPath($dom);
+        foreach ([5,6,7] as $column) $this->assertSame('—',trim($xpath->query('//table[contains(@class,"delivery-products")]/tbody/tr/td['.$column.']')->item(0)->textContent));
     }
 }

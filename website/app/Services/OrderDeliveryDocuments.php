@@ -44,20 +44,22 @@ class OrderDeliveryDocuments
             'billing_address' => $customer ? $address($customer) : $address($order),
             'destination' => $destination, 'destination_label' => $order->fulfillment === 'pickup' ? 'Pick up at' : 'Deliver to',
             'fulfillment' => $order->fulfillment === 'pickup' ? 'Pick up' : 'Delivery',
+            'is_pickup' => $order->fulfillment === 'pickup',
             'schedule' => $order->fulfillment === 'delivery' && $order->delivery_scheduled_at
                 ? BusinessTime::format($order->delivery_scheduled_at, 'D, d M Y, g:i A T').' (Toronto)' : null,
             'status' => $order->status_label, 'source' => $order->source === 'pos' ? 'Quick Sale / POS' : 'Website',
             'route' => $route, 'notes' => $order->notes,
             'items' => $envelope ? [] : $order->items->values()->map(function ($item, $index) use ($images) {
                 $product = $item->product;
-                $size = [];
-                if (filled($product?->size_diameter_cm)) $size[] = $product->size_diameter_cm.' cm';
-                foreach (['unit_weight_g' => 'g / piece', 'pack_weight_kg' => 'kg / pack', 'pieces_per_pack' => 'pieces / pack'] as $field => $unit) {
-                    if ($product?->$field !== null && (float) $product->$field > 0) $size[] = NumberDisplay::quantity($product->$field).' '.$unit;
-                }
-                if (filled($product?->uom)) $size[] = 'Unit: '.$product->uom;
-                return ['name' => $item->name, 'code' => $item->qr_code ?: $item->product_code,
-                    'image' => $images[$index] ?? null, 'size' => $size, 'quantity' => NumberDisplay::quantity($item->quantity)];
+                // Match the product's Catalogue Record / Product DNA fields.
+                // A pack is not necessarily a carton; never substitute its piece count.
+                return ['serial' => $index + 1,
+                    'name' => filled($product?->premium_marketing_name) ? $product->premium_marketing_name : $item->name,
+                    'code' => $item->qr_code ?: $item->product_code, 'image' => $images[$index] ?? null,
+                    'net_carton_kg' => NumberDisplay::quantity(data_get($product?->dna, 'net_carton_kg')),
+                    'pack_weight_kg' => NumberDisplay::quantity($product?->pack_weight_kg),
+                    'pieces_per_carton' => NumberDisplay::quantity(data_get($product?->dna, 'pieces_per_carton')),
+                    'quantity' => NumberDisplay::quantity($item->quantity)];
             })->all(),
             'italy_art' => $envelope ? 'data:image/svg+xml;base64,'.base64_encode(file_get_contents(public_path('assets/images/delivery-italy.svg'))) : null,
         ];
