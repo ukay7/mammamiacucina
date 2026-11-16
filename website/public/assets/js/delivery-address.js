@@ -21,6 +21,8 @@
   root.querySelectorAll('[name="delivery_address_type"]').forEach(radio=>radio.addEventListener('change',()=>{apply();changed();}));
   fields.forEach(key=>inputs[key].addEventListener('input',()=>{if(selected()==='alternate')alternate[key]=inputs[key].value;changed(key);}));
   root.deliveryAddressPicker={
+   snapshot(){return {type:selected(),alternate:{...alternate}};},
+   restore(state){alternate={...(state.alternate||{})};companyRadio.checked=state.type==='company';alternateRadio.checked=state.type!=='company';apply();},
    setDelivery(value,lock=false){delivery=value;locked=lock;apply();},
    setCustomer(profile){
     company=Object.fromEntries(fields.map(key=>[key,profile[key]||'']));

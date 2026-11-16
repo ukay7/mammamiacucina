@@ -4,12 +4,14 @@
 .doc-header .doc-logo-cell{width:108px;text-align:left}
 .doc-header .doc-logo{display:block;width:96px;height:96px;object-fit:contain;margin:0}
 .doc-header .doc-company-details{padding-right:12px;color:#645346}
+/* Give both heading blocks the same starting point, even when a title wraps. */
+.doc-header .doc-company-details,.doc-header .doc-meta{vertical-align:top;padding-top:12px}
 .doc-header .doc-company{font:700 18px/1.25 Arial,DejaVu Sans,sans-serif;margin:0 0 6px;word-wrap:break-word}
 .doc-header .doc-contact-line{font:10px/1.5 Arial,DejaVu Sans,sans-serif;word-wrap:break-word}
 .doc-header .doc-address{white-space:pre-line}
 .doc-header .doc-contact-separator{padding:0 3px}
 .doc-header .doc-meta{width:28%;text-align:right;vertical-align:top;color:#30271e}
-.doc-header .doc-meta strong{font:700 18px/1.25 Arial,DejaVu Sans,sans-serif;text-transform:uppercase}
+.doc-header .doc-meta strong{display:block;font:700 18px/1.25 Arial,DejaVu Sans,sans-serif;text-transform:uppercase}
 .doc-header .doc-reference{font:700 22px/1.25 Arial,DejaVu Sans,sans-serif;margin:6px 0;text-transform:uppercase;word-wrap:break-word}
 .doc-header .doc-date{font:10px/1.5 Arial,DejaVu Sans,sans-serif}
 .doc-footer{page-break-inside:avoid}

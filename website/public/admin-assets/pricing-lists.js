@@ -19,7 +19,7 @@
     const fields = {title:'list-title', pricing_tier:'list-tier', effective_date:'list-date', valid_until:'list-until', recipient_name:'list-recipient', notes:'list-notes'};
     for (const [key, id] of Object.entries(fields)) $(id).value = cfg.initial[key];
     $('list-images').checked = cfg.initial.show_images;
-    const customerOptions = [...$('pricing-customers').options];
+    const customerOptions = [...$('list-customer').options];
     $('list-customer').value = customerOptions.find(o => Number(o.dataset.id) === Number(cfg.initial.customer_id))?.value || '';
     const filterFields = {q:'filter-q', supplier:'filter-supplier', active:'filter-active', selection:'filter-selection', price_state:'filter-price-state', min_price:'filter-min-price', max_price:'filter-max-price', sort:'filter-sort'};
     const element = (tag, text, className) => {
@@ -130,13 +130,13 @@
     $('clear-visible').addEventListener('click',() => { visibleProducts().forEach(p => selected.delete(p.product_id)); markDirty(); render(); });
     $('reset-prices').addEventListener('click',() => { if (selected.size && window.confirm('Reset all selected products to ' + tier + ' base prices?')) { selected.forEach(id => reset(byId.get(id))); markDirty(); render(); } });
     $('list-tier').addEventListener('change',() => { tier = $('list-tier').value; products.filter(p => !p.custom).forEach(reset); markDirty(); render(); });
-    $('list-customer').addEventListener('input',() => { const option = customerOptions.find(o => o.value === $('list-customer').value); $('list-customer').setCustomValidity(''); if (option) $('list-recipient').value = option.dataset.recipient; });
+    $('list-customer').addEventListener('input',() => { const option = customerOptions.find(o => o.value === $('list-customer').value); $('list-customer').setCustomValidity(''); if (option?.dataset.recipient) $('list-recipient').value = option.dataset.recipient; });
     form.addEventListener('input',markDirty); form.addEventListener('submit',event => event.preventDefault());
     function payload() {
         const data = {items:[...selected].map(id => { const p = byId.get(id); return {product_id:id,each_price:money(p.each_cents),box_price:money(p.box_cents),price_basis:p.price_basis}; }), filters:filters(), show_images:$('list-images').checked, revision:cfg.initial.revision,draft_key:cfg.draft_key};
         for (const [key,id] of Object.entries(fields)) data[key] = $(id).value;
         const option = customerOptions.find(o => o.value === $('list-customer').value);
-        data.customer_id = option ? Number(option.dataset.id) : null;
+        data.customer_id = option?.dataset.id ? Number(option.dataset.id) : null;
         return data;
     }
     async function request(url,method,data) {
@@ -157,6 +157,7 @@
             $('pricing-preview').srcdoc = result.html;
             $('list-reference').textContent = result.number;
             $('confirm-summary').textContent = result.number + ' · ' + result.count + ' selected products · ' + tier + ' pricing · ' + ($('list-recipient').value || 'General price list');
+            window.mmcBusinessCustomerIcon.append($('confirm-summary'), $('list-customer').selectedOptions[0]?.dataset.accountType);
             $('confirm-error').textContent = ''; $('confirm-save').textContent = pdf ? 'Confirm, save & open PDF' : 'Confirm & save'; dialog.showModal();
         } catch(error) { $('pricing-errors').textContent = error.message; $('pricing-errors').hidden = false; $('pricing-errors').scrollIntoView({block:'center'}); }
         finally { pending(false); }

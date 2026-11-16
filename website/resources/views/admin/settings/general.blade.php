@@ -18,6 +18,17 @@
 <p class="text-muted">Phone and email are shared with Contact Us settings.</p>
 <div class="row"><div class="form-group col-md-6"><label for="document-mailing-address">Mailing address</label><textarea class="form-control" id="document-mailing-address" name="mailing_address" rows="3" maxlength="2000">{{ old('mailing_address',$settings->mailing_address) }}</textarea></div><div class="form-group col-md-6"><label for="document-warehouse-address">Warehouse address for documents</label><textarea class="form-control" id="document-warehouse-address" name="document_warehouse_address" rows="3" maxlength="2000">{{ old('document_warehouse_address',$settings->document_warehouse_address) }}</textarea><small>Pickup instructions for customers are managed above.</small></div></div>
 <div class="form-group"><label for="document-gst-hst">GST/HST number</label><input class="form-control" id="document-gst-hst" name="gst_hst_number" maxlength="80" value="{{ old('gst_hst_number',$settings->gst_hst_number) }}"><small>Printed at the bottom right of documents, in the footer.</small></div>
+<hr><h2>Business Customer Icon</h2>
+<p>Show this icon beside business customer names throughout customer and order screens, reports and printed documents.</p>
+<div class="form-group">
+    <label for="business-customer-icon">Upload business customer icon</label>
+    <div class="mb-3">Preview: Business customer <x-business-customer-icon :business="true" /></div>
+    <p class="text-muted">A small gold building icon is included by default. Upload your own icon to replace it.</p>
+    <input class="form-control" type="file" id="business-customer-icon" name="business_customer_icon" accept="image/png,image/jpeg,image/webp" aria-describedby="business-icon-help">
+    <small id="business-icon-help" class="form-text text-muted">Use a square icon, preferably a transparent PNG. PNG, JPG or WebP, up to 2 MB and 2048 × 2048 pixels. Leave empty to keep the current icon.</small>
+    @if($settings->business_customer_icon_path)<label class="mt-2"><input type="checkbox" name="remove_business_customer_icon" value="1" @checked(old('remove_business_customer_icon'))> Restore default business customer icon</label>@endif
+    @error('business_customer_icon')<div class="text-danger">{{ $message }}</div>@enderror
+</div>
 <hr><h2>Website Details</h2>
 <div class="form-group"><label for="site-logo">Logo</label><div class="mb-3"><img src="{{ $settings->logoUrl() }}" alt="Current logo" style="width:140px;height:140px;object-fit:contain;background:#1c150a;border-radius:8px;padding:10px"></div><input class="form-control" type="file" id="site-logo" name="logo" accept="image/png,image/jpeg,image/webp"><small class="form-text text-muted">Recommended: transparent PNG, 800 × 800 px. PNG, JPG or WebP, maximum 5 MB. Leave empty to keep the current logo.</small></div>
 <div class="form-group"><label for="page-banner">Inner-page banner background</label><div class="mb-3"><img src="{{ $settings->pageBannerUrl() }}" alt="Current page banner" style="width:100%;max-width:600px;height:160px;object-fit:cover"></div><input class="form-control" type="file" id="page-banner" name="page_banner" accept="image/png,image/jpeg,image/webp"><small class="form-text text-muted">Background behind page titles such as General Login, Checkout and About Us. Recommended: wide image, 1920 × 500 px. PNG, JPG or WebP, maximum 5 MB. Leave empty to keep the current background.</small></div>

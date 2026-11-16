@@ -14,5 +14,14 @@
 .doc-financial .doc-lines small{font-size:8px;line-height:1.25}
 .doc-financial .doc-footer{margin-top:10px;padding-top:6px}
 .doc-financial .doc-delivery{padding:8px 12px}
+.doc-payment-summary{width:100%;table-layout:fixed;border-collapse:collapse;margin:14px 0 16px;page-break-inside:avoid;break-inside:avoid}
+.doc-payment-summary>tbody>tr>td{vertical-align:top;padding:0;word-wrap:break-word;overflow-wrap:anywhere}
+.doc-payment-summary>tbody>tr>.doc-payment-instructions{width:55%;padding-right:18px}
+.doc-payment-summary>tbody>tr>.doc-payment-amounts{width:45%}
+.doc-payment-summary .doc-box{margin:0}
+.doc-payment-summary .doc-totals{width:100%;margin:0;table-layout:fixed}
+.doc-payment-summary .doc-totals td:first-child{width:65%}
+.doc-payment-summary .doc-totals td.money{width:35%;white-space:nowrap}
+@media screen and (max-width:600px){.doc-payment-summary,.doc-payment-summary>tbody,.doc-payment-summary>tbody>tr{display:block}.doc-payment-summary>tbody>tr>.doc-payment-instructions,.doc-payment-summary>tbody>tr>.doc-payment-amounts{display:block;width:100%;padding:0}.doc-payment-summary>tbody>tr>.doc-payment-amounts{padding-top:12px}}
 </style>
 @include('documents.header-style')

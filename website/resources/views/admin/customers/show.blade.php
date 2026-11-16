@@ -9,7 +9,7 @@
 <div class="customer-account">
 
 <section class="panel panel-content customer-account-header">
-<div><span class="customer-eyebrow">CUSTOMER ACCOUNT</span><h2>{{ $customer->name }}</h2>
+<div><span class="customer-eyebrow">CUSTOMER ACCOUNT</span><h2>{{ $customer->name }} <x-business-customer-icon :customer="$customer" /></h2>
 <p class="mb-2">Customer ID <strong>#{{ $customer->id }}</strong> · {{ $customer->account_type==='business'?'Business owner':'Individual' }} · <span class="badge {{ $customer->user->is_active?'badge-success':'badge-secondary' }}">{{ $customer->user->is_active?'Active':'Inactive' }}</span></p>
 <p class="mb-2 customer-contact">{{ $customer->email }} · {{ $customer->phone ?: 'No phone provided' }}</p>
 <span class="badge {{ $customer->user->email_verified_at?'badge-success':'badge-danger' }}">{{ $customer->user->email_verified_at?'Email verified':'Email verification pending' }}</span>

@@ -5,7 +5,11 @@
 <table class="doc-info"><tr><td>@include('documents.refund-customer')</td><td><h2>Credit against original sale</h2><p>Order: <strong class="doc-order-reference">{{ $credit->snapshot['order']['number'] }}</strong></p>@if($credit->snapshot['invoice'])<p>Original invoice: {{ $credit->snapshot['invoice'] }}</p>@endif<p>Refund: {{ $credit->snapshot['refund_number'] }}</p><p>Refund date: {{ $credit->snapshot['refund_date'] }}</p><p>Original order: CAD {{ number_format($credit->snapshot['order']['total_cents']/100,2) }}</p></td></tr></table>
 <div class="doc-box"><h2>Reason for credit</h2><p class="credit-reason">{{ $credit->snapshot['reason'] }}</p></div>
 <table class="doc-lines credit-lines"><thead><tr><th>Adjustment</th><th class="money">Credit CAD</th></tr></thead><tbody><tr><td>Reduction of original sale, before tax</td><td class="money">{{ number_format(($credit->amount_cents-$credit->tax_cents)/100,2) }}</td></tr><tr><td>GST/HST credited</td><td class="money">{{ number_format($credit->tax_cents/100,2) }}</td></tr></tbody></table>
-<table class="doc-totals"><tr><td>Total credit, including GST/HST</td><td class="money">CAD {{ number_format($credit->amount_cents/100,2) }}</td></tr></table>
+@component('documents.payment-summary')
+@slot('instructions')
 <div class="doc-box"><h2>Linked refund</h2><p>{{ \App\Models\CustomerRefundLine::METHODS[$credit->snapshot['method']] }} · Reference: {{ $credit->snapshot['reference'] ?: 'Cash' }}</p><p>This credit offsets the linked refund. It is not an additional payment or an unused credit available for another order.</p></div>
+@endslot
+<table class="doc-totals"><tr><td>Total credit, including GST/HST</td><td class="money">CAD {{ number_format($credit->amount_cents/100,2) }}</td></tr></table>
+@endcomponent
 <p class="doc-notice">This credit note adjusts the original sale without rewriting its invoice, products or delivery history. The credit and confirmed refund reduce the sale amount and net received equally, preserving any existing amount due.</p>
 <footer class="doc-footer"><strong>Thank you for choosing Mamma Mia Cucina.</strong><p>Please quote {{ $credit->number }} with any enquiry.</p>@include('documents.registration')</footer></main></body></html>

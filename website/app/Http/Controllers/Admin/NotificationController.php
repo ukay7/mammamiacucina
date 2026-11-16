@@ -37,7 +37,7 @@ class NotificationController extends Controller
             elseif (str_starts_with($value,'email:')) $choices[$value]=substr($value,6);
         }
         $sender = SmtpSetting::find(1);
-        return view('admin.notifications.edit',compact('campaign','choices','sender'));
+        return view('admin.notifications.edit',compact('campaign','choices','sender','customers'));
     }
     private function data(Request $r): array
     {
@@ -60,8 +60,8 @@ class NotificationController extends Controller
     public function customers(Request $r)
     {
         $data=$r->validate(['q'=>'nullable|string|max:150','page'=>'nullable|integer|min:1|max:10000']); $q=trim($data['q']??'');
-        $customers=Audience::customers()->when($q!=='',fn($query)=>$query->where(fn($s)=>$s->where('name','like','%'.$q.'%')->orWhere('business_name','like','%'.$q.'%')->orWhere('email','like','%'.$q.'%')->orWhere('id',ltrim($q,'#'))))->orderBy('id')->paginate(30,['id','name','business_name','email']);
-        return response()->json(['results'=>$customers->map(fn($c)=>['id'=>'customer:'.$c->id,'text'=>'#'.$c->id.' · '.($c->business_name?$c->business_name.' · ':'').$c->name.' · '.$c->email,'number'=>$c->id,'business'=>$c->business_name,'name'=>$c->name,'email'=>$c->email]),'pagination'=>['more'=>$customers->hasMorePages()]]);
+        $customers=Audience::customers()->when($q!=='',fn($query)=>$query->where(fn($s)=>$s->where('name','like','%'.$q.'%')->orWhere('business_name','like','%'.$q.'%')->orWhere('email','like','%'.$q.'%')->orWhere('id',ltrim($q,'#'))))->orderBy('id')->paginate(30,['id','name','business_name','email','account_type']);
+        return response()->json(['results'=>$customers->map(fn($c)=>['id'=>'customer:'.$c->id,'text'=>'#'.$c->id.' · '.($c->business_name?$c->business_name.' · ':'').$c->name.' · '.$c->email,'number'=>$c->id,'account_type'=>$c->account_type,'business'=>$c->business_name,'name'=>$c->name,'email'=>$c->email]),'pagination'=>['more'=>$customers->hasMorePages()]]);
     }
     public function preview(Request $r, Message $message)
     {

@@ -11,30 +11,81 @@ class PosController extends Controller
 {
     public function index()
     {
-        return view('admin.pos.index',['customers'=>\App\Models\Customer::with('user')->whereHas('user',fn($q)=>$q->where('is_active',true)->whereIn('account_type',['individual','business']))->orderBy('name')->get()]);
+        return view('admin.pos.index',[
+            'customers'=>\App\Models\Customer::with('user')->whereHas('user',fn($q)=>$q->where('is_active',true)->whereIn('account_type',['individual','business']))->orderBy('name')->get(),
+            'categories'=>\App\Models\Category::whereHas('products')->orderBy('name')->get(['id','name']),
+        ]);
     }
 
     public function products(Request $request)
     {
-        $data = $request->validate(['customer_id'=>'required|integer','q' => 'nullable|string|max:255', 'scan' => 'nullable|boolean']);
+        $data = $request->validate(['customer_id'=>'required|integer','q' => 'nullable|string|max:255', 'scan' => 'nullable|boolean',
+            'category_id'=>'nullable|integer|exists:categories,id','page'=>'nullable|integer|min:1']);
         $profile = app(\App\Services\PosCustomer::class)->resolve($data['customer_id']);
         $term = trim($data['q'] ?? '');
-        $query = Product::with(['inventory', 'media' => fn ($q) => $q->coverImage()]);
+        $query = Product::with(['inventory','categories','category', 'media' => fn ($q) => $q->coverImage()]);
         if ($request->boolean('scan')) {
             $query->where(function ($q) use ($term) {
                 $q->where('qr_code', $term)->orWhere('product_code', $term);
             });
         } else {
             $query->searchTerm($term, false, true);
+            if (!empty($data['category_id'])) $query->where(fn($q)=>$q->where('category_id',$data['category_id'])->orWhereHas('categories',fn($c)=>$c->where('categories.id',$data['category_id'])));
         }
-        return response()->json(['customer'=>$profile->only(['id','name','email','phone','account_type','address','city','province','postal_code','country','business_name','delivery_address']), 'products' => $query->orderBy('premium_marketing_name')->limit(20)->get()->map(function ($product) use ($profile) {
-            return ['id' => $product->id, 'name' => $product->premium_marketing_name, 'barcode' => $product->barcode_number,
-                'subtitle' => $product->italian_subtitle, 'source_name' => $product->original_description,
-                'qr_code' => $product->qr_code, 'code' => $product->product_code, 'active' => $product->is_active,
-                'unit_cents' => app(\App\Services\PosCustomer::class)->price($product, $profile),
-                'stock' => $product->inventory?->quantity_on_hand, 'uom' => $product->uom,
-                'image' => ($image = $product->media->first()) ? route('admin.pos.media', [$product, $image]) : null];
-        })]);
+        $page=$query->orderBy('premium_marketing_name')->orderBy('id')->paginate(20);
+        $prices=app(\App\Services\CustomerTerms::class)->prices($page->getCollection(),$profile);
+        return response()->json(['customer'=>$profile->only(['id','name','email','phone','account_type','address','city','province','postal_code','country','business_name','delivery_address']),
+            'products'=>$page->getCollection()->map(fn($p)=>$this->productCard($p,$prices[$p->id]['unit_cents'])),
+            'total'=>$page->total(),'next_page'=>$page->hasMorePages()?$page->currentPage()+1:null]);
+    }
+
+    private function productCard(Product $product, ?int $price): array
+    {
+        $pieces=data_get($product->dna,'pieces_per_carton');
+        $pack=filled($pieces)?\App\Support\NumberDisplay::quantity($pieces).' pcs / carton'
+            :(filled($product->pieces_per_pack)?\App\Support\NumberDisplay::quantity($product->pieces_per_pack).' pcs / pack':null);
+        if (filled($product->pack_weight_kg)) $pack=implode(' · ',array_filter([$pack,\App\Support\NumberDisplay::quantity($product->pack_weight_kg).' kg / pack']));
+        return ['id'=>$product->id,'name'=>$product->premium_marketing_name,'barcode'=>$product->barcode_number,
+            'subtitle'=>$product->italian_subtitle,'source_name'=>$product->original_description,'qr_code'=>$product->qr_code,
+            'code'=>$product->product_code,'active'=>$product->is_active,'unit_cents'=>$price,'stock'=>$product->inventory?->quantity_on_hand,'uom'=>$product->uom,
+            'category'=>$product->categories->pluck('name')->join(', ') ?: $product->category?->name,'pack'=>$pack,
+            'image'=>($image=$product->media->first())?route('admin.pos.media',[$product,$image]):null,
+            'details_url'=>route('admin.pos.product',$product)];
+    }
+
+    public function product(Request $request, Product $product)
+    {
+        $data=$request->validate(['customer_id'=>'required|integer']);
+        $customer=app(\App\Services\PosCustomer::class)->resolve($data['customer_id']);
+        $product->load(['inventory','categories','category','allergies','media'=>fn($q)=>$q->coverImage()]);
+        $fields=[];
+        foreach (['product_code','qr_code','italian_subtitle','original_description','uom','unit_weight_g','pack_weight_kg','pieces_per_pack','size_diameter_cm','product_notes'] as $key) {
+            if (filled($product->$key)) $fields[config('product_fields.'.$key)[0]]=\App\Support\NumberDisplay::field($product->$key,$key);
+        }
+        foreach (['net_carton_kg'=>'Net carton weight (kg)','pieces_per_carton'=>'Pieces per carton'] as $key=>$label) {
+            if (filled($value=data_get($product->dna,$key))) $fields[$label]=\App\Support\NumberDisplay::quantity($value);
+        }
+        if ($product->allergies->isNotEmpty()) $fields['Allergens']=$product->allergies->pluck('name')->join(', ');
+        return response()->json(['product'=>$this->productCard($product,app(\App\Services\CustomerTerms::class)->price($product,$customer)['unit_cents']), 'details'=>$fields]);
+    }
+
+    public function recommendations(Request $request, \App\Services\PosRecommendations $service)
+    {
+        $data=$request->validate(['customer_id'=>'required|integer']);
+        $customer=app(\App\Services\PosCustomer::class)->resolve($data['customer_id']);
+        $groups=$service->forCustomer($customer);
+        $ids=$groups['frequent']->pluck('product_id')->merge($groups['slow']->pluck('product_id'))->unique();
+        $products=Product::with(['inventory','categories','category','media'=>fn($q)=>$q->coverImage()])->whereIn('id',$ids)->get()->keyBy('id');
+        $prices=app(\App\Services\CustomerTerms::class)->prices($products,$customer);
+        $result=['customer_id'=>$customer->id,'days'=>90];
+        foreach ($groups as $key=>$rows) {
+            $result[$key]=$rows->filter(fn($row)=>$products->has($row->product_id))->map(function($row) use ($products,$prices,$key) {
+                $product=$products[$row->product_id];
+                return $this->productCard($product,$prices[$product->id]['unit_cents'])+
+                    ($key==='frequent'?['order_count'=>(int)$row->order_count]:['sold_units'=>(float)$row->sold_units]);
+            })->values();
+        }
+        return response()->json($result)->header('Cache-Control','private, no-store');
     }
 
     public function quote(Request $request, PosSale $service)
@@ -55,6 +106,7 @@ class PosController extends Controller
             'postal_code' => 'nullable|string|max:30', 'country' => 'nullable|string|max:100', 'notes' => 'nullable|string|max:2000',
             'payment_method' => 'required|in:cash,etransfer,cheque,credit', 'payment_status' => 'required|in:paid,unpaid'] + \App\Services\BusinessDetails::rules(!$request->filled('customer_id') && $request->input('account_type')==='business'));
         $data += $request->validate(['delivery_address_type'=>'sometimes|required|in:company,alternate']);
+        $data += $request->validate(['pos_draft_id'=>'sometimes|nullable|integer|min:1','pos_draft_revision'=>'required_with:pos_draft_id|integer|min:0']);
         $data += $request->only(\App\Services\DeliverySchedule::FIELDS);
         $order = $service->complete($data['quote'], $data, $request->user()->id)->refresh();
         return response()->json(['number' => $order->number, 'total' => $order->final_total_cents,
@@ -73,7 +125,7 @@ class PosController extends Controller
 
     public function orders(Request $request)
     {
-        $orders=Order::where('source','pos')->where('created_by',$request->user()->id)->orderByDesc('ordered_at')->orderByDesc('id')->paginate(20);
+        $orders=Order::with('customer')->where('source','pos')->where('created_by',$request->user()->id)->orderByDesc('ordered_at')->orderByDesc('id')->paginate(20);
         return view('admin.pos.orders',compact('orders'));
     }
 

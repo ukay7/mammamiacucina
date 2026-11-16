@@ -1,0 +1,23 @@
+.admin-start{max-width:1560px;margin:0 auto 24px}
+.admin-start-heading{display:flex;justify-content:space-between;align-items:center;gap:24px;padding:12px 0 28px}
+.admin-start-eyebrow{display:inline-flex;align-items:center;gap:8px;color:var(--theme-primary,#8e0718);font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase}
+.mmc-admin .admin-start-heading h1{font-size:clamp(26px,2.5vw,38px);line-height:1.2;letter-spacing:-.5px;margin:12px 0 10px}
+.admin-start-heading p{margin:0;font-size:15px;color:var(--theme-text,#514231)}
+.admin-start-shortcuts{display:flex;flex-wrap:wrap;gap:10px;flex-shrink:0}
+.admin-start-shortcuts a{display:inline-flex;align-items:center;gap:8px;min-height:42px}
+.admin-start-section{margin-bottom:34px}
+.mmc-admin .admin-start-section h2{display:flex;align-items:center;gap:16px;margin:0 0 16px;font:700 12px/1.5 Roboto,Arial,sans-serif;letter-spacing:1.2px;text-transform:uppercase;color:var(--theme-text,#514231)}
+.admin-start-section h2::after{content:"";height:1px;flex:1;background:var(--admin-line,#dfcba5)}
+.admin-module-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+.mmc-admin .page-content .admin-module-card{display:flex;flex-direction:column;min-width:0;min-height:210px;padding:24px;text-decoration:none;color:var(--theme-text,#514231);background:var(--theme-surface,#fffaf2);border:1px solid var(--admin-line,#dfcba5);border-radius:16px;box-shadow:0 3px 14px #2d201006;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease}
+.admin-module-top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px}
+.admin-module-icon{display:flex;align-items:center;justify-content:center;width:52px;height:52px;flex-shrink:0;border-radius:13px;background:color-mix(in srgb,var(--theme-primary,#8e0718) 9%,var(--theme-surface,#fffaf2));color:var(--theme-primary,#8e0718);font-size:23px}
+.admin-module-arrow{color:var(--theme-primary,#8e0718);font-size:15px;opacity:.65}
+.admin-module-label{font:700 clamp(21px,1.7vw,27px)/1.2 Roboto,Arial,sans-serif;letter-spacing:-.4px;color:var(--theme-heading,#61421e);overflow-wrap:anywhere}
+.admin-module-description{display:block;margin-top:10px;font-size:13px;line-height:1.5;max-width:36ch}
+.mmc-admin .page-content .admin-module-card:hover{transform:translateY(-3px);border-color:var(--theme-primary,#8e0718);box-shadow:0 8px 24px #2d201012}
+.mmc-admin .page-content .admin-module-card:focus-visible{outline:3px solid var(--theme-primary,#8e0718);outline-offset:3px}
+.admin-module-card:hover .admin-module-arrow{opacity:1}
+@media(max-width:1200px){.admin-start-heading{align-items:flex-start;flex-direction:column;gap:18px}.admin-module-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.admin-module-grid{grid-template-columns:minmax(0,1fr);gap:14px}.admin-module-card{min-height:180px!important;padding:20px!important}.admin-module-top{margin-bottom:16px}.admin-start-section{margin-bottom:26px}.admin-start-heading{padding-top:4px}.admin-start-shortcuts{width:100%}.admin-start-shortcuts a{justify-content:center;flex:1}.admin-start-section h2{letter-spacing:.7px!important}}
+@media(prefers-reduced-motion:reduce){.mmc-admin .page-content .admin-module-card{transition:none}.mmc-admin .page-content .admin-module-card:hover{transform:none}}

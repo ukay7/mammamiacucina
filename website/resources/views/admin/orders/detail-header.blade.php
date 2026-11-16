@@ -14,7 +14,7 @@
     <div class="wh-detail-info">
         <div class="wh-order-customer"><i class="fas fa-{{ $businessCustomer?'building':'user' }}" aria-hidden="true"></i><div>
             <span class="wh-order-customer-type">{{ $customerType }}</span>
-            <div class="wh-order-customer-heading"><strong>{{ $customerHeading }}</strong>@if($canOpenCustomerProfile)<a class="btn btn-outline-primary wh-order-customer-profile" href="{{ route('admin.customers.show',$customerProfile) }}" title="Open customer profile" aria-label="Open customer profile for {{ $customerHeading }}"><i class="fas fa-user-circle" aria-hidden="true"></i></a>@endif</div>
+            <div class="wh-order-customer-heading"><strong>{{ $customerHeading }} <x-business-customer-icon :customer="$customerProfile" /></strong>@if($canOpenCustomerProfile)<a class="btn btn-outline-primary wh-order-customer-profile" href="{{ route('admin.customers.show',$customerProfile) }}" title="Open customer profile" aria-label="Open customer profile for {{ $customerHeading }}"><i class="fas fa-user-circle" aria-hidden="true"></i></a>@endif</div>
             @if($businessName!=='')<span><b>Customer:</b> {{ $orderContactName }}</span>@endif
             <span><b>Email:</b> {{ filled($order->email)?$order->email:'Not provided' }}</span>
             <span><b>Phone:</b> {{ filled($order->phone)?$order->phone:'Not provided' }}</span>

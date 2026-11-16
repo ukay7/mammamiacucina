@@ -52,11 +52,21 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         });
         Route::middleware(AdminAccess::class.':pos.manage')->prefix('pos')->name('pos.')->group(function () {
             Route::get('/', [PosController::class, 'index'])->name('index');
+            Route::middleware(\App\Http\Middleware\SuperAdminOnly::class)->prefix('drafts')->name('drafts.')->group(function () {
+                $drafts=\App\Http\Controllers\Admin\PosDraftController::class;
+                Route::get('/',[$drafts,'index'])->name('index');
+                Route::post('/',[$drafts,'save'])->name('save');
+                Route::get('/{draft}',[$drafts,'show'])->name('show');
+                Route::get('/{draft}/receipt',[$drafts,'receipt'])->name('receipt');
+                Route::delete('/{draft}',[$drafts,'destroy'])->name('destroy');
+            });
             Route::post('/customers', [PosController::class, 'customer'])->middleware('throttle:20,1')->name('customer');
             Route::get('/orders', [PosController::class, 'orders'])->name('orders');
             Route::post('/orders/{order}/handover', [PosController::class, 'handover'])->name('handover');
             Route::get('/orders/{order}', [PosController::class, 'order'])->name('order');
             Route::get('/products', [PosController::class, 'products'])->name('products');
+            Route::get('/recommendations', [PosController::class, 'recommendations'])->name('recommendations');
+            Route::get('/products/{product}', [PosController::class, 'product'])->name('product');
             Route::get('/media/{product}/{media}', [ProductController::class, 'media'])->name('media');
             Route::post('/delivery-options', [\App\Http\Controllers\DeliveryQuoteController::class, 'options'])->name('delivery-options');
             Route::post('/quote', [PosController::class, 'quote'])->name('quote');
@@ -161,6 +171,8 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
             });
         });
         Route::resource('quotations', \App\Http\Controllers\Admin\QuotationController::class)->except(['index','show'])->middleware(AdminAccess::class.':quotations.manage');
+        Route::get('/quotations/{quotation}/duplicate', [\App\Http\Controllers\Admin\QuotationController::class,'duplicate'])->middleware(AdminAccess::class.':quotations.manage')->name('quotations.duplicate');
+        Route::post('/quotations/{quotation}/duplicate', [\App\Http\Controllers\Admin\QuotationController::class,'storeDuplicate'])->middleware(AdminAccess::class.':quotations.manage')->name('quotations.duplicate.store');
         Route::get('/quotations', [\App\Http\Controllers\Admin\QuotationController::class,'index'])->middleware(AdminAccess::class.':quotations.view|quotations.manage')->name('quotations.index');
         Route::get('/quotations/{quotation}/print', [\App\Http\Controllers\Admin\QuotationController::class,'print'])->middleware(AdminAccess::class.':quotations.view|quotations.manage')->name('quotations.print');
         Route::get('/quotations/{quotation}', [\App\Http\Controllers\Admin\QuotationController::class,'show'])->middleware(AdminAccess::class.':quotations.view|quotations.manage')->name('quotations.show');
@@ -304,6 +316,7 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         Route::delete('/stock-counts/{stockCount}', [StockCountController::class,'destroy'])->middleware(AdminAccess::class.':stock-counts.manage')->name('stock-counts.destroy');
         Route::post('/logout', [AuthController::class, 'destroy'])->name('logout');
         Route::get('/', fn () => redirect()->route(auth()->user()->accountRoute()))->name('home');
+        Route::view('/start', 'admin.start')->middleware(\App\Http\Middleware\SuperAdminOnly::class)->name('start');
         Route::view('/no-access', 'admin.no-access')->name('no-access');
         Route::get('/module-home', function () {
             foreach (\App\Services\AdminNavigation::nodes() as $node) {

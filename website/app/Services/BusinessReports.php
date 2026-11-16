@@ -19,7 +19,7 @@ class BusinessReports
     public function orders(array $filters = [])
     {
         $query = app(AdminDashboard::class)->balances()->leftJoin('customers as report_customer', 'report_customer.id', '=', 'o.customer_id')
-            ->addSelect('o.customer_id', 'o.email', 'o.phone', 'o.source', 'o.fulfillment', 'o.fulfillment_date', 'o.payment_status', 'o.revision', 'report_customer.business_name')
+            ->addSelect('o.customer_id', 'o.email', 'o.phone', 'o.source', 'o.fulfillment', 'o.fulfillment_date', 'o.payment_status', 'o.revision', 'report_customer.business_name', 'report_customer.account_type')
             ->selectRaw("COALESCE(p.provider, 'manual') AS provider");
         if (! empty($filters['source'])) {
             $query->where('o.source', $filters['source']);
@@ -91,7 +91,7 @@ class BusinessReports
             if ($kind === 'methods') {
                 $rows = (clone $query)->select('m.method', 'm.provider')->selectRaw('COUNT(*) AS transactions, COUNT(DISTINCT m.order_id) AS orders, '.$totals)->groupBy('m.method', 'm.provider')->orderByDesc('received');
             } else {
-                $rows = (clone $query)->select('o.id', 'o.number', 'o.first_name', 'o.last_name', 'm.*')->orderByDesc('m.occurred_at')->orderByDesc('m.order_id')->orderBy('m.entry_type');
+                $rows = (clone $query)->select('o.id', 'o.number', 'o.first_name', 'o.last_name', 'o.account_type', 'm.*')->orderByDesc('m.occurred_at')->orderByDesc('m.order_id')->orderBy('m.entry_type');
             }
             $daySql = \App\Support\BusinessTime::dayExpression('m.occurred_at', $f['from'], $f['to']);
             $trend = (clone $query)->selectRaw("$daySql AS day, SUM(CASE WHEN m.entry_kind = 'payment' THEN m.amount_cents ELSE 0 END) AS amount")->groupByRaw($daySql)->orderBy('day')->get();
@@ -119,7 +119,7 @@ class BusinessReports
             }
             $summary = $this->orderSummary($query);
             if ($kind === 'customers') {
-                $rows = (clone $query)->selectRaw("customer_id, CASE WHEN customer_id IS NULL THEN LOWER(email) ELSE '' END AS guest_email, MAX(business_name) AS business_name, MAX(first_name) AS first_name, MAX(last_name) AS last_name, MAX(email) AS email, COUNT(*) AS orders, SUM(CASE WHEN status != 'cancelled' THEN total_cents ELSE 0 END) AS value, SUM(credit_cents) AS credits, SUM(net_cents) AS received, SUM(CASE WHEN balance_cents > 0 THEN balance_cents ELSE 0 END) AS due, SUM(CASE WHEN balance_cents < 0 THEN -balance_cents ELSE 0 END) AS refund_due, SUM(CASE WHEN total_cents IS NULL THEN 1 ELSE 0 END) AS unpriced")
+                $rows = (clone $query)->selectRaw("customer_id, CASE WHEN customer_id IS NULL THEN LOWER(email) ELSE '' END AS guest_email, MAX(business_name) AS business_name, MAX(account_type) AS account_type, MAX(first_name) AS first_name, MAX(last_name) AS last_name, MAX(email) AS email, COUNT(*) AS orders, SUM(CASE WHEN status != 'cancelled' THEN total_cents ELSE 0 END) AS value, SUM(credit_cents) AS credits, SUM(net_cents) AS received, SUM(CASE WHEN balance_cents > 0 THEN balance_cents ELSE 0 END) AS due, SUM(CASE WHEN balance_cents < 0 THEN -balance_cents ELSE 0 END) AS refund_due, SUM(CASE WHEN total_cents IS NULL THEN 1 ELSE 0 END) AS unpriced")
                     ->groupBy('customer_id')->groupByRaw("CASE WHEN customer_id IS NULL THEN LOWER(email) ELSE '' END")->orderByDesc('value')->orderBy('customer_id')->orderBy('guest_email');
             } else {
                 $rows = (clone $query)->select('b.*');

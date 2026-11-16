@@ -28,7 +28,10 @@
   fulfillment.addEventListener('change',()=>{refreshDefault();sync();});
   form.addEventListener('reset',()=>queueMicrotask(()=>{edited=!!root.dataset.savedDate;refreshDefault();sync();}));
   window.addEventListener('pageshow',()=>{refreshDefault();sync();});
-  root.deliverySchedulePicker={refreshDefault,setDelivery};
+  root.deliverySchedulePicker={refreshDefault,setDelivery,
+   snapshot(){return {date:date.value,time:time.value,reference:reference.value};},
+   restore(state){date.value=state.date||'';time.value=state.time||'';reference.value=state.reference||'';edited=!!(date.value||time.value);}
+  };
   refreshDefault();sync();
  });
 })();

@@ -11,6 +11,15 @@ use Illuminate\Validation\ValidationException;
 
 class GeneralSettingController extends Controller
 {
+    public function businessCustomerIcon()
+    {
+        $path = app(\App\Services\BusinessCustomerIcon::class)->filePath();
+        abort_unless(is_file($path), 404);
+        return response()->file($path, [
+            'Content-Type' => 'image/png', 'X-Content-Type-Options' => 'nosniff', 'Cache-Control' => 'no-cache',
+        ]);
+    }
+
     public function logo()
     {
         $settings=GeneralSetting::findOrFail(1);
@@ -36,6 +45,8 @@ class GeneralSettingController extends Controller
     {
         $d = $r->validate(['pickup_address'=>'sometimes|nullable|string|max:2000','page_banner'=>'nullable|file|image|mimes:png,jpg,jpeg,webp|max:5120','warehouse_postal_code'=>'sometimes|nullable|string|max:7','matrix_delivery_enabled'=>'sometimes|boolean','facebook_url'=>'sometimes|nullable|url:http,https|max:500','instagram_url'=>'sometimes|nullable|url:http,https|max:500','twitter_url'=>'sometimes|nullable|url:http,https|max:500','logo'=>'nullable|file|image|mimes:png,jpg,jpeg,webp|max:5120','email'=>'sometimes|nullable|email|max:255','phone'=>['sometimes','nullable','string','max:60','regex:/^[0-9+(). x-]+$/i'],'youtube'=>'sometimes|nullable|string|max:500','opening_hours'=>'sometimes|array:Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday','opening_hours.*.open'=>'required|date_format:H:i','opening_hours.*.close'=>'required|date_format:H:i','opening_hours.*.closed'=>'required|boolean','revision' => 'required|integer|min:0', 'delivery' => ['required', 'regex:/^\d{1,7}(\.\d{1,2})?$/'], 'tax' => ['required','numeric','min:0','max:100','regex:/^\d{1,3}(\.\d{1,2})?$/']]);
         $d += $r->validate([
+            'business_customer_icon' => 'nullable|file|image|mimes:png,jpg,jpeg,webp|max:2048|dimensions:max_width=2048,max_height=2048',
+            'remove_business_customer_icon' => 'sometimes|boolean',
             'document_company_name' => 'sometimes|required|string|max:160',
             'mailing_address' => 'sometimes|nullable|string|max:2000',
             'document_warehouse_address' => 'sometimes|nullable|string|max:2000',
@@ -48,8 +59,14 @@ class GeneralSettingController extends Controller
         }
         if (!empty($d['youtube']) && !GeneralSetting::youtubeId($d['youtube'])) throw ValidationException::withMessages(['youtube'=>'Enter a valid YouTube video URL or 11-character video ID.']);
         if(!empty($d['warehouse_postal_code']))$d['warehouse_postal_code']=\App\Services\DeliveryQuote::postal($d['warehouse_postal_code']);
-        $path=null;$old=null;$bannerPath=null;$oldBanner=null;
+        if ($r->hasFile('business_customer_icon') && $r->boolean('remove_business_customer_icon')) {
+            throw ValidationException::withMessages(['business_customer_icon' => 'Choose a replacement icon or remove the current icon, not both.']);
+        }
+        $path=null;$old=null;$bannerPath=null;$oldBanner=null;$iconPath=null;$oldIcon=null;
         try {
+        if ($r->hasFile('business_customer_icon')) {
+            $iconPath = app(\App\Services\BusinessCustomerIcon::class)->store($r->file('business_customer_icon'));
+        }
         if ($r->hasFile('logo')) {
             $path=$r->file('logo')->store('branding','local');
             if (!$path) throw new \RuntimeException('Unable to save logo.');
@@ -58,7 +75,7 @@ class GeneralSettingController extends Controller
             $bannerPath=$r->file('page_banner')->store('branding','local');
             if (!$bannerPath) throw new \RuntimeException('Unable to save banner.');
         }
-        DB::transaction(function () use ($d, $path, &$old, $bannerPath, &$oldBanner) {
+        DB::transaction(function () use ($d, $path, &$old, $bannerPath, &$oldBanner, $iconPath, &$oldIcon) {
             $settings = GeneralSetting::lockForUpdate()->findOrFail(1);
             $enabled = $d['matrix_delivery_enabled'] ?? $settings->matrix_delivery_enabled;
             $origin = array_key_exists('warehouse_postal_code', $d) ? $d['warehouse_postal_code'] : $settings->warehouse_postal_code;
@@ -84,10 +101,15 @@ class GeneralSettingController extends Controller
             if (array_key_exists('youtube',$d)) $extra['youtube_video_id']=GeneralSetting::youtubeId($d['youtube']);
             if ($bannerPath) {$oldBanner=$settings->page_banner_path;$extra['page_banner_path']=$bannerPath;}
             if ($path) {$old=$settings->logo_path;$extra['logo_path']=$path;}
+            if ($iconPath || ($d['remove_business_customer_icon'] ?? false)) {
+                $oldIcon=$settings->business_customer_icon_path;
+                $extra['business_customer_icon_path']=$iconPath;
+            }
             $settings->update($extra + ['delivery_cents' => $cents($d['delivery']), 'tax_basis_points' => $cents($d['tax']), 'revision' => $settings->revision + 1]);
         });
 
-        } catch (\Throwable $e) {if($path) Storage::disk('local')->delete($path);if($bannerPath) Storage::disk('local')->delete($bannerPath);throw $e;}
+        } catch (\Throwable $e) {if($path) Storage::disk('local')->delete($path);if($bannerPath) Storage::disk('local')->delete($bannerPath);if($iconPath) Storage::disk('local')->delete($iconPath);throw $e;}
+        if($oldIcon) Storage::disk('local')->delete($oldIcon);
         if($oldBanner) Storage::disk('local')->delete($oldBanner);
         if($old) Storage::disk('local')->delete($old);
 

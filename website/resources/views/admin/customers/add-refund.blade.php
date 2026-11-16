@@ -5,7 +5,7 @@
 <link rel="stylesheet" href="{{ asset('admin-assets/vendor/select2/select2.min.css') }}">
 <link rel="stylesheet" href="{{ asset('admin-assets/customer-refunds.css') }}?v={{ filemtime(public_path('admin-assets/customer-refunds.css')) }}">
 <section class="panel panel-content">
-<div class="receipt-toolbar"><div><h2>{{ $customer->business_name ?: $customer->name }}</h2><p>Customer #{{ $customer->id }} · {{ $customer->name }} · {{ $customer->email }}</p></div><a class="btn btn-outline-primary" href="{{ route('admin.customers.show',$customer) }}#customer-refunds">Back to Refunds</a></div>
+<div class="receipt-toolbar"><div><h2>{{ $customer->business_name ?: $customer->name }} <x-business-customer-icon :customer="$customer" /></h2><p>Customer #{{ $customer->id }} · {{ $customer->name }} · {{ $customer->email }}</p></div><a class="btn btn-outline-primary" href="{{ route('admin.customers.show',$customer) }}#customer-refunds">Back to Refunds</a></div>
 <p>Record money returned for a delivered or completed order. A matching credit note keeps the order balance unchanged. The original invoice and delivered items remain in the history.</p>
 </section>
 <form class="panel panel-content" data-refund-form action="{{ route('admin.customers.refunds.store',$customer) }}" data-preview-url="{{ route('admin.customers.refunds.preview',$customer) }}" data-today="{{ \App\Support\BusinessTime::today()->toDateString() }}" method="post" enctype="multipart/form-data">

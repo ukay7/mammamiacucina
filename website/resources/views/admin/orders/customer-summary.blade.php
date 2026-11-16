@@ -7,7 +7,7 @@
 @endphp
 <div class="mmc-order-customer text-break">
     <small class="d-block">{{ $type }}</small>
-    <strong class="d-block">{{ $company !== '' ? $company : $contact }}</strong>
+    <strong class="d-block">{{ $company !== '' ? $company : $contact }} <x-business-customer-icon :customer="$profile" /></strong>
     @if($company !== '')<span class="d-block">Customer: {{ $contact }}</span>@endif
     <small class="d-block">{{ filled($order->email) ? $order->email : 'Email not provided' }}</small>
 </div>

@@ -40,6 +40,7 @@ class OrderDeliveryDocuments
         return [
             'brand' => app(DocumentTheme::class)->brand(), 'title' => $envelope ? 'Delivery Print' : 'Delivery Form',
             'number' => $order->number, 'date' => BusinessTime::format($order->ordered_at ?? $order->created_at),
+            'business_customer' => $customer?->account_type === 'business',
             'identity' => $identity, 'contact' => array_values(array_filter([$order->email, $order->phone])),
             'billing_address' => $customer ? $address($customer) : $address($order),
             'destination' => $destination, 'destination_label' => $order->fulfillment === 'pickup' ? 'Pick up at' : 'Deliver to',

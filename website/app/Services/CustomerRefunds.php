@@ -140,7 +140,7 @@ class CustomerRefunds
             $invoice = CustomerInvoice::where('order_id', $order->id)->first();
             $refund = CustomerRefund::create(['customer_id'=>$customer->id, 'order_id'=>$order->id, 'request_key'=>$data['request_key'],
                 'request_hash'=>$requestHash, 'preview_hash'=>$confirmation['preview_hash'], 'total_cents'=>$plan['total_cents'], 'tax_cents'=>$plan['tax_cents'],
-                'reason'=>$data['reason'], 'created_by'=>$actor->id, 'snapshot'=>['customer'=>$customer->only(['id','name','business_name','email','phone','address','city','province','postal_code','country']),
+                'reason'=>$data['reason'], 'created_by'=>$actor->id, 'snapshot'=>['customer'=>$customer->only(['id','name','account_type','business_name','email','phone','address','city','province','postal_code','country']),
                     'brand'=>app(DocumentTheme::class)->brand(), 'order'=>$plan['order'], 'invoice'=>$invoice?->label]]);
             $refund->update(['number'=>'RF-'.str_pad((string)$refund->id, 5, '0', STR_PAD_LEFT)]);
             foreach ($data['lines'] as $entry) {

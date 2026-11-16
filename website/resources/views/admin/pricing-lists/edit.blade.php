@@ -1,6 +1,9 @@
 @extends('admin.layout')
 @section('title',$list->exists?'Edit '.$list->number:'New Pricing List')
 @section('content')
+<link rel="stylesheet" href="{{ asset('admin-assets/vendor/select2/select2.min.css') }}">
+<script src="{{ asset('admin-assets/vendor/select2/select2.full.min.js') }}" defer></script>
+
 <link rel="stylesheet" href="{{ asset('admin-assets/pricing-lists.css') }}?v={{ filemtime(public_path('admin-assets/pricing-lists.css')) }}">
 <div id="pricing-editor">
 <p>Prepare a price list for a customer. Your changes apply only to this list; product catalogue prices stay unchanged.</p>
@@ -12,7 +15,7 @@
 <label>Base pricing<select id="list-tier" class="form-control"><option value="individual">Individual pricing</option><option value="business">Business pricing</option></select></label>
 <label>Prices as of<input id="list-date" class="form-control" type="date" required></label>
 <label>Valid through (optional)<input id="list-until" class="form-control" type="date"></label>
-<label>Customer (optional)<input id="list-customer" class="form-control" list="pricing-customers" placeholder="Search customer #, business or name" autocomplete="off"><datalist id="pricing-customers">@foreach($customers as $customer)<option data-id="{{ $customer->id }}" data-recipient="{{ $customer->business_name ?: $customer->name }}" value="#{{ $customer->id }} · {{ $customer->business_name ? $customer->business_name.' · ' : '' }}{{ $customer->name }}"></option>@endforeach</datalist></label>
+<label>Customer (optional)<select id="list-customer" class="form-control" data-business-customer-select><option value="">General price list</option>@foreach($customers as $customer)<option data-id="{{ $customer->id }}" data-account-type="{{ $customer->account_type }}" data-recipient="{{ $customer->business_name ?: $customer->name }}" value="#{{ $customer->id }} · {{ $customer->business_name ? $customer->business_name.' · ' : '' }}{{ $customer->name }}">#{{ $customer->id }} · {{ $customer->business_name ? $customer->business_name.' · ' : '' }}{{ $customer->name }}</option>@endforeach</select></label>
 <label>Prepared for (optional)<input id="list-recipient" class="form-control" maxlength="255" placeholder="Customer or business name"></label>
 <label class="pricing-wide">Notes printed on this list<textarea id="list-notes" class="form-control" rows="2" maxlength="3000" placeholder="Terms or a message for the recipient"></textarea></label>
 </div><label class="mb-0"><input id="list-images" type="checkbox"> Include product photos in PDF</label>

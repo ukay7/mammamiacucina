@@ -101,7 +101,7 @@ class PricingLists
         $customerId=$data['customer_id']??null;
         $customer=$customerId?Customer::findOrFail($customerId):null;
         $customerSnapshot=$customer && $existing?->customer_id==$customerId ? $existing->customer_snapshot
-            : $customer?->only(['id','name','business_name','email','phone','address','city','province','postal_code','country']);
+            : $customer?->only(['id','name','account_type','business_name','email','phone','address','city','province','postal_code','country']);
         return array_intersect_key($data,array_flip(['title','pricing_tier','effective_date','valid_until','notes','show_images']))+
             ['customer_id'=>$customerId,'recipient_name'=>trim($data['recipient_name']??'') ?: ($customer?->business_name ?: $customer?->name),
                 'customer_snapshot'=>$customerSnapshot,'brand_snapshot'=>$existing?->brand_snapshot ?? app(DocumentTheme::class)->brand(),

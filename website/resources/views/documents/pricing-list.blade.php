@@ -13,7 +13,7 @@
 <main class="document price-document">
 @include('documents.header')
 <div class="price-caption"><h1>{{ $list->title }}</h1>
-@if($list->recipient_name)<p><strong>Prepared for:</strong> {{ $list->recipient_name }}@if($list->customer_id) · Customer #{{ $list->customer_id }}@endif</p>@endif
+@if($list->recipient_name)<p><strong>Prepared for:</strong> {{ $list->recipient_name }} <x-business-customer-icon :customer="$list->customer_snapshot" :embedded="true" />@if($list->customer_id) · Customer #{{ $list->customer_id }}@endif</p>@endif
 <span>{{ ucfirst($list->pricing_tier) }} pricing · CAD</span><span>Prices as of {{ $list->effective_date->format('F j, Y') }}</span>
 @if($list->valid_until)<span>Valid through {{ $list->valid_until->format('F j, Y') }}</span>@endif
 </div>

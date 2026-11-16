@@ -24,6 +24,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        View::composer(['admin.pricing-lists.index','admin.quotations.index','admin.notifications.show','admin.notifications.review'], function ($view) {
+            $data=$view->getData();
+            $records=$data['lists'] ?? $data['quotations'] ?? $data['deliveries'] ?? array_slice($data['review']['rows'] ?? [], 0, 100);
+            if ($records instanceof \Illuminate\Contracts\Pagination\Paginator) $records=$records->items();
+            app(\App\Services\BusinessCustomerIcon::class)->prime(collect($records)->pluck('customer_id'));
+        });
         \Illuminate\Support\Facades\Queue::before(function () {
             app(\App\Services\SmtpConfiguration::class)->apply();
             app('mail.manager')->forgetMailers();

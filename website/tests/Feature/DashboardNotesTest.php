@@ -11,8 +11,8 @@ class DashboardNotesTest extends TestCase {
  private function order(array $extra=[]): Order {return Order::create(array_merge(['checkout_token'=>(string)Str::uuid(),'number'=>'TEST-'.Str::random(8),'first_name'=>'Dashboard','last_name'=>'Customer','email'=>'dashboard@example.test','phone'=>'123','address'=>'Address','city'=>'Toronto','province'=>'ON','postal_code'=>'M4S','country'=>'Canada','subtotal_cents'=>10000,'delivery_cents'=>0,'tax_cents'=>0,'currency'=>'CAD','payment_method'=>'cash','payment_status'=>'unpaid','status'=>'warehouse_pending'], $extra));}
  public function test_notes_are_private_crud_escape_html_and_login_destination_is_lightweight(): void {
   $a=$this->admin();$b=$this->admin();$this->actingAs($a);
-  $this->assertSame('admin.notes.index',$a->accountRoute());
-  $this->get('/admin')->assertRedirect(route('admin.notes.index'));
+  $this->assertSame('admin.start',$a->accountRoute());
+  $this->get('/admin')->assertRedirect(route('admin.start'));
   $data=['title'=>'Call supplier','body'=>'<script>alert(1)</script>','color'=>'sage','due_date'=>today()->subDay()->toDateString(),'pinned'=>1];
   $this->post(route('admin.notes.store'),$data)->assertSessionHasNoErrors();$note=StaffNote::firstOrFail();
   $this->get(route('admin.notes.index'))->assertOk()->assertSee('Call supplier')->assertSee('&lt;script&gt;',false)->assertDontSee('<script>alert(1)</script>',false)->assertViewHas('counts',fn($c)=>$c['overdue']===1);
@@ -39,6 +39,25 @@ class DashboardNotesTest extends TestCase {
   $this->get(route('admin.dashboard.balances',['kind'=>'dues']))->assertOk()->assertSee($unpaid->number)->assertDontSee($credit->number)->assertViewHas('total',10000);
   $this->assertNull($rows[$unknown->id]->balance_cents);$this->assertFalse($rows->has($sandbox->id));
   $this->get(route('admin.dashboard'))->assertOk()->assertSee('The bigger picture.')->assertViewHas('sales',fn($s)=>(int)$s['money']->due===10000 && (int)$s['money']->refunds===5000 && (int)$s['money']->unpriced===1);
+ }
+ public function test_payment_lists_include_business_name_and_keep_individual_and_guest_balances(): void {
+  $this->actingAs($this->admin());
+  $business=User::factory()->create(['account_type'=>'business','role_id'=>Role::where('name','Customer')->value('id'),'is_active'=>true])->customerRecord();
+  $business->update(['business_name'=>'Bakery & <Cafe>']);
+  $businessOrder=$this->order(['customer_id'=>$business->id,'first_name'=>'Taylor','last_name'=>'Buyer']);
+  $individual=User::factory()->create(['account_type'=>'individual','role_id'=>Role::where('name','Customer')->value('id'),'is_active'=>true])->customerRecord();
+  $individual->update(['business_name'=>'Old business label']);
+  $this->order(['customer_id'=>$individual->id,'first_name'=>'Alex','last_name'=>'Individual']);
+  $this->order(['first_name'=>'Sam','last_name'=>'Guest']);
+  foreach ([route('admin.dashboard'),route('admin.dashboard.balances',['kind'=>'dues'])] as $url) {
+   $response=$this->get($url)->assertOk()->assertSee('Bakery &amp; &lt;Cafe&gt;',false)->assertDontSee('Bakery & <Cafe>',false)
+    ->assertDontSee('Old business label')->assertSee('Alex Individual')->assertSee('Sam Guest');
+   $dom=new \DOMDocument;@$dom->loadHTML($response->getContent());$xpath=new \DOMXPath($dom);
+   $row=$xpath->query('//tr[td[contains(.,"'.$businessOrder->number.'")]]')->item(0);
+   $this->assertNotNull($row);
+   $this->assertLessThan(strpos($row->textContent,'Taylor Buyer'),strpos($row->textContent,'Bakery & <Cafe>'));
+  }
+  $this->get(route('admin.dashboard.balances'))->assertViewHas('total',30000)->assertViewHas('rows',fn($rows)=>$rows->total()===3);
  }
  public function test_period_metrics_all_time_alerts_low_stock_and_restricted_roles(): void {
   $this->actingAs($this->admin());

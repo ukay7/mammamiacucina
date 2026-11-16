@@ -3,7 +3,7 @@
 @section('content')
 <link rel="stylesheet" href="{{ asset('admin-assets/customer-receipts.css') }}?v={{ filemtime(public_path('admin-assets/customer-receipts.css')) }}">
 <section class="panel panel-content">
-    <div class="receipt-toolbar"><div><h2>{{ $receipt->number }}</h2><h3>{{ $receipt->customer_snapshot['business_name'] ?: $receipt->customer_snapshot['name'] }}</h3><p>Customer #{{ $customer->id }} · Recorded {{ \App\Support\BusinessTime::format($receipt->created_at,'l, d M Y H:i T') }}</p></div>
+    <div class="receipt-toolbar"><div><h2>{{ $receipt->number }}</h2><h3>{{ $receipt->customer_snapshot['business_name'] ?: $receipt->customer_snapshot['name'] }} <x-business-customer-icon :customer="$receipt->customer_snapshot" /></h3><p>Customer #{{ $customer->id }} · Recorded {{ \App\Support\BusinessTime::format($receipt->created_at,'l, d M Y H:i T') }}</p></div>
         <div><a class="btn btn-outline-primary" href="{{ route('admin.customers.show',$customer) }}#customer-payments">Payments &amp; Cheques</a> <a class="btn btn-primary" href="{{ route('admin.customers.receipts.create',$customer) }}">Receive Payment</a></div>
     </div>
     <div class="receipt-metrics"><div><span>Original payment lines</span><strong>${{ number_format($receipt->total_cents/100,2) }}</strong></div><div><span>Confirmed on this receipt</span><strong>${{ number_format($snapshot['confirmed_cents']/100,2) }}</strong></div><div><span>Awaiting cheque clearance</span><strong>${{ number_format($snapshot['pending_cents']/100,2) }}</strong></div><div><span>Current account outstanding</span><strong>${{ number_format($current['pending']/100,2) }}</strong></div></div>

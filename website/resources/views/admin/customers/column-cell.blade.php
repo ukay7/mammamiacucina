@@ -4,10 +4,10 @@
     @break
 @case('identity')
     @if($customer->account_type==='business' && filled($customer->business_name))
-        <strong class="customer-directory-name">{{ $customer->business_name }}</strong>
+        <strong class="customer-directory-name">{{ $customer->business_name }} <x-business-customer-icon :customer="$customer" /></strong>
         <strong class="customer-directory-owner">Owner: {{ $customer->name }}</strong>
     @else
-        <strong class="customer-directory-name">{{ $customer->name }}</strong>
+        <strong class="customer-directory-name">{{ $customer->name }} <x-business-customer-icon :customer="$customer" /></strong>
     @endif
     <strong class="customer-directory-email">{{ $customer->email }}</strong>
     @break

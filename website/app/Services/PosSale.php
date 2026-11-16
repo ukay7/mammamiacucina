@@ -82,11 +82,27 @@ class PosSale
         }
         if (($quote['user_id'] ?? null) !== $userId) $this->fail('This sale review belongs to another staff member.');
         return DB::transaction(function () use ($quote, $customer, $userId) {
+            $draft=null;
+            if (!empty($customer['pos_draft_id'])) {
+                abort_unless(User::with('role')->findOrFail($userId)->isSuper(),403);
+                $draft=\App\Models\PosDraft::whereKey($customer['pos_draft_id'])->lockForUpdate()->first();
+                if (!$draft) $this->fail('This draft was deleted. Reopen Draft Orders before placing the sale.');
+                if ($draft->order_id) {
+                    $placed=$draft->order;
+                    if ($placed && $placed->checkout_token===$quote['token']) {
+                        $placed->assertEditable();
+                        return $placed;
+                    }
+                    $this->fail('This draft has already been placed as an order.');
+                }
+                if ($draft->revision!==(int)($customer['pos_draft_revision']??-1)) $this->fail('This draft changed in another window. Reopen it from Draft Orders before placing the sale.');
+            }
             // A shared lock serializes checkout against stock and settings changes. A retry never deducts twice.
             $settings = GeneralSetting::lockForUpdate()->findOrFail(1);
             $creator = User::with('role')->findOrFail($userId);
             $warehouseSale = $creator->isWarehouseUserType();
             if ($existing = Order::withTrashed()->where('checkout_token', $quote['token'])->first()) {
+                if ($draft) $this->fail('This sale reference already belongs to an order. Reopen Draft Orders.');
                 if ($existing->source !== 'pos' || (int) $existing->created_by !== $userId) $this->fail('Invalid sale reference.');
                 $existing->assertEditable();
                 return $existing;
@@ -158,6 +174,7 @@ class PosSale
                 'paid_at' => $customer['payment_status'] === 'paid' ? now() : null,
             ]);
             $order->update(['number' => 'mmc-'.$order->id]);
+            if ($draft) $draft->update(['order_id'=>$order->id,'revision'=>$draft->revision+1,'updated_by'=>$userId]);
             foreach ($lines as $line) {
                 ['product' => $product, 'inventory' => $inventory, 'quantity' => $quantity, 'unit_cents' => $price] = $line;
                 $tracked = $inventory && $inventory->quantity_on_hand !== null;

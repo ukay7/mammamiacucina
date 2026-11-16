@@ -41,6 +41,7 @@ Route::get('/gallery/events/{event}', [GalleryController::class, 'show'])->name(
 Route::get('/gallery/photos/{photo}', [GalleryController::class, 'image'])->name('gallery.image');
 Route::get('/site-page-banner', [GeneralSettingController::class, 'pageBanner'])->name('site.page-banner');
 Route::get('/site-logo', [GeneralSettingController::class, 'logo'])->name('site.logo');
+Route::get('/business-customer-icon', [GeneralSettingController::class, 'businessCustomerIcon'])->name('site.business-customer-icon');
 Route::get('/track-order', [OrderTrackingController::class, 'form'])->name('order.track-form');
 Route::post('/track-order', [OrderTrackingController::class, 'lookup'])->middleware('throttle:6,1,order-lookup')->name('order.lookup');
 Route::post('/track-order/{token}/verify', [OrderTrackingController::class, 'verify'])->middleware('throttle:6,1,order-email-verify')->name('order.verify');

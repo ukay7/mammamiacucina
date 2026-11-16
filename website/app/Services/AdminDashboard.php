@@ -15,18 +15,24 @@ class AdminDashboard {
    ->select('o.id','o.number','o.first_name','o.last_name','o.status','o.payment_method','o.ordered_at','o.created_at')
    ->selectRaw("$total AS total_cents, o.refund_credit_cents AS credit_cents, ($total - CAST(o.refund_credit_cents AS SIGNED)) AS adjusted_total_cents, $net AS net_cents, CASE WHEN o.status = 'cancelled' THEN -$net WHEN o.payment_status = 'refunded' AND $net = 0 AND o.refund_credit_cents = 0 THEN 0 WHEN $total IS NULL THEN NULL ELSE $total - CAST(o.refund_credit_cents AS SIGNED) - $net END AS balance_cents");
  }
+ public function balancesWithCustomerNames() {
+  return $this->balances()->addSelect(['business_name'=>DB::table('customers')->select('business_name')
+   ->whereColumn('customers.id','o.customer_id')->where('account_type','business'),
+   'account_type'=>DB::table('customers')->select('account_type')->whereColumn('customers.id','o.customer_id')]);
+ }
  public function build(User $user,int $days): array {
   $data=['days'=>$days,'start'=>\App\Support\BusinessTime::today()->subDays($days-1),'end'=>\App\Support\BusinessTime::now(),'sales'=>null,'stock'=>null];
   // Warehouse-only accounts keep the same restricted order visibility as the order screens.
   $canSeeOrders=$user->hasAdminPermission('orders.view') && !$user->isWarehouseOnly();
   if($canSeeOrders){
-   $base=Order::where('currency','CAD')->where(fn($q)=>$q->whereDoesntHave('payment')->orWhereHas('payment',fn($p)=>$p->where('mode','live')));
+   $base=Order::with('customer')->where('currency','CAD')->where(fn($q)=>$q->whereDoesntHave('payment')->orWhereHas('payment',fn($p)=>$p->where('mode','live')));
    $period=(clone $base)->whereBetween('ordered_at',[$data['start']->utc(),$data['end']->utc()]);
    $valid=(clone $period)->whereNotIn('status',['cancelled','awaiting_payment','payment_review','parked_admin']);
    $daySql=\App\Support\BusinessTime::dayExpression('ordered_at',$data['start']->toDateString(),$data['end']->toDateString());
    $daily=(clone $valid)->selectRaw("$daySql AS day, COUNT(*) AS orders, SUM(subtotal_cents + delivery_cents + tax_cents) AS amount")->groupByRaw($daySql)->get()->keyBy('day');
    $trend=collect(range(0,$days-1))->map(function($i)use($daily,$data){$date=$data['start']->copy()->addDays($i);$row=$daily->get($date->toDateString());return ['date'=>$date->format('d M'),'amount'=>(int)($row?->amount??0),'orders'=>(int)($row?->orders??0)];});
    $balance=fn()=>DB::query()->fromSub($this->balances(),'b');
+   $namedBalances=fn()=>DB::query()->fromSub($this->balancesWithCustomerNames(),'b');
    $money=$balance()->selectRaw('COALESCE(SUM(CASE WHEN balance_cents > 0 THEN balance_cents ELSE 0 END),0) AS due, COALESCE(SUM(CASE WHEN balance_cents < 0 THEN -balance_cents ELSE 0 END),0) AS refunds, COALESCE(SUM(net_cents),0) AS net, SUM(CASE WHEN balance_cents IS NULL THEN 1 ELSE 0 END) AS unpriced')->first();
    $issues=(clone $base)->whereIn('status',['warehouse_issue','payment_review','parked_admin'])->orderBy('ordered_at')->orderBy('id')->limit(8)->get();
    $stages=(clone $base)->select('status')->selectRaw('COUNT(*) AS total')->groupBy('status')->pluck('total','status');
@@ -36,8 +42,8 @@ class AdminDashboard {
     'orders'=>(clone $period)->count(),'value'=>(int)(clone $valid)->selectRaw('SUM(subtotal_cents + delivery_cents + tax_cents) AS value')->value('value'),
     'completed'=>(clone $period)->whereIn('status',['completed','delivered'])->count(),
     'cancelled'=>(clone $period)->where('status','cancelled')->count(),
-    'dues'=>$balance()->where('balance_cents','>',0)->orderByDesc('balance_cents')->limit(8)->get(),
-    'refunds'=>$balance()->where('balance_cents','<',0)->orderBy('balance_cents')->limit(8)->get(),
+    'dues'=>$namedBalances()->where('balance_cents','>',0)->orderByDesc('balance_cents')->limit(8)->get(),
+    'refunds'=>$namedBalances()->where('balance_cents','<',0)->orderBy('balance_cents')->limit(8)->get(),
     'due_count'=>$balance()->where('balance_cents','>',0)->count(),'refund_count'=>$balance()->where('balance_cents','<',0)->count(),
     'recent'=>(clone $base)->orderByDesc('ordered_at')->orderByDesc('id')->limit(6)->get(),
    ];

@@ -22,7 +22,7 @@ class CustomerFileCoverController extends Controller
             'brand' => $theme->brand(),
             'id' => (string) $customer->id,
             'name' => mb_strtoupper(trim($customer->business_name ?: $customer->name)),
-            'contact' => $customer->name,
+            'contact' => $customer->name, 'business_customer' => $customer->account_type === 'business',
             'phone' => $customer->business_phone ?: $customer->phone,
             'email' => $customer->business_email ?: $customer->email,
             'address' => implode(', ', array_filter(array_map(

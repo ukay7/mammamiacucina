@@ -8,7 +8,7 @@ class DashboardController extends Controller {
   $user=$r->user();
   abort_unless($user->hasAdminPermission('orders.view') && !$user->isWarehouseOnly(),403);
   $kind=$r->query('kind')==='refunds'?'refunds':'dues';
-  $query=\Illuminate\Support\Facades\DB::query()->fromSub($dashboard->balances(),'b')->where('balance_cents',$kind==='refunds'?'<':'>',0);
+  $query=\Illuminate\Support\Facades\DB::query()->fromSub($dashboard->balancesWithCustomerNames(),'b')->where('balance_cents',$kind==='refunds'?'<':'>',0);
   $total=abs((int)(clone $query)->sum('balance_cents'));
   $rows=$query->orderBy('balance_cents',$kind==='refunds'?'asc':'desc')->orderBy('id')->paginate(25)->withQueryString();
   return view('admin.dashboard-balances',compact('rows','kind','total'));

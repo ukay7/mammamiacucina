@@ -3,6 +3,7 @@ $link = static fn($permission, $route, $match, $label, $icon, $params = []) => c
 $group = static fn($label, $icon, $children) => compact('label', 'icon', 'children');
 return [
     'Workspace' => [
+        ['super_only'=>true] + $link('', 'admin.start', 'admin.start', 'Home', 'th-large'),
         $link('', 'admin.notes.index', 'admin.notes.*', 'My Notes', 'sticky-note'),
         $link('dashboard.view', 'admin.dashboard', 'admin.dashboard', 'Dashboard', 'chart-bar'),
     ],

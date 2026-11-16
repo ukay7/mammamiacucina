@@ -35,9 +35,55 @@ class QuotationController extends Controller
         return $this->form($quotation);
     }
 
+    private function customers()
+    {
+        return Customer::with('user')->orderBy('name')->get()->map(fn ($c) => ['id' => $c->id, 'account_type' => $c->account_type, 'business_name' => $c->business_name, 'name' => $c->name, 'email' => $c->email, 'tier' => $c->user?->is_active && $c->user?->email_verified_at && $c->user?->business_approved_at && $c->user?->account_type === 'business' ? 'business' : 'individual']);
+    }
+
+    public function duplicate(Quotation $quotation)
+    {
+        $customers = $this->customers();
+        $today = \App\Support\BusinessTime::today();
+        $dueDate = $quotation->due_date->toDateString() >= $today->toDateString()
+            ? $quotation->due_date->toDateString() : $today->addDays(30)->toDateString();
+
+        return view('admin.quotations.duplicate', compact('quotation', 'customers', 'dueDate'));
+    }
+
+    public function storeDuplicate(Request $request, Quotation $quotation)
+    {
+        $data = $request->validate(['customer_id'=>'required|integer|exists:customers,id',
+            'due_date'=>'required|date_format:Y-m-d', 'revision'=>'required|integer|min:1']);
+        $copy = DB::transaction(function () use ($request, $quotation, $data) {
+            $source = Quotation::whereKey($quotation->id)->lockForUpdate()->firstOrFail();
+            if ((int) $source->revision !== (int) $data['revision']) {
+                throw ValidationException::withMessages(['revision'=>'The original quotation changed. Reload this page before duplicating it.']);
+            }
+            $customer = Customer::findOrFail($data['customer_id']);
+            // Copy the saved offer exactly, including historical fixed discounts and product details.
+            $copy = $source->replicate(['created_by', 'revision']);
+            $copy->customer_id = $customer->id;
+            $copy->customer_snapshot = $this->customerSnapshot($customer);
+            $copy->due_date = $data['due_date'];
+            $copy->created_by = $request->user()->id;
+            $copy->revision = 1;
+            $copy->save();
+
+            return $copy;
+        });
+
+        return redirect()->route('admin.quotations.edit', $copy)
+            ->with('status', $quotation->number.' duplicated as '.$copy->number.'. Review the new quotation before sharing it.');
+    }
+
+    private function customerSnapshot(Customer $customer): array
+    {
+        return $customer->only(['id', 'account_type', 'name', 'email', 'phone', 'address', 'city', 'province', 'postal_code', 'country', 'website', 'business_name', 'business_bin']);
+    }
+
     private function form(Quotation $quotation)
     {
-        $customers = Customer::with('user')->orderBy('name')->get()->map(fn ($c) => ['id' => $c->id, 'name' => $c->name, 'email' => $c->email, 'tier' => $c->user?->is_active && $c->user?->email_verified_at && $c->user?->business_approved_at && $c->user?->account_type === 'business' ? 'business' : 'individual']);
+        $customers = $this->customers();
         $products = Product::with(['category', 'categories', 'pricingDraft', 'media'])->withCount('documents')->where(function ($q) use ($quotation) {
             $q->where('is_active', true);
             if ($quotation->exists) {
@@ -119,7 +165,7 @@ class QuotationController extends Controller
         $charge = intdiv($net * $chargeBp + 5000, 10000);
         $tax = intdiv(($net + $charge) * $taxBp + 5000, 10000);
 
-        return ['customer_id' => $customer->id, 'customer_snapshot' => $customer->only(['id', 'name', 'email', 'phone', 'address', 'city', 'province', 'postal_code', 'country', 'website', 'business_name', 'business_bin']), 'due_date' => $d['due_date'], 'pricing_tier' => $tier, 'items' => $items, 'subtotal_cents' => $subtotal, 'line_discount_cents' => $lineDiscount, 'discount_cents' => $discount, 'discount_basis_points' => $discountBp, 'charge_basis_points' => $chargeBp, 'charge_cents' => $charge, 'tax_basis_points' => $taxBp, 'tax_cents' => $tax, 'total_cents' => $net + $charge + $tax, 'payment_terms' => $d['payment_terms'] ?? null, 'delivery_terms' => $d['delivery_terms'] ?? null, 'notes' => $d['notes'] ?? null];
+        return ['customer_id' => $customer->id, 'customer_snapshot' => $this->customerSnapshot($customer), 'due_date' => $d['due_date'], 'pricing_tier' => $tier, 'items' => $items, 'subtotal_cents' => $subtotal, 'line_discount_cents' => $lineDiscount, 'discount_cents' => $discount, 'discount_basis_points' => $discountBp, 'charge_basis_points' => $chargeBp, 'charge_cents' => $charge, 'tax_basis_points' => $taxBp, 'tax_cents' => $tax, 'total_cents' => $net + $charge + $tax, 'payment_terms' => $d['payment_terms'] ?? null, 'delivery_terms' => $d['delivery_terms'] ?? null, 'notes' => $d['notes'] ?? null];
     }
 
     public function store(Request $r)

@@ -4,10 +4,18 @@
  if(!config||!form)return;
  const $=window.jQuery;
  if($?.fn.select2){
+  const renderRecipient=item=>{
+   const line=document.createElement('span');
+   if(item.number){const number=document.createElement('strong');number.textContent='#'+item.number+' · ';line.append(number);line.append(document.createTextNode((item.business?item.business+' · ':'')+item.name));}
+   else line.textContent=item.text;
+   window.mmcBusinessCustomerIcon.append(line,item.account_type||item.element?.dataset.accountType);
+   if(item.email){const email=document.createElement('small');email.textContent=' · '+item.email;line.append(email);}
+   return $(line);
+  };
   $('#notification-recipients').select2({width:'100%',placeholder:'Search customer #, business, name or enter email',tags:true,tokenSeparators:[',',';'],maximumSelectionLength:500,
    ajax:{url:config.customers,dataType:'json',delay:250,data:params=>({q:params.term||'',page:params.page||1}),processResults:data=>data},
    createTag:params=>{const email=params.term.trim().toLowerCase();return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)?{id:'email:'+email,text:email,newTag:true}:null;},
-   templateResult:item=>{if(!item.number)return item.text;const line=$('<div class="nt-choice"></div>');line.append($('<strong></strong>').text('#'+item.number));line.append(document.createTextNode((item.business?item.business+' · ':'')+item.name));line.append($('<small></small>').text(item.email));return line;}
+   templateResult:renderRecipient, templateSelection:renderRecipient
   });
   // Accept a typed email immediately, even when the remote customer search is still pending.
   form.addEventListener('keydown',event=>{

@@ -5,6 +5,7 @@
 <form method="post" action="{{ route('customer.profile.update') }}">
 @csrf @method('PUT')
 @php($customer=$user->customerRecord())
+<h2>{{ $customer->business_name ?: $user->name }} <x-business-customer-icon :customer="$customer" /></h2>
 <div class="row">
 <div class="col-md-6 mb-4"><label for="profile-name">Full name</label><input class="form-control" id="profile-name" name="name" value="{{ old('name',$user->name) }}" required maxlength="100" autocomplete="name"></div>
 <div class="col-md-6 mb-4"><label for="profile-email">Primary email address</label><input class="form-control" id="profile-email" type="email" value="{{ $user->email }}" readonly aria-describedby="email-help"><small id="email-help" class="d-block mt-2">Your login email cannot be changed. Verification and password-reset links are sent only here.</small></div>

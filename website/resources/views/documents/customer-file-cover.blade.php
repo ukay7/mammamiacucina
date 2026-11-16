@@ -36,12 +36,12 @@ $numberSize = strlen($cover['id']) > 12 ? 30 : (strlen($cover['id']) > 6 ? 40 : 
 .file-period table{width:100%;border-collapse:collapse;table-layout:fixed}.file-period td{width:50%;padding:0;vertical-align:top;word-wrap:break-word}.file-period .volume{text-align:right}
 </style></head><body>
 <main class="file-cover">
-<div class="file-strip"><div class="strip-name"><div class="strip-name-inner">{{ $cover['name'] }}</div></div><div class="strip-number"><div class="strip-number-inner">{{ $cover['id'] }}</div></div></div>
+<div class="file-strip"><div class="strip-name"><div class="strip-name-inner">{{ $cover['name'] }} <x-business-customer-icon :business="$cover['business_customer'] ?? false" :embedded="true" /></div></div><div class="strip-number"><div class="strip-number-inner">{{ $cover['id'] }}</div></div></div>
 <section class="file-body"><div class="file-rotated">
 <div class="file-brand">@if($cover['brand']['logo'])<img class="file-logo" src="{{ $cover['brand']['logo'] }}" alt="Mamma Mia Cucina logo">@endif<div class="file-company">MAMMA MIA</div><div class="file-company-subtitle">CUCINA</div></div>
 <div class="file-rule"><span aria-hidden="true">◇</span></div>
 <div class="file-kind">CUSTOMER FILE</div><div class="file-id-label">CUSTOMER ID</div>
-<div class="file-number">#{{ $cover['id'] }}</div><div class="file-name">{{ $cover['name'] }}</div>
+<div class="file-number">#{{ $cover['id'] }}</div><div class="file-name">{{ $cover['name'] }} <x-business-customer-icon :business="$cover['business_customer'] ?? false" :embedded="true" /></div>
 <div class="file-rule file-rule-details"><span aria-hidden="true">◇</span></div>
 <div class="file-contact"><p><strong>Contact:</strong> {{ $cover['contact'] ?: 'Not provided' }}</p><p><strong>Phone:</strong> {{ $cover['phone'] ?: 'Not provided' }}</p><p><strong>Email:</strong> {{ $cover['email'] ?: 'Not provided' }}</p><p><strong>Address:</strong> {{ $cover['address'] ?: 'Not provided' }}</p></div>
 <div class="file-period"><table><tr><td>Year: [{{ $cover['year'] }}]</td><td class="volume">Volume: [{{ $cover['volume'] }}]</td></tr></table></div>

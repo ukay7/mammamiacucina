@@ -3,7 +3,7 @@
 @section('content')
 <link rel="stylesheet" href="{{ asset('admin-assets/customer-receipts.css') }}?v={{ filemtime(public_path('admin-assets/customer-receipts.css')) }}">
 <section class="panel panel-content">
-    <div class="receipt-toolbar"><div><h2>{{ $customer->business_name ?: $customer->name }}</h2><p>Customer #{{ $customer->id }} · {{ $customer->name }} · {{ $customer->email }}</p></div><a class="btn btn-outline-primary" href="{{ route('admin.customers.show',$customer) }}#customer-payments">Back to Payments &amp; Cheques</a></div>
+    <div class="receipt-toolbar"><div><h2>{{ $customer->business_name ?: $customer->name }} <x-business-customer-icon :customer="$customer" /></h2><p>Customer #{{ $customer->id }} · {{ $customer->name }} · {{ $customer->email }}</p></div><a class="btn btn-outline-primary" href="{{ route('admin.customers.show',$customer) }}#customer-payments">Back to Payments &amp; Cheques</a></div>
     <div class="receipt-metrics">
         <div><span>Current outstanding (CAD)</span><strong>${{ number_format($account['outstanding_cents']/100,2) }}</strong></div>
         <div><span>Maximum new payment (CAD)</span><strong>${{ number_format($account['maximum_cents']/100,2) }}</strong></div>

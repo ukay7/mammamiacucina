@@ -14,7 +14,7 @@
 <section class="panel panel-content"><h2>Retained invoice · View only</h2>
 @if($invoice=$order->invoice)
 <p>{{ $invoice->label }} · Issued {{ \App\Support\BusinessTime::format($invoice->issued_at,'d M Y H:i T') }} · Original total: C${{ number_format($invoice->total_cents/100,2) }}</p>
-<p>{{ data_get($invoice->snapshot,'order.first_name') }} {{ data_get($invoice->snapshot,'order.last_name') }} · {{ data_get($invoice->snapshot,'order.email') }}</p>
+<p>{{ data_get($invoice->snapshot,'order.first_name') }} {{ data_get($invoice->snapshot,'order.last_name') }} <x-business-customer-icon :customer="$order->customer" /> · {{ data_get($invoice->snapshot,'order.email') }}</p>
 <div class="table-responsive"><table class="table"><thead><tr><th>Original invoiced item</th><th>Code</th><th>Quantity</th><th>Unit price (CAD)</th><th>Total (CAD)</th></tr></thead><tbody>
 @foreach(data_get($invoice->snapshot,'items',[]) as $item)<tr><td>{{ $item['name'] }}</td><td>{{ $item['product_code'] ?? '—' }}</td><td>{{ $item['quantity'] }}</td><td>{{ number_format($item['unit_cents']/100,2) }}</td><td>{{ number_format($item['line_cents']/100,2) }}</td></tr>@endforeach
 </tbody></table></div><p>Original invoice snapshot retained. This is a deleted-order audit record.</p>

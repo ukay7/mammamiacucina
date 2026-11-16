@@ -14,7 +14,7 @@
 <main class="document doc-delivery-form">
 @include('documents.header')
 <table class="doc-info"><tr><td><h2>Customer</h2>
-@foreach($doc['identity'] as $line)<div class="delivery-line {{ $loop->first?'delivery-name':'' }}">{{ $line }}</div>@endforeach
+@foreach($doc['identity'] as $line)<div class="delivery-line {{ $loop->first?'delivery-name':'' }}">{{ $line }}@if($loop->first)<x-business-customer-icon :business="$doc['business_customer'] ?? false" :embedded="true" />@endif</div>@endforeach
 @foreach($doc['billing_address'] as $line)<div class="delivery-line">{{ $line }}</div>@endforeach
 @foreach($doc['contact'] as $line)<div class="delivery-line">{{ $line }}</div>@endforeach
 </td><td><h2>{{ $doc['destination_label'] }}</h2>

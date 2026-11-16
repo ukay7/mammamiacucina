@@ -16,7 +16,7 @@ class PricingListController extends Controller
         $filters=$request->validate(['search'=>'nullable|string|max:200','tier'=>'nullable|in:individual,business',
             'from'=>'nullable|date_format:Y-m-d','to'=>'nullable|date_format:Y-m-d|after_or_equal:from']);
         // Keep large JSON/image snapshots out of MySQL's sort buffer.
-        $lists=PricingList::query()->select(['id','number','title','recipient_name','pricing_tier','effective_date','valid_until','updated_at'])
+        $lists=PricingList::query()->select(['id','customer_id','number','title','recipient_name','pricing_tier','effective_date','valid_until','updated_at'])
             ->when($filters['search']??null,function($q,$term){
                 $q->where(fn($q)=>$q->where('title','like','%'.$term.'%')->orWhere('recipient_name','like','%'.$term.'%')
                     ->orWhere('number',preg_match('/^(?:PL-)?0*(\d+)$/i',$term,$m)?'PL-'.str_pad($m[1],5,'0',STR_PAD_LEFT):$term));
@@ -39,7 +39,7 @@ class PricingListController extends Controller
     {
         $catalog=collect($service->catalog())->keyBy('product_id');
         foreach ($list->items??[] as $item) $catalog->put($item['product_id'],$item);
-        $customers=Customer::orderBy('name')->get(['id','name','business_name']);
+        $customers=Customer::orderBy('name')->get(['id','name','business_name','account_type']);
         $initial=['title'=>$list->title??'Price List','pricing_tier'=>$list->pricing_tier??'business',
             'effective_date'=>$list->effective_date?->format('Y-m-d')??BusinessTime::now()->toDateString(),
             'valid_until'=>$list->valid_until?->format('Y-m-d')??'', 'recipient_name'=>$list->recipient_name??'',

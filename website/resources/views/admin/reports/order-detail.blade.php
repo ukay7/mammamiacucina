@@ -2,7 +2,7 @@
 $money = fn($value) => $value===null?'Unconfirmed':($value<0?'−':'').'$'.number_format(abs($value)/100,2);
 $total = $order->final_total_cents;
 @endphp
-<h2>{{ $order->number }} · {{ $order->first_name }} {{ $order->last_name }}</h2>
+<h2>{{ $order->number }} · {{ $order->first_name }} {{ $order->last_name }} <x-business-customer-icon :customer="$order->customer" /></h2>
 @if(auth()->user()->hasAdminPermission('payments.manage'))
 @include('admin.orders.payment')
 @endif

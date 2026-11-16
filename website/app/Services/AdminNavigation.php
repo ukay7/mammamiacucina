@@ -66,6 +66,7 @@ class AdminNavigation
 
     public static function landing(User $user): string
     {
+        if ($user->isSuper()) return 'admin.start';
         foreach(self::nodes() as $node) if(self::allowed($user,$node)) return empty($node['params'])?$node['route']:'admin.module-home';
         return 'admin.no-access';
     }

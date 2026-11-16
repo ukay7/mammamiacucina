@@ -2,9 +2,14 @@
 @section('title','Quick Sale / POS')
 @section('content')
 <link rel="stylesheet" href="{{ asset('admin-assets/pos.css') }}?v={{ filemtime(public_path('admin-assets/pos.css')) }}">
-<div id="pos-app" data-customer-store="{{ route('admin.pos.customer') }}" data-matrix="{{ \App\Models\GeneralSetting::findOrFail(1)->matrix_delivery_enabled?'1':'0' }}" data-delivery-options="{{ route('admin.pos.delivery-options') }}" data-products="{{ route('admin.pos.products') }}" data-quote="{{ route('admin.pos.quote') }}" data-store="{{ route('admin.pos.store') }}" data-csrf="{{ csrf_token() }}">
-<div class="pos-intro"><div><span class="pos-eyebrow">THE COUNTER</span><p>Scan. Add. Serve with a smile.</p></div><span class="pos-badge">Prices in CAD</span></div>
+<link rel="stylesheet" href="{{ asset('admin-assets/pos-products.css') }}?v={{ filemtime(public_path('admin-assets/pos-products.css')) }}">
+@if(auth()->user()->isSuper())<link rel="stylesheet" href="{{ asset('admin-assets/pos-drafts.css') }}?v={{ filemtime(public_path('admin-assets/pos-drafts.css')) }}">@endif
+<div id="pos-app" @if(auth()->user()->isSuper()) data-drafts="{{ route('admin.pos.drafts.index') }}" @endif data-customer-store="{{ route('admin.pos.customer') }}" data-matrix="{{ \App\Models\GeneralSetting::findOrFail(1)->matrix_delivery_enabled?'1':'0' }}" data-delivery-options="{{ route('admin.pos.delivery-options') }}" data-products="{{ route('admin.pos.products') }}" data-quote="{{ route('admin.pos.quote') }}" data-store="{{ route('admin.pos.store') }}" data-csrf="{{ csrf_token() }}">
+<div class="pos-intro"><div><span class="pos-eyebrow">THE COUNTER</span><p>Scan. Add. Serve with a smile.</p></div><div class="pos-intro-actions"><span class="pos-badge">Prices in CAD</span>@if(auth()->user()->isSuper())<button type="button" id="open-pos-drafts" class="btn btn-outline-primary">Draft Orders <span id="pos-draft-count"></span></button>@endif</div></div>
+@if(auth()->user()->isSuper())<p id="pos-active-draft" class="pos-active-draft" role="status" hidden></p>@endif
 <div id="pos-feedback" class="pos-feedback" role="status" aria-live="polite" hidden></div>
+<div class="pos-layout pos-workspace">
+<div class="pos-workspace-column">
 <section class="pos-panel pos-customer-step"><div class="pos-panel-heading"><h2>1 · Customer</h2><a class="btn btn-outline-primary" href="{{ route('admin.pos.orders') }}">My POS orders</a></div><form id="pos-customer-form" class="pos-customer-body">
 <label id="pos-customer-fallback">Customer<select class="form-control" name="existing_customer_id" id="pos-customer"><option value="">Choose a customer…</option><option value="new">+ Add new customer</option>@foreach($customers as $customer)<option value="{{ $customer->id }}" data-pending="{{ $customer->user->businessApprovalPending()?'1':'0' }}" data-profile="{{ json_encode($customer->only(['name','email','phone','address','city','province','postal_code','country','account_type','business_name'])) }}">#{{ $customer->id }} · @if($customer->account_type==='business' && filled($customer->business_name)){{ trim($customer->business_name) }} · @endif{{ $customer->name }}@if(filled($customer->email)) — {{ $customer->email }}@endif @if(filled($customer->phone)) · {{ $customer->phone }}@endif</option>@endforeach</select></label>
 <div class="pos-customer-picker" id="pos-customer-picker" hidden>
@@ -21,23 +26,32 @@
 
 <div class="pos-customer-grid"><label>First name<input class="form-control" name="first_name" maxlength="100" autocomplete="given-name"></label><label>Last name<input class="form-control" name="last_name" maxlength="100" autocomplete="family-name"></label><label>Phone<input class="form-control" name="phone" maxlength="40" type="tel" autocomplete="tel"></label><label>Email (required for new customers)<input class="form-control" name="email" required maxlength="255" type="email" autocomplete="email"></label></div>
 <details><summary>Address (optional)</summary><div class="pos-customer-grid">@foreach(['address'=>'Street address','city'=>'City','province'=>'Province','postal_code'=>'Postal code','country'=>'Country'] as $key=>$label)<label>{{ $label }}<input class="form-control" name="{{ $key }}" maxlength="255" value="{{ $key==='country'?'Canada':'' }}"></label>@endforeach</div></details></div><div class="pos-customer-actions"><button type="submit" class="btn btn-primary" id="confirm-customer">Use selected customer</button><span id="pos-customer-summary" role="status">Select a customer or create one to start.</span></div></form></section>
-<div class="pos-layout">
 <section class="pos-panel pos-discovery" aria-labelledby="scan-heading">
-<div class="pos-panel-heading"><h2 id="scan-heading">Find a product</h2><button type="button" id="camera-start" class="btn btn-outline-primary"><i class="fas fa-camera" aria-hidden="true"></i> Scan with camera</button></div>
-<form id="pos-scan-form" class="pos-search"><label for="scan-code">QR / barcode scanner</label><div><input id="scan-code" type="text" class="form-control" autocomplete="off" placeholder="Scan or enter a code, then press Enter"><button class="btn btn-primary" type="submit">Add</button></div></form>
-<p class="pos-help">Connected scanners work in the code field. Each scan adds one item.</p>
+<div class="pos-panel-heading"><div><span class="pos-eyebrow">BROWSE THE COLLECTION</span><h2 id="scan-heading">2 · Products</h2></div><span id="pos-pricing-label" class="pos-badge">Select a customer</span></div>
+<form id="pos-product-search-form" class="pos-product-toolbar" method="get">
+<label for="product-search">Find a product or scan a barcode</label>
+<div class="pos-unified-search"><i class="fas fa-search" aria-hidden="true"></i><input id="product-search" type="search" class="form-control" maxlength="255" placeholder="Product name, item code, QR / barcode…" autocomplete="off"><button class="btn btn-primary" type="submit">Find</button><button type="button" id="camera-start" class="btn btn-outline-primary" title="Scan with camera" aria-label="Scan with camera"><i class="fas fa-camera" aria-hidden="true"></i></button></div>
+<p>Search or scan, choose your quantity, then add to the sale.</p>
+</form>
 <div id="camera-area" hidden><video id="pos-video" muted playsinline></video><div class="pos-camera-tools"><span>Hold the code steady, then move it away to scan again.</span><button id="camera-stop" type="button" class="btn btn-outline-primary">Stop camera</button></div></div>
-<div class="pos-search"><label for="product-search">Search by name, product code, barcode or ID</label><input id="product-search" type="search" class="form-control" placeholder="Start typing to find products…" autocomplete="off"></div>
-<div id="pos-results" class="pos-results" aria-live="polite"><p class="pos-empty">Your next sale starts with a scan.<br><small>You can also search products above.</small></p></div>
+<div id="pos-categories" class="pos-category-strip" role="group" aria-label="Filter products by category"><button type="button" class="pos-category is-selected" data-category="" aria-pressed="true">All products</button>@foreach($categories as $category)<button type="button" class="pos-category" data-category="{{ $category->id }}" aria-pressed="false">{{ $category->name }}</button>@endforeach</div>
+<div class="pos-shelf-heading"><span id="pos-result-status" role="status" aria-live="polite">Select a customer to browse products.</span><div class="pos-shelf-navigation"><button type="button" id="pos-products-prev" aria-label="Scroll products left" title="Previous products">←</button><button type="button" id="pos-products-next" aria-label="Scroll products right" title="Next products">→</button></div></div>
+<div id="pos-results" class="pos-results pos-product-shelf" role="region" aria-label="Products — scroll horizontally" tabindex="0"><p class="pos-empty">Your collection is ready.<br><small>Select a customer above to see their prices.</small></p></div>
 </section>
+</div>
+<div class="pos-workspace-column">
+@include('admin.pos.recommendations')
 <section class="pos-panel pos-basket" aria-labelledby="sale-heading">
 <div class="pos-panel-heading"><h2 id="sale-heading">Current sale <span id="pos-item-count">0</span></h2><button type="button" id="clear-sale" class="pos-link">Clear sale</button></div>
 <div id="pos-lines"><p class="pos-empty">No products added yet.</p></div>
 <div class="pos-basket-footer"><label for="fulfillment">How will the customer receive it?</label><select class="form-control" id="fulfillment"><option value="pickup">Pick up</option><option value="delivery">Delivery · postal code & service</option></select>
 <div class="pos-subtotal"><span>Product subtotal</span><strong id="pos-subtotal">$0.00</strong></div><p class="pos-help">Tax and any delivery charge appear in the checkout review. Stock is checked when you complete the sale.</p>
 <button id="review-sale" class="btn btn-primary pos-checkout" type="button" disabled>Review & Checkout <span aria-hidden="true">→</span></button>
+@if(auth()->user()->isSuper())<button type="button" data-save-pos-draft class="btn btn-outline-primary pos-save-draft" disabled>Save draft & start new</button>@endif
 </div></section>
 </div>
+</div>
+@include('admin.pos.product-details')
 <dialog id="pos-checkout" aria-labelledby="checkout-heading">
 <form id="complete-sale"><header class="pos-panel-heading"><div><span class="pos-eyebrow">FINAL CHECK</span><h2 id="checkout-heading">Review & place order</h2></div><button type="button" id="close-checkout" class="pos-link">Close ×</button></header>
 <div class="pos-checkout-body"><div id="quote-lines"></div><div class="pos-totals" id="quote-totals"></div>
@@ -58,14 +72,18 @@
 <p id="checkout-error" class="pos-error" role="alert" hidden></p>
 @include('partials.delivery-schedule',['schedulePrefix'=>'pos','scheduleFulfillment'=>'#fulfillment','scheduleInitialFulfillment'=>'pickup'])
 <button class="btn btn-primary pos-checkout" id="complete-button" type="submit">Complete sale</button>
+@if(auth()->user()->isSuper())<button type="button" data-save-pos-draft class="btn btn-outline-primary pos-save-draft" disabled>Save draft & start new</button>@endif
 <button class="pos-link" id="refresh-quote" type="button" hidden>Refresh prices and review again</button>
 </div></form>
 </dialog>
+@if(auth()->user()->isSuper())@include('admin.pos.drafts')@endif
 <dialog id="pos-success" aria-labelledby="success-heading"><div class="pos-success-body"><span class="pos-success-icon" aria-hidden="true">✓</span><span class="pos-eyebrow">ALL DONE</span><h2 id="success-heading">Sale completed</h2><p id="success-number"></p><strong id="success-total"></strong><p id="success-status"></p><a class="btn btn-primary" id="saved-order-link">View order / upload receipt</a><a class="btn btn-outline-primary" id="receipt-link" target="_blank" rel="noopener">Print receipt / PDF</a><button class="btn btn-primary" id="new-sale" type="button">Start next sale</button></div></dialog>
 </div>
 <script src="{{ asset('admin-assets/scanner-libs/zxing-browser-0.1.5.min.js') }}"></script>
 <script src="{{ asset('assets/js/delivery-address.js') }}?v={{ filemtime(public_path('assets/js/delivery-address.js')) }}"></script>
 <script src="{{ asset('assets/js/delivery-schedule.js') }}?v={{ filemtime(public_path('assets/js/delivery-schedule.js')) }}"></script>
+<script src="{{ asset('admin-assets/pos-products.js') }}?v={{ filemtime(public_path('admin-assets/pos-products.js')) }}"></script>
+@if(auth()->user()->isSuper())<script src="{{ asset('admin-assets/pos-drafts.js') }}?v={{ filemtime(public_path('admin-assets/pos-drafts.js')) }}"></script>@endif
 <script src="{{ asset('admin-assets/pos.js') }}?v={{ filemtime(public_path('admin-assets/pos.js')) }}"></script>
 <script src="{{ asset('assets/js/business-fields.js') }}"></script>
 @endsection

@@ -107,7 +107,7 @@ class CustomerReceipts
 
     private function customerSnapshot(Customer $customer): array
     {
-        return $customer->only(['id', 'name', 'business_name', 'email', 'phone', 'business_email', 'business_phone', 'address', 'city', 'province', 'postal_code', 'country']);
+        return $customer->only(['id', 'name', 'account_type', 'business_name', 'email', 'phone', 'business_email', 'business_phone', 'address', 'city', 'province', 'postal_code', 'country']);
     }
 
     private function sign(array $data): string
