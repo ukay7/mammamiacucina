@@ -75,12 +75,13 @@ class EmailOutbox
             $attachments = isset($payload['attachment']) ? [['filename' => 'order-'.$entry->id.'.pdf', 'content' => $payload['attachment']]] : [];
             $message = (new Email)->to(...$entry->recipients())->subject($entry->subject)->from(new Address($payload['from_address'], $payload['from_name']));
             if ($settings->delivery_method === 'resend') {
-                $messageId = app(ResendEmail::class)->send($settings, $message, $payload['body'], $payload['idempotency_key'], $attachments);
+                $messageId = app(ResendEmail::class)->send($settings, $message, $payload['body'], $payload['idempotency_key'], $attachments, $payload['html'] ?? null);
                 $accepted = true;
             } else {
                 app(SmtpConfiguration::class)->apply();
                 app('mail.manager')->forgetMailers();
-                $sent = Mail::mailer('configured_smtp')->raw($payload['body'], function ($m) use ($entry, $payload, $attachments) {
+                $mailView = isset($payload['html']) ? ['raw'=>$payload['body'], 'html'=>new \Illuminate\Support\HtmlString($payload['html'])] : ['raw'=>$payload['body']];
+                $sent = Mail::mailer('configured_smtp')->send($mailView, [], function ($m) use ($entry, $payload, $attachments) {
                     $m->to($entry->recipients())->subject($entry->subject)->from($payload['from_address'], $payload['from_name']);
                     foreach ($attachments as $a) {
                         $m->attachData(base64_decode($a['content']), $a['filename'], ['mime' => 'application/pdf']);

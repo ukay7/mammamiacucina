@@ -17,6 +17,7 @@
    row.querySelector('[data-line-total]').textContent=rowValid?format(quantity*amount):'—';
    if(rowValid)subtotal+=quantity*amount;else valid=false;
   });
+  subtotal-=Math.round(subtotal*Number(form.dataset.discountBps||0)/10000);
   const deliveryInput=form.elements.delivery,pickup=form.elements.fulfillment.value==='pickup';
   if(previousFulfillment==='pickup'&&!pickup)deliveryInput.value=lastDelivery;
   if(previousFulfillment==='delivery'&&pickup)lastDelivery=deliveryInput.value;
@@ -30,7 +31,7 @@
   const tax=autoTax?(valid?Math.floor((subtotal*Number(form.dataset.taxRate)+5000)/10000):null):cents(taxInput);
   if(autoTax&&tax!==null)taxInput.value=(tax/100).toFixed(2);
   const total=valid&&delivery!==null&&tax!==null?subtotal+delivery+tax:null;
-  const received=Number(form.dataset.received),balance=total===null?null:total-received;
+  const received=Number(form.dataset.received),balance=total===null?null:total-Number(form.dataset.credits||0)-received;
   const values={subtotal:valid?subtotal:null,delivery,tax,grand:total,received,balance:balance===null?null:Math.abs(balance)};
   Object.entries(values).forEach(([key,value])=>form.querySelector('[data-total="'+key+'"]').textContent=value===null?'—':format(value));
   form.querySelector('[data-balance-label]').textContent=balance!==null&&balance<0?'Refund due':'Amount due';

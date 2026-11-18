@@ -33,6 +33,7 @@
 @if($label==='Credit limit')<small>Base ${{ number_format($customer->credit_limit_cents/100,2) }} + overage ${{ number_format($customer->overage_cents/100,2) }}</small>@elseif($label==='Available credit')<small>Used ${{ number_format($balances['used']/100,2) }}@if(!$customer->credit_limit_cents) · Credit disabled @endif</small>@elseif($label==='Open receivables')<small>Outstanding invoice balance</small>@else<small>Awaiting payment / clearance</small>@endif</div>
 @endforeach
 </div>
+@if(($balances['refund_due'] ?? 0)>0)<div class="alert alert-info"><strong>Refund due to this customer: CAD {{ number_format($balances['refund_due']/100,2) }}</strong><p>This is money owed back to the customer, separate from their credit limit. Pending refund cheques remain due until cleared.</p>@if(auth()->user()->isSuper())<a class="btn btn-outline-primary" href="{{ route('admin.customers.refunds.create',$customer) }}">Record refund</a>@endif</div>@endif
 <div class="customer-account-layout">
 
 <section class="panel customer-tab-panel">

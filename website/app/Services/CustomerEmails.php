@@ -31,9 +31,27 @@ class CustomerEmails
         $message = EmailTemplate::renderMessage($type, $values + ['site_name' => 'Mamma Mia Cucina']);
         $alternate = app(CustomerEmailRecipients::class)->alternate($type, $recipient, $customer);
         // Unique event key is the final concurrency guard; payload is encrypted at rest.
+        $html = $type === 'business_registration_notification'
+            ? view('emails.business-registration', ['body'=>$message['body'], 'reviewUrl'=>$values['admin_customer_url'], 'settings'=>\App\Models\GeneralSetting::find(1)])->render()
+            : null;
         EmailHistory::firstOrCreate(['event_key' => $key], [
             'order_id' => $orderId, 'recipient' => $recipient, 'alternate_recipient' => $alternate, 'type' => $type, 'subject' => $message['subject'], 'status' => 'queued',
-            'available_at' => now(), 'payload' => ['body' => $message['body'], 'document' => $document, 'idempotency_key' => 'mmc-'.Str::uuid()],
+            'available_at' => now(), 'payload' => ['body' => $message['body'], 'document' => $document, 'idempotency_key' => 'mmc-'.Str::uuid()] + ($html === null ? [] : ['html'=>$html]),
+        ]);
+    }
+
+    public function businessRegistration(User $user): void
+    {
+        if (!$user->isCustomer() || $user->account_type !== 'business' || $user->business_approved_at) return;
+        $customer = $user->customerRecord()->fresh();
+        $this->queue('business-registration:'.$user->id, 'business_registration_notification', config('mail.business_notification_address'), [
+            'name'=>$user->name, 'customer_number'=>$customer->id, 'business_name'=>$customer->business_name,
+            'email'=>$user->email, 'phone'=>$user->phone, 'business_email'=>$customer->business_email,
+            'business_phone'=>$customer->business_phone, 'business_bin'=>$customer->business_bin,
+            'address'=>implode(', ', array_filter($customer->only(['address','city','province','postal_code','country']))) ?: 'Not provided at registration',
+            'registered_at'=>\App\Support\BusinessTime::format($user->created_at),
+            'verification_status'=>$user->email_verified_at ? 'Verified' : 'Awaiting customer email verification',
+            'admin_customer_url'=>route('admin.customers.show', $customer),
         ]);
     }
 

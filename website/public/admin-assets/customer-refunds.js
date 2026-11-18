@@ -32,10 +32,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     if (form) {
         let account = JSON.parse(document.getElementById('refund-initial-account').textContent), sequence = 0;
-        const lines = form.querySelector('[data-refund-lines]'), order = form.querySelector('[name=order_id]');
+        const lines = form.querySelector('[data-refund-lines]'), order = form.querySelector('[name=order_id]'), kind = form.querySelector('[name=kind]');
         const field = (row,name)=>row.querySelector('[data-field="'+name+'"]');
-        function showAccount() {
-            const labels = {total_cents:'Original order total',net_received_cents:'Net received',credited_cents:'Confirmed credits',pending_cents:'Pending refund cheques',maximum_cents:'Available to refund',balance_cents:'Current order balance'};
+        function showAccount(resetKind = true) {
+            if(resetKind) kind.value = account?.suggested_kind || 'return';
+            const overpayment = kind.value === 'overpayment';
+            if(account) account.maximum_cents = account[overpayment?'overpayment_maximum_cents':'return_maximum_cents'];
+            form.querySelector('[data-refund-kind-help]').textContent = overpayment ? 'Return money already shown as Refund Due. This does not reduce the sale or issue another sales credit.' : 'Reduce the sale with a credit note and record the matching payout. Clear any existing refund due first.';
+            form.querySelector('[data-tax-help]').textContent = overpayment ? 'Tax was handled in the order adjustment. This payout creates no additional GST/HST credit.' : 'Included GST/HST is suggested proportionally. Check it against the items being refunded.';
+            for(const row of lines.children) { field(row,'tax').readOnly=overpayment; row.querySelector('[data-tax-label]').textContent=overpayment?'Additional GST/HST credit (CAD)':'Included GST/HST (CAD)'; if(overpayment) {field(row,'tax').value='0.00';delete row.dataset.customTax;} }
+
+            const labels = {total_cents:'Current order total',net_received_cents:'Net received',credited_cents:'Confirmed credits',pending_cents:'Pending refund cheques',refund_due_cents:'Refund due',maximum_cents:'Available to refund'};
             form.querySelector('[data-refund-account]').innerHTML = account ? Object.entries(labels).map(([key,label])=>'<div><span>'+label+'</span><strong>'+money(account[key])+'</strong></div>').join('') : '<p>Choose an order to see its refundable amount.</p>';
         }
         function total() { form.querySelector('[data-refund-total]').textContent = money(Array.from(lines.children).reduce((sum,row)=>sum+Math.round((Number(field(row,'amount').value)||0)*100),0)); }
@@ -55,11 +62,11 @@ document.addEventListener('DOMContentLoaded', () => {
             field(row,'method').addEventListener('change',()=>method(row));
             field(row,'tax').addEventListener('input',()=>row.dataset.customTax='1');
             field(row,'amount').addEventListener('input',()=>{
-                if (!row.dataset.customTax && account) field(row,'tax').value = (Math.round(Number(field(row,'amount').value)*100*(account.tax_cents/Math.max(1,account.total_cents)))/100).toFixed(2);
+                if (kind.value !== 'overpayment' && !row.dataset.customTax && account) field(row,'tax').value = (Math.round(Number(field(row,'amount').value)*100*(account.tax_cents/Math.max(1,account.total_cents)))/100).toFixed(2);
                 total();
             });
             row.querySelector('[data-refund-remove]').addEventListener('click',()=>{if(lines.children.length>1){row.remove();total();}});
-            lines.append(row); method(row);
+            lines.append(row); method(row); showAccount(false);
         }
         const $ = window.jQuery;
         if ($?.fn.select2) {
@@ -72,6 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
             input.addEventListener('input',()=>{clearTimeout(timeout);timeout=setTimeout(search,250);});
             if (!order.value) search(); order.addEventListener('change',()=>{account=order.selectedOptions[0]?.account;showAccount();});
         }
+        kind.addEventListener('change',()=>showAccount(false));
         form.querySelector('[data-refund-add]').addEventListener('click',add); showAccount(); add();
         form.addEventListener('submit',e=>e.preventDefault());
         form.querySelector('[data-refund-preview]').addEventListener('click',async e=>{
@@ -80,7 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const data=new FormData(form), plan=await post(form.dataset.previewUrl,data);
                 const rows=plan.lines.map(l=>'<tr><td>'+escape(l.method)+'<br>'+escape(l.reference||'Cash')+'</td><td>'+money(l.amount_cents)+'<br><small>Tax included '+money(l.tax_cents)+'</small></td><td>'+escape(l.refund_date)+'<br>'+escape(l.method==='cheque'?'Pending · cheque '+l.cheque_date:'Confirmed payout')+'</td><td>'+escape(l.proof_name||'No attachment')+'<br>'+escape(l.note)+'</td></tr>').join('');
-                openReview(form,data,plan,'<p><strong>Order '+escape(plan.order.number)+'</strong></p><p>'+escape(plan.reason)+'</p><div class="receipt-metrics"><div><span>Confirmed refund</span><strong>'+money(plan.confirmed_cents)+'</strong></div><div><span>Pending cheque</span><strong>'+money(plan.pending_cents)+'</strong></div><div><span>Order balance after refund</span><strong>'+money(plan.balance_after_cents)+'</strong></div></div><table><thead><tr><th>Method / reference</th><th>Amount</th><th>Date / status</th><th>Proof / notes</th></tr></thead><tbody>'+rows+'</tbody></table>','Confirm & Record Refund');
+                openReview(form,data,plan,'<p>'+escape(plan.kind==='overpayment'?'Overpayment refund — no additional sales credit':'Return / sales credit')+'</p><p><strong>Order '+escape(plan.order.number)+'</strong></p><p>'+escape(plan.reason)+'</p><div class="receipt-metrics"><div><span>Confirmed refund</span><strong>'+money(plan.confirmed_cents)+'</strong></div><div><span>Pending cheque</span><strong>'+money(plan.pending_cents)+'</strong></div><div><span>Customer owes after confirmed payout</span><strong>'+money(Math.max(0,plan.balance_after_cents))+'</strong></div><div><span>Refund still due</span><strong>'+money(Math.max(0,-plan.balance_after_cents))+'</strong></div></div><table><thead><tr><th>Method / reference</th><th>Amount</th><th>Date / status</th><th>Proof / notes</th></tr></thead><tbody>'+rows+'</tbody></table>','Confirm & Record Refund');
             } catch(err) {error(form.querySelector('[data-refund-error]'),err.message);} finally {button.disabled=false;}
         });
     }
@@ -91,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
             error(action.querySelector('[data-refund-error]'),'');
             try {
                 const data=new FormData(action), plan=await post(action.dataset.previewUrl,data), type=plan.data.action;
-                openReview(action,data,plan,'<p><strong>'+escape(type==='clear'?'Confirm bank clearance':'Cancel pending cheque')+'</strong> · Order '+escape(plan.order.number)+'</p><p>'+escape(plan.data.reason)+'</p><p>Action date: '+escape(plan.data.date)+' · Reference: '+escape(plan.data.reference)+'</p><p>'+escape(action.dataset.amount)+' · '+escape(action.dataset.reference)+'</p><p>'+escape(type==='clear'?'A refund and matching credit note will now be posted.':'No money or credit will be posted. The reserved amount becomes available again.')+'</p>','Confirm '+(type==='clear'?'Clearance':'Cancellation'));
+                openReview(action,data,plan,'<p><strong>'+escape(type==='clear'?'Confirm bank clearance':'Cancel pending cheque')+'</strong> · Order '+escape(plan.order.number)+'</p><p>'+escape(plan.data.reason)+'</p><p>Action date: '+escape(plan.data.date)+' · Reference: '+escape(plan.data.reference)+'</p><p>'+escape(action.dataset.amount)+' · '+escape(action.dataset.reference)+'</p><p>'+escape(type==='clear'?(plan.kind==='overpayment'?'The overpayment payout will clear this amount from Refund Due; no additional sales credit is issued.':'A refund and matching credit note will now be posted.'):'No money or credit will be posted. The reserved amount becomes available again.')+'</p>','Confirm '+(type==='clear'?'Clearance':'Cancellation'));
             } catch(err){error(action.querySelector('[data-refund-error]'),err.message);}finally{button.disabled=false;}
         });
     });

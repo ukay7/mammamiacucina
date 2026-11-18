@@ -19,7 +19,8 @@ class CompanyLogoMigrationTest extends TestCase
         $old = UploadedFile::fake()->image('wordmark.png', 400, 80)->store('branding', 'local');
         $settings = GeneralSetting::findOrFail(1);
         $settings->update(['logo_path' => $old, 'email' => 'company@example.test', 'phone' => '+1 555 555 0101',
-            'pickup_address' => 'Company address', 'revision' => 7]);
+            'pickup_address' => 'Checkout pickup address', 'document_warehouse_address' => 'Document warehouse address',
+            'mailing_address' => 'Company mailing address', 'revision' => 7]);
         $previous = $settings->fresh()->getAttributes();
         $migration = require database_path('migrations/2026_10_27_120000_use_emblem_for_company_logo.php');
         $migration->up();
@@ -36,7 +37,10 @@ class CompanyLogoMigrationTest extends TestCase
         $brand = app(DocumentTheme::class)->brand();
         $this->assertStringStartsWith('data:image/jpeg;base64,', $brand['logo']);
         $this->assertSame('company@example.test', $brand['email']);
-        $this->assertSame('Company address', $brand['address']);
+        $this->assertSame('Document warehouse address', $brand['address']);
+        $this->assertSame('Document warehouse address', $brand['warehouse_address']);
+        $this->assertSame('Company mailing address', $brand['mailing_address']);
+        $this->assertSame('Checkout pickup address', $settings->pickup_address);
 
         $migration->up();
         $this->assertSame(8, $settings->fresh()->revision);

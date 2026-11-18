@@ -27,6 +27,7 @@ class OrderManagement
             $delivery = $money($d['delivery']);
             if($order->delivery_service && $delivery !== (int)$order->delivery_cents)$fail('Delivery uses a saved postal-code rate. Change the service or destination through Edit Order instead.');
             $tax = $money($d['tax']);
+            if ($order->isFulfilled() && ($delivery !== (int)$order->delivery_cents || $tax !== (int)$order->tax_cents)) $fail('Delivered-order charges can only be changed by Super Admin through Edit products & customer details, with a saved revision.');
             $status = $d['status'];
             $payment = $d['payment_status'];
             if (($order->refund_credit_cents || $order->pending_refund_cents) && ($payment !== $order->payment_status || $delivery !== (int)$order->delivery_cents || $tax !== (int)$order->tax_cents)) $fail('This order has customer refunds. Preserve its original charges and use the payment/refund records for financial changes.');

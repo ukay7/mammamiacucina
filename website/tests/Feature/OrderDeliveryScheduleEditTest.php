@@ -156,10 +156,17 @@ class OrderDeliveryScheduleEditTest extends TestCase
         $data['reason']='Reschedule';
         $this->actingAs($viewer)->post(route('admin.orders.amend',$order),$data)->assertForbidden();
         $this->actingAs($f['admin']);
-        foreach (['cancelled','completed','delivered','out_for_delivery'] as $status) {
+        foreach (['cancelled','out_for_delivery'] as $status) {
             $order->updateQuietly(['status'=>$status]);
             $this->post(route('admin.orders.amend',$order),$data)->assertSessionHasErrors('order');
             $this->assertSame('2026-11-13 19:30:00',$order->fresh()->getRawOriginal('delivery_scheduled_at'));
+        }
+        foreach (['completed','delivered'] as $status) {
+            $order->updateQuietly(['status'=>$status]);
+            $data=$this->payload($order->fresh(),['delivery_date'=>'2026-11-14','delivery_time'=>'16:20']);
+            $this->post(route('admin.orders.amend',$order),$data)->assertSessionHasNoErrors();
+            $this->assertSame('2026-11-14 21:20:00',$order->fresh()->getRawOriginal('delivery_scheduled_at'));
+            $this->assertSame($status,$order->fresh()->status);
         }
     }
 

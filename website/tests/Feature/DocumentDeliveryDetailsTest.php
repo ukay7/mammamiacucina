@@ -47,7 +47,8 @@ class DocumentDeliveryDetailsTest extends TestCase
         foreach (['20 Replacement Warehouse', 'Direct', 'L6R 1A1', 'M4B', '40.00'] as $text) {
             $this->assertStringNotContainsString($text, $doc['delivery']);
         }
-        $this->assertSame('$69.26', $doc['totals']['Total CAD']);
+        $this->assertSame('$69.26', $doc['totals']['Original invoice total CAD']);
+        $this->assertSame('$50.50', $doc['totals']['Current order total CAD']);
         $this->assertSame($savedInvoice, $invoice->fresh()->getRawOriginal());
 
         $receipt = OrderSettlement::create(['order_id' => $order->id, 'method' => 'cash', 'amount_cents' => 1000, 'note' => 'Payment for amended order', 'created_at' => now()]);

@@ -29,14 +29,29 @@
 <div class="d-flex flex-wrap" style="gap:12px">
 <form method="post" action="{{ route('admin.payments.reconcile',$payment) }}">@csrf<button class="btn btn-outline-primary">Reconcile payment</button></form>
 @if(!$payment->paid_at && !$payment->released_at)<form method="post" action="{{ route('admin.payments.cancel',$payment) }}" data-cancellation-kind="checkout" data-order-number="{{ $order->number }}">@csrf<input type="hidden" name="revision" value="{{ $order->revision }}">@include('admin.orders.cancellation-fallback')<button class="btn btn-outline-primary">Cancel unpaid checkout</button></form>@endif
-@if($payment->paid_at && $payment->refunded_cents < $payment->amount_cents && auth()->user()->hasAdminPermission('payments.refund'))
+@php
+    $gatewayRemaining = $payment->amount_cents - $payment->refunded_cents;
+    $revisedOrder = $order->revisions()->exists();
+    $gatewayMaximum = $revisedOrder ? min($gatewayRemaining, max(0, -$order->balance_cents)) : $gatewayRemaining;
+    $externalPayout = $order->refunds()->where('kind','overpayment')->whereHas('lines',fn($q)=>$q->whereIn('status',['confirmed','cleared']))->exists();
+    $gatewayRefundBlocked = $order->refund_credit_cents || $order->pending_refund_cents || $externalPayout;
+@endphp
+@if($payment->paid_at && $gatewayRemaining > 0 && auth()->user()->hasAdminPermission('payments.refund'))
+@if(!$gatewayRefundBlocked && $gatewayMaximum > 0 && ($payment->provider==='helcim' || $gatewayMaximum===$gatewayRemaining))
 <form method="post" action="{{ route('admin.payments.refund',$payment) }}" data-cancellation-kind="refund" data-order-number="{{ $order->number }}" data-refund-remaining="{{ $payment->amount_cents-$payment->refunded_cents }}" data-cancellation-eligible="{{ !in_array($order->status,['cancelled','completed','delivered','out_for_delivery']) ? 1 : 0 }}" data-confirm="Send this refund to the customer through the payment gateway? This moves real money in live mode.">@csrf
 <input type="hidden" name="revision" value="{{ $order->revision }}">
 @include('admin.orders.cancellation-fallback')
 <input type="hidden" name="expected_cents" value="{{ $payment->amount_cents-$payment->refunded_cents }}">
-@if($payment->provider==='helcim')<label>Refund amount (CAD)<input type="number" data-number-display="decimal" class="form-control" name="amount" min="0.01" step="0.01" max="{{ ($payment->amount_cents-$payment->refunded_cents)/100 }}" value="{{ number_format(min($payment->amount_cents-$payment->refunded_cents,$order->balance_cents<0?abs($order->balance_cents):$payment->amount_cents-$payment->refunded_cents)/100,2,'.','') }}" required></label>@endif
-<label><input type="checkbox" name="confirm" value="REFUND" required> Confirm refund (available CAD {{ number_format(($payment->amount_cents-$payment->refunded_cents)/100,2) }})</label>
+@if($payment->provider==='helcim')<label>Refund amount (CAD)<input type="number" data-number-display="decimal" class="form-control" name="amount" min="0.01" step="0.01" max="{{ $gatewayMaximum/100 }}" value="{{ number_format(min($gatewayMaximum,$order->balance_cents<0?abs($order->balance_cents):$gatewayMaximum)/100,2,'.','') }}" required></label>@endif
+<label><input type="checkbox" name="confirm" value="REFUND" required> Confirm refund (available CAD {{ number_format($gatewayMaximum/100,2) }})</label>
 <button class="btn btn-primary">Refund via gateway</button></form>
+@elseif($gatewayRefundBlocked)
+<p>Customer refund records already exist. Reconcile those payouts before requesting another gateway refund.</p>
+@elseif($gatewayMaximum > 0)
+<p>Refund Due: CAD {{ number_format($gatewayMaximum/100,2) }}. This gateway screen supports full refunds only. Complete the partial payout in the provider portal, reconcile it here, and do not record the same payout twice.</p>
+@else
+<p>No Refund Due remains on this revised order.</p>
+@endif
 @endif
 </div>
 @endif

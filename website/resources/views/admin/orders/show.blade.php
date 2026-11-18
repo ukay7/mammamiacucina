@@ -13,6 +13,7 @@
     @if($order->status === 'cancelled' && $order->cancellation_restock !== null)
         <div class="alert alert-info" role="status"><strong>Cancellation stock decision:</strong> {{ $order->cancellation_restock ? 'Yes — quantities previously deducted were returned to inventory.' : 'No — inventory was left unchanged.' }}</div>
     @endif
+    @if($order->balance_cents<0)<div class="alert alert-info"><strong>Refund Due: CAD {{ number_format(-$order->balance_cents/100,2) }}</strong><p>The customer has paid more than the adjusted order amount. Record the payout after returning the money.</p>@include('admin.orders.refund-button')</div>@endif
     @include('partials.order-commercial')
     @include('partials.transfer-receipt')
     @include('admin.orders.payment')
@@ -28,7 +29,7 @@
         <p>Use these controls only when the order needs a correction or manual decision.</p>
     </div>
 
-    @if(!in_array($order->status,['cancelled','completed','delivered','out_for_delivery','awaiting_payment','payment_review']))
+    @if($order->canAmendBy(auth()->user()))
     <details class="order-detail-disclosure" @if($errors->hasAny(['items','first_name','last_name','email','phone','address','city','province','postal_code','country','fulfillment','delivery','tax','reason'])) open @endif>
         <summary><span><i class="fas fa-edit" aria-hidden="true"></i><strong>Edit products &amp; customer details</strong><small>Quantities, prices, fulfillment, address, delivery date/time and charges</small></span><i class="fas fa-chevron-down order-detail-chevron" aria-hidden="true"></i></summary>
         <div class="order-detail-disclosure-body">
@@ -63,6 +64,7 @@
     </div>
 @endif
 
+    @include('admin.orders.revisions')
     <details class="order-detail-disclosure order-detail-secondary">
         <summary><span><i class="fas fa-history" aria-hidden="true"></i><strong>Order history</strong><small>{{ $order->events->count() }} recorded {{ Str::plural('event',$order->events->count()) }}</small></span><i class="fas fa-chevron-down order-detail-chevron" aria-hidden="true"></i></summary>
         <div class="order-detail-disclosure-body order-detail-timeline">@forelse($order->events as $event)<article><span aria-hidden="true"></span><div><strong>{{ \App\Support\BusinessTime::format($event->created_at,'d M Y H:i T') }} · {{ $event->author?->name ?? 'System' }}</strong><p>{{ $event->description }}</p></div></article>@empty<p>No changes recorded yet.</p>@endforelse</div>

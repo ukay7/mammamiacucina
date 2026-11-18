@@ -17,6 +17,7 @@
         </div>
     </header>
 
+    <div class="admin-start-sections">
     @foreach(config('admin_start') as $section => $modules)
     <section class="admin-start-section" aria-labelledby="module-section-{{ $loop->index }}">
         <h2 id="module-section-{{ $loop->index }}">{{ $section }}</h2>
@@ -31,5 +32,6 @@
         </div>
     </section>
     @endforeach
+    </div>
 </div>
 @endsection

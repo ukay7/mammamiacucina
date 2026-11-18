@@ -32,6 +32,7 @@ class OrderController extends Controller
         DB::transaction(function () use ($order, $data, $newDate, $request) {
             $current = Order::lockForUpdate()->findOrFail($order->id);
             $current->assertEditable();
+            if ($current->isFulfilled()) abort_unless($request->user()->isSuper(), 403);
             if ((int) $current->revision !== (int) $data['revision']) {
                 throw ValidationException::withMessages(['ordered_at' => 'This order changed. Reload before changing its Order Date.']);
             }
@@ -77,9 +78,10 @@ class OrderController extends Controller
 
     public function amend(Request $r, Order $order, OrderAmendment $service)
     {
+        if ($order->isFulfilled()) abort_unless($r->user()->isSuper(), 403);
         $money = ['required', 'regex:/^\d{1,7}(\.\d{1,2})?$/'];
         $rules = ['delivery_service'=>'nullable|string|max:20','revision' => 'required|integer|min:0', 'fulfillment' => 'required|in:pickup,delivery', 'delivery' => $money, 'tax' => $money, 'tax_mode' => 'required|in:manual,recalculate', 'reason' => 'required|string|max:1000',
-            'items' => 'required|array|min:1|max:100', 'items.*' => 'array:quantity,unit_price', 'items.*.quantity' => 'required|integer|min:0|max:999', 'items.*.unit_price' => $money,
+            'items' => 'required|array|min:1|max:100', 'items.*' => 'array:quantity,unit_price,restock_returned', 'items.*.restock_returned'=>'sometimes|boolean', 'items.*.quantity' => 'required|integer|min:0|max:999', 'items.*.unit_price' => $money,
             'add_items' => 'sometimes|array|max:20', 'add_items.*' => 'array:product_id,quantity,unit_price', 'add_items.*.product_id' => 'required|integer|distinct|exists:products,id', 'add_items.*.quantity' => 'required|integer|min:1|max:999', 'add_items.*.unit_price' => ['nullable', 'regex:/^\d{1,7}(\.\d{1,2})?$/'],
             'first_name' => 'required|string|max:100', 'last_name' => 'nullable|string|max:100', 'email' => 'nullable|email|max:255', 'phone' => 'nullable|string|max:40'];
         foreach (['address', 'city', 'province', 'postal_code', 'country'] as $key) {
@@ -92,7 +94,7 @@ class OrderController extends Controller
         }
         $service->amend($order, $data, $r->user()->id);
 
-        return back()->with('status', 'Order updated. Review the new total and any balance or refund due before sending it back to warehouse.');
+        return back()->with('status', $order->isFulfilled() ? 'Order revision saved. Review the new amount due or refund due. Delivery history and the original invoice are preserved.' : 'Order updated. Review the new total and any balance or refund due before sending it back to warehouse.');
     }
 
     public function payments(Order $order)
@@ -108,7 +110,7 @@ class OrderController extends Controller
     public function initialPaymentDocument(Order $order)
     {
         abort_unless($order->collected_cents>0,404);
-        $doc=app(\App\Services\DocumentTheme::class)->order($order);
+        $doc=app(\App\Services\DocumentTheme::class)->order($order, $order->revisions()->exists() ? $order->invoice : null);
         $doc['title']='Payment Receipt';$doc['number']='PAY-'.$order->number;
         $doc['date']=\App\Support\BusinessTime::format($order->paid_at ?? $order->payment?->paid_at ?? $order->ordered_at);
         $doc['totals']=['This payment'=>'$'.number_format($order->collected_cents/100,2)]+$doc['totals'];

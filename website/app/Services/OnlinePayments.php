@@ -356,6 +356,7 @@ class OnlinePayments
     public function refund(Payment $payment, int $userId, ?int $expectedCents = null, ?int $refundCents = null, array $stockChoice = []): void
     {
         $refundOrder = $payment->order()->withTrashed()->firstOrFail();
+        $this->checkAmendedRefund($refundOrder, $refundCents ?? ($payment->fresh()->amount_cents - $payment->fresh()->refunded_cents));
         if ($refundOrder->refund_credit_cents || $refundOrder->pending_refund_cents) throw new RuntimeException('This order has customer refunds or pending refund cheques. Reconcile those records before requesting a gateway refund.');
         $payment->order()->withTrashed()->firstOrFail()->assertEditable();
         $current = $payment->fresh();
@@ -365,6 +366,7 @@ class OnlinePayments
         $this->sync($payment);
         $this->locked($payment, function ($p, $order) use ($userId, $expectedCents, $refundCents) {
             $order->assertEditable();
+            $this->checkAmendedRefund($order, $refundCents ?? ($p->amount_cents - $p->refunded_cents));
             if ($order->refund_credit_cents || $order->pending_refund_cents) throw new RuntimeException('Customer refunds changed. Reconcile those records before requesting a gateway refund.');
             if ($p->manual_resolution) throw new RuntimeException('This payment is managed manually. Record refunds completed outside the system.');
             if ($p->status === 'refunded') {
@@ -394,6 +396,16 @@ class OnlinePayments
             $order->events()->create(['user_id' => $userId, 'description' => 'Gateway refund requested: '.$result['status'], 'created_at' => now()]);
         });
         $this->sync($payment);
+    }
+
+    private function checkAmendedRefund(Order $order, int $requested): void
+    {
+        if ($order->refunds()->where('kind','overpayment')->whereHas('lines',fn($q)=>$q->whereIn('status',['confirmed','cleared']))->exists()) {
+            throw new RuntimeException('An overpayment was already returned outside the gateway. Reconcile those payouts before requesting a gateway refund.');
+        }
+        if ($order->revisions()->exists() && $requested > max(0, -$order->balance_cents)) {
+            throw new RuntimeException('This revised order can only refund the current Refund Due through the gateway. Use a partial refund or record the actual external payout.');
+        }
     }
 
     public function paypalRefund(Payment $payment, array $resource): void

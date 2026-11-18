@@ -7,6 +7,8 @@ use App\Models\Inventory;
 use App\Models\InventoryMovement;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\User;
+use App\Models\OrderRevision;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -44,15 +46,31 @@ class OrderAmendment
             $settings = GeneralSetting::lockForUpdate()->findOrFail(1);
             $order = Order::lockForUpdate()->findOrFail($order->id);
             $order->assertEditable();
+            $actor = User::findOrFail($user);
+            $fulfilled = $order->isFulfilled();
+            if ($fulfilled) abort_unless($actor->is_active && $actor->isSuper(), 403);
+            $data['reason'] = trim($data['reason'] ?? '');
+            if ($data['reason'] === '') $this->fail('Enter the reason for this order change.');
+            $order->load(['payment'=>fn($q)=>$q->lockForUpdate(), 'settlements'=>fn($q)=>$q->lockForUpdate()]);
             if ((int) $order->revision !== (int) $data['revision']) {
                 $this->fail('This order changed. Reload before editing.');
             }
-            if (in_array($order->status, ['cancelled', 'completed', 'delivered', 'out_for_delivery'])) {
+            if (in_array($order->status, ['cancelled', 'out_for_delivery'])) {
                 $this->fail('Items and fulfillment cannot change after dispatch or completion. Handle physical returns separately.');
             }
             if ($order->payment && (! $order->payment->paid_at || $order->payment->attention || $order->payment->released_at)) {
                 $this->fail('Resolve or cancel the outstanding gateway checkout before editing its order.');
             }
+            if ($order->pending_refund_cents > 0) $this->fail('Clear or cancel pending refund cheques before changing this order.');
+            if ($order->payment && DB::table('payment_refunds')->where('payment_id', $order->payment->id)->whereNotIn('status', ['completed','succeeded','failed'])->lockForUpdate()->exists()) {
+                $this->fail('Resolve the pending gateway refund before changing this order.');
+            }
+            if ($order->payment_status === 'refunded' && !$order->refund_credit_cents && $order->net_received_cents === 0) {
+                $this->fail('This legacy fully refunded order needs payment reconciliation before it can be amended.');
+            }
+            if ($fulfilled) app(CustomerInvoicing::class)->issue($order);
+            $snapshotBefore = $fulfilled ? $this->snapshot($order) : null;
+            $stockReturns = [];
             $previousSchedule = $order->delivery_scheduled_at;
             if (array_key_exists('delivery_date', $data) || array_key_exists('delivery_time', $data)) {
                 $order->delivery_scheduled_at = app(DeliverySchedule::class)->resolve($data, $data['fulfillment'] === 'delivery', $previousSchedule);
@@ -69,6 +87,7 @@ class OrderAmendment
             if (! $order->payment && $order->manual_collected_cents === null) {
                 $order->manual_collected_cents = $order->payment_status === 'paid' ? ($oldTotal ?? 0) : 0;
             }
+            if (!$order->payment) $order->manual_refunded_cents ??= $order->payment_status === 'refunded' ? $order->collected_cents : 0;
             $before = $items->map(fn ($i) => ['name' => $i->name, 'quantity' => $i->quantity, 'unit_cents' => $i->unit_cents])->values()->all();
             $stock = function ($productId, int $difference, string $name) use ($inventories, $order, $user) {
                 if (! $difference) {
@@ -91,8 +110,11 @@ class OrderAmendment
                 $row = $data['items'][$id];
                 $qty = (int) $row['quantity'];
                 $difference = $qty - (int) $item->quantity;
+                $restock = $fulfilled ? filter_var($row['restock_returned'] ?? false, FILTER_VALIDATE_BOOLEAN) : true;
+                if ($fulfilled && $restock && $difference >= 0) $this->fail('Only a reduced or removed quantity can be returned to stock.');
+                if ($fulfilled && $difference < 0) $stockReturns[] = ['product_id'=>$item->product_id, 'name'=>$item->name, 'quantity'=>-$difference, 'restocked'=>$restock && (bool)$item->stock_deducted && isset($inventories[$item->product_id]) && $inventories[$item->product_id]->quantity_on_hand !== null];
                 if ($item->stock_deducted) {
-                    $movement = $stock($item->product_id, $difference, $item->name);
+                    $movement = $stock($item->product_id, $difference < 0 && !$restock ? 0 : $difference, $item->name);
                     if ($difference > 0 && $movement) {
                         $item->inventory_shortage_quantity = (float) ($item->inventory_shortage_quantity ?? 0) + max(0, $difference - max(0, $movement['before']));
                     } elseif ($difference < 0) {
@@ -186,6 +208,10 @@ class OrderAmendment
             $order->subtotal_cents = $subtotal;
             $order->delivery_cents = $delivery;
             $order->tax_cents = $tax;
+            if ($order->final_total_cents < (int)$order->refund_credit_cents || $tax < (int)$order->refund_credit_tax_cents
+                || $subtotal + $delivery < (int)$order->refund_credit_cents - (int)$order->refund_credit_tax_cents) {
+                $this->fail('The revised amounts cannot be below sales credits already issued. Keep those credits in the revised calculation.');
+            }
             if (($data['tax_mode'] ?? 'manual') === 'recalculate') {
                 $order->tax_basis_points = $rate;
             }
@@ -195,12 +221,28 @@ class OrderAmendment
             }
             $order->revision++;
             $order->save();
+            if ($fulfilled) {
+                $snapshotAfter = $this->snapshot($order->fresh(['items','payment','settlements']));
+                $record = OrderRevision::create(['order_id'=>$order->id, 'customer_id'=>$order->customer_id, 'created_by'=>$user,
+                    'revision'=>$order->revision, 'invoice_number'=>$order->invoice?->label, 'reason'=>$data['reason'],
+                    'difference_cents'=>$order->final_total_cents - $oldTotal, 'tax_difference_cents'=>$tax - $snapshotBefore['order']['tax_cents'],
+                    'before'=>$snapshotBefore, 'after'=>$snapshotAfter, 'stock_returns'=>$stockReturns, 'brand'=>app(DocumentTheme::class)->brand()]);
+                $record->update(['number'=>'ADJ-'.str_pad((string)$record->id, 5, '0', STR_PAD_LEFT)]);
+            }
             $scheduleNote = $previousSchedule?->timestamp !== $order->delivery_scheduled_at?->timestamp
                 ? ' · Delivery date & time (Toronto): '.(\App\Support\BusinessTime::format($previousSchedule) ?? 'Not set').' → '.(\App\Support\BusinessTime::format($order->delivery_scheduled_at) ?? 'Not set')
                 : '';
             $after = $order->items()->get()->map(fn ($i) => ['name' => $i->name, 'quantity' => $i->quantity, 'unit_cents' => $i->unit_cents])->all();
-            $order->events()->create(['user_id' => $user, 'description' => 'Order amended: '.$data['reason'].$scheduleNote.' · fulfillment '.$order->fulfillment.' · total CAD '.number_format(($oldTotal ?? 0) / 100, 2).' → '.number_format($order->final_total_cents / 100, 2).' · Items before: '.json_encode($before, JSON_UNESCAPED_UNICODE).' · Items after: '.json_encode($after, JSON_UNESCAPED_UNICODE), 'created_at' => now()]);
+            $order->events()->create(['user_id' => $user, 'description' => ($fulfilled ? $record->number.' · Super Admin correction after delivery. ' : '').'Order amended: '.$data['reason'].$scheduleNote.' · fulfillment '.$order->fulfillment.' · total CAD '.number_format(($oldTotal ?? 0) / 100, 2).' → '.number_format($order->final_total_cents / 100, 2).' · Items before: '.json_encode($before, JSON_UNESCAPED_UNICODE).' · Items after: '.json_encode($after, JSON_UNESCAPED_UNICODE).($fulfilled ? ' · Stock returns: '.json_encode($stockReturns, JSON_UNESCAPED_UNICODE) : ''), 'created_at' => now()]);
         }, 3);
+    }
+
+    private function snapshot(Order $order): array
+    {
+        return ['customer'=>$order->customer?->only(['id','name','business_name','account_type','email','phone']), 'order'=>$order->only(['number','first_name','last_name','email','phone','address','city','province','postal_code','country','fulfillment','pickup_address','delivery_scheduled_at','status','subtotal_cents','delivery_cents','tax_cents','order_discount_cents','refund_credit_cents','refund_credit_tax_cents']),
+            'items'=>$order->items()->get()->map(fn($item)=>$item->only(['product_id','name','product_code','quantity','unit_cents','line_cents','packed','packed_at']))->all(),
+            'total_cents'=>$order->final_total_cents, 'adjusted_total_cents'=>$order->adjusted_total_cents,
+            'net_received_cents'=>$order->net_received_cents, 'balance_cents'=>$order->balance_cents];
     }
 
     public function settle(Order $order, array $data, int $user): void

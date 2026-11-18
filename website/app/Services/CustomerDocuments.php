@@ -15,7 +15,7 @@ class CustomerDocuments
         'uploads' => 'Uploaded files', 'quotations' => 'Quotations', 'email' => 'Saved email PDFs'];
 
     private const KINDS = ['order' => 'orders', 'invoice' => 'invoices', 'initial-payment' => 'receipts',
-        'settlement' => 'receipts', 'account-receipt' => 'receipts', 'refund' => 'receipts', 'credit-note' => 'receipts', 'transfer-proof' => 'uploads',
+        'settlement' => 'receipts', 'account-receipt' => 'receipts', 'refund' => 'receipts', 'credit-note' => 'receipts', 'revision'=>'receipts', 'transfer-proof' => 'uploads',
         'settlement-proof' => 'uploads', 'account-proof' => 'uploads', 'quotation' => 'quotations', 'email-copy' => 'email'];
 
     private function allowed(User $viewer, string $kind): bool
@@ -43,6 +43,7 @@ class CustomerDocuments
             'order', 'initial-payment' => $this->orders($customer, $viewer)->with('payment'),
             'transfer-proof' => $this->orders($customer, $viewer)->whereNotNull('transfer_receipt_path'),
             'invoice' => CustomerInvoice::whereIn('order_id', $orders)->with('order:id,number'),
+            'revision' => \App\Models\OrderRevision::whereIn('order_id', $orders)->where('customer_id',$customer->id)->with('order:id,number'),
             'refund' => \App\Models\CustomerRefundEvent::whereHas('refund',fn($q)=>$q->where('customer_id',$customer->id))->with('refund:id,number,customer_id'),
             'credit-note' => \App\Models\OrderCredit::where('customer_id',$customer->id)->with('order:id,number'),
             'settlement', 'settlement-proof' => OrderSettlement::whereIn('order_id', $orders)->with('order:id,number')
@@ -61,6 +62,7 @@ class CustomerDocuments
             'order', 'initial-payment' => ['id', 'number', 'ordered_at', 'created_at', 'paid_at', 'manual_collected_cents', 'payment_status', 'subtotal_cents', 'delivery_cents', 'tax_cents'],
             'transfer-proof' => ['id', 'number', 'created_at', 'transfer_receipt_uploaded_at', 'transfer_receipt_path'],
             'invoice' => ['id', 'order_id', 'number', 'issued_at'],
+            'revision' => ['id','order_id','number','created_at'],
             'refund' => ['id','customer_refund_id','action','created_at'],
             'credit-note' => ['id','order_id','number','created_at'],
             'settlement', 'settlement-proof' => ['id', 'order_id', 'amount_cents', 'entry_kind', 'created_at', 'receipt_path'],
@@ -78,6 +80,8 @@ class CustomerDocuments
         $note = '';
         $format = 'PDF';
         switch ($kind) {
+            case 'revision':
+                $name='Order adjustment — '.$record->number; $note='Saved correction after delivery. Original invoice retained; this is not proof of a refund.'; break;
             case 'refund':
                 $name='Refund / cheque record — '.$record->refund->number.' · version #'.$record->id; $reference=$record->refund->number; $note='Saved version. Pending cheques are not confirmed refunds.'; break;
             case 'credit-note':

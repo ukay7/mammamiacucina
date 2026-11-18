@@ -23,18 +23,26 @@ class CustomerRefunds
         $order->loadMissing('payment', 'settlements');
         $total = $order->final_total_cents ?? 0;
         $pending = (int) $order->pending_refund_cents;
+        $pendingOverpayment = (int)$order->refunds()->where('kind', 'overpayment')->withSum(['lines'=>fn($q)=>$q->where('status','awaiting_clearance')], 'amount_cents')->get()->sum('lines_sum_amount_cents');
+        $refundDue = max(0, -$order->balance_cents);
+        $overpaymentAvailable = max(0, min($refundDue - $pendingOverpayment, $order->net_received_cents - $pending));
+        $returnAvailable = max(0, min($total - (int)$order->refund_credit_cents - ($pending - $pendingOverpayment), $order->net_received_cents - $pending));
         return ['id'=>$order->id, 'number'=>$order->number, 'status'=>$order->status_label,
             'total_cents'=>$total, 'net_received_cents'=>$order->net_received_cents,
             'refunded_cents'=>$order->refunded_cents, 'credited_cents'=>(int)$order->refund_credit_cents,
             'pending_cents'=>$pending, 'balance_cents'=>$order->balance_cents,
-            'maximum_cents'=>max(0, min($total - (int)$order->refund_credit_cents - $pending, $order->net_received_cents - $pending)),
+            'refund_due_cents'=>$refundDue, 'pending_overpayment_cents'=>$pendingOverpayment,
+            'overpayment_maximum_cents'=>$overpaymentAvailable, 'return_maximum_cents'=>$refundDue ? 0 : $returnAvailable,
+            'suggested_kind'=>$refundDue ? 'overpayment' : 'return',
+            'maximum_cents'=>$refundDue ? $overpaymentAvailable : $returnAvailable,
             'maximum_tax_cents'=>max(0, (int)$order->tax_cents - (int)$order->refund_credit_tax_cents - (int)$order->pending_refund_tax_cents),
             'tax_cents'=>(int)$order->tax_cents, 'revision'=>(int)$order->revision, 'gateway'=>(bool)$order->payment];
     }
 
     private function input(array $input): array
     {
-        $data = Validator::make($input, ['order_id'=>'required|integer|min:1', 'request_key'=>'required|uuid',
+        $input['kind'] ??= 'return';
+        $data = Validator::make($input, ['kind'=>'required|in:return,overpayment','order_id'=>'required|integer|min:1', 'request_key'=>'required|uuid',
             'reason'=>'required|string|max:2000', 'lines'=>'required|array|min:1|max:10', 'lines.*'=>'required|array',
             'lines.*.key'=>'required|uuid|distinct', 'lines.*.method'=>['required', Rule::in(array_keys(CustomerRefundLine::METHODS))],
             'lines.*.amount'=>['required','regex:/^\d{1,7}(\.\d{1,2})?$/D'],
@@ -85,12 +93,16 @@ class CustomerRefunds
     {
         $this->eligible($order);
         $account = $this->account($order);
+        $overpayment = $data['kind'] === 'overpayment';
+        if (!$overpayment && $account['refund_due_cents'] > 0) $this->fail('This order already has a refund due. Choose Refund an overpayment so its sale amount is not credited twice.', 'kind');
         $total = array_sum(array_column($data['lines'], 'amount_cents'));
         $tax = array_sum(array_column($data['lines'], 'tax_cents'));
-        if ($total > $account['maximum_cents']) $this->fail('Refund total '.$this->money($total).' exceeds the remaining refundable amount '.$this->money($account['maximum_cents']).'. Previous refunds and pending cheques are included in this limit.');
-        if ($tax > $account['maximum_tax_cents']) $this->fail('Included tax exceeds the remaining tax available to credit.');
+        $maximum = $account[$overpayment ? 'overpayment_maximum_cents' : 'return_maximum_cents'];
+        if ($total > $maximum) $this->fail('Refund total '.$this->money($total).' exceeds the remaining refundable amount '.$this->money($maximum).'. Previous refunds and pending cheques are included in this limit.');
+        if ($overpayment && $tax !== 0) $this->fail('An overpayment payout does not issue another GST/HST credit. Enter zero for additional tax credit.');
+        if (!$overpayment && $tax > $account['maximum_tax_cents']) $this->fail('Included tax exceeds the remaining tax available to credit.');
         $nonTaxRemaining = $account['total_cents'] - $account['tax_cents'] - ((int)$order->refund_credit_cents - (int)$order->refund_credit_tax_cents) - ((int)$order->pending_refund_cents - (int)$order->pending_refund_tax_cents);
-        if ($total - $tax > $nonTaxRemaining) $this->fail('The amount before tax exceeds the remaining sale amount. Check the included tax.');
+        if (!$overpayment && $total - $tax > $nonTaxRemaining) $this->fail('The amount before tax exceeds the remaining sale amount. Check the included tax.');
         $references = [];
         $pending = 0;
         foreach ($data['lines'] as $i => $line) {
@@ -105,9 +117,9 @@ class CustomerRefunds
             if (isset($references[$key]) || $duplicate) $this->fail('This refund reference is already recorded for this customer. Review the existing refund first.', "lines.$i.reference");
             $references[$key] = true;
         }
-        return ['actor_id'=>$actor->id, 'customer_id'=>$customer->id, 'request_key'=>$data['request_key'], 'expires_at'=>$expires,
+        return ['actor_id'=>$actor->id, 'customer_id'=>$customer->id, 'kind'=>$data['kind'], 'request_key'=>$data['request_key'], 'expires_at'=>$expires,
             'order'=>$account, 'reason'=>$data['reason'], 'lines'=>$data['lines'], 'total_cents'=>$total, 'tax_cents'=>$tax,
-            'confirmed_cents'=>$total-$pending, 'pending_cents'=>$pending, 'balance_after_cents'=>$account['balance_cents']];
+            'confirmed_cents'=>$total-$pending, 'pending_cents'=>$pending, 'balance_after_cents'=>$account['balance_cents'] + ($overpayment ? $total-$pending : 0)];
     }
 
     public function preview(Customer $customer, array $input, User $actor): array
@@ -138,7 +150,7 @@ class CustomerRefunds
             if (!hash_equals($this->sign($plan), $confirmation['preview_hash'])) $this->fail('The order, available refund amount, or entered details changed. Preview again before confirming.');
             $paths = $storeProofs ? $storeProofs() : [];
             $invoice = CustomerInvoice::where('order_id', $order->id)->first();
-            $refund = CustomerRefund::create(['customer_id'=>$customer->id, 'order_id'=>$order->id, 'request_key'=>$data['request_key'],
+            $refund = CustomerRefund::create(['kind'=>$data['kind'],'customer_id'=>$customer->id, 'order_id'=>$order->id, 'request_key'=>$data['request_key'],
                 'request_hash'=>$requestHash, 'preview_hash'=>$confirmation['preview_hash'], 'total_cents'=>$plan['total_cents'], 'tax_cents'=>$plan['tax_cents'],
                 'reason'=>$data['reason'], 'created_by'=>$actor->id, 'snapshot'=>['customer'=>$customer->only(['id','name','account_type','business_name','email','phone','address','city','province','postal_code','country']),
                     'brand'=>app(DocumentTheme::class)->brand(), 'order'=>$plan['order'], 'invoice'=>$invoice?->label]]);
@@ -158,7 +170,7 @@ class CustomerRefunds
             }
             $order->revision++;
             $order->saveQuietly();
-            $this->audit($refund, null, $order, $actor, 'created', 'Refund recorded; confirmed payouts have matching credit notes. Cheques await bank clearance.');
+            $this->audit($refund, null, $order, $actor, 'created', $data['kind'] === 'overpayment' ? 'Overpayment refund recorded; the sale was already adjusted, so no additional sales credit is issued. Cheques await bank clearance.' : 'Refund recorded; confirmed payouts have matching credit notes. Cheques await bank clearance.');
             return $refund;
         }, 3);
     }
@@ -172,6 +184,10 @@ class CustomerRefunds
             $order->manual_refunded_cents ??= $order->payment_status === 'refunded' ? $order->collected_cents : 0;
             $order->original_payment_method ??= $order->payment_method;
         }
+        $overpayment = $line->refund->kind === 'overpayment';
+        if ($overpayment && $line->amount_cents > max(0, -$before)) $this->fail('This payout exceeds the remaining refund due. Review the order balance.');
+        $credit = null;
+        if (!$overpayment) {
         $credit = OrderCredit::create(['order_id'=>$order->id,'customer_id'=>$line->refund->customer_id,'customer_refund_line_id'=>$line->id,
             'amount_cents'=>$line->amount_cents,'tax_cents'=>$line->tax_cents,'issued_by'=>$actor->id,
             'snapshot'=>$line->refund->snapshot + ['refund_number'=>$line->refund->number,'reason'=>$line->refund->reason,'refund_date'=>$date,
@@ -179,12 +195,13 @@ class CustomerRefunds
         $credit->update(['number'=>'CN-'.str_pad((string)$credit->id,5,'0',STR_PAD_LEFT)]);
         $order->refund_credit_cents += $line->amount_cents;
         $order->refund_credit_tax_cents += $line->tax_cents;
+        }
         $order->settlements()->create(['customer_refund_line_id'=>$line->id,'amount_cents'=>-$line->amount_cents,'entry_kind'=>'refund',
             'method'=>$line->method,'reference'=>$line->clearance_reference ?: $line->reference,'received_on'=>$date,
-            'receipt_path'=>$line->proof_path,'note'=>$line->refund->number.' / '.$credit->number.' — '.$line->refund->reason,'user_id'=>$actor->id]);
+            'receipt_path'=>$line->proof_path,'note'=>$line->refund->number.($credit ? ' / '.$credit->number : ' / Overpayment returned').' — '.$line->refund->reason,'user_id'=>$actor->id]);
         $order->unsetRelation('settlements');
         if (!$order->payment && $order->balance_cents <= 0) $order->payment_status = $order->net_received_cents === 0 ? 'refunded' : 'paid';
-        if ($order->balance_cents !== $before) throw new \LogicException('A refund and matching credit must preserve the order balance.');
+        if ($order->balance_cents !== $before + ($overpayment ? $line->amount_cents : 0)) throw new \LogicException('Refund balance mismatch.');
     }
 
     private function actionPlan(CustomerRefundLine $line, Order $order, array $input, User $actor): array
@@ -200,9 +217,12 @@ class CustomerRefunds
         if ($data['action'] === 'clear') {
             $this->eligible($order);
             if ($data['reference'] === '' || $data['date'] < $line->cheque_date->toDateString()) $this->fail('Enter the bank clearance reference and a date on or after the cheque date.');
-            if ($order->net_received_cents < (int)$order->pending_refund_cents || $order->final_total_cents < (int)$order->refund_credit_cents + (int)$order->pending_refund_cents) $this->fail('Available funds changed. Resolve other pending refunds or payment corrections before clearing this cheque.');
+            $account = $this->account($order);
+            if ($order->net_received_cents < (int)$order->pending_refund_cents
+                || $order->adjusted_total_cents < (int)$order->pending_refund_cents - $account['pending_overpayment_cents']
+                || ($line->refund->kind === 'overpayment' && $account['refund_due_cents'] < $account['pending_overpayment_cents'])) $this->fail('Available funds changed. Resolve other pending refunds or payment corrections before clearing this cheque.');
         }
-        return ['actor_id'=>$actor->id,'refund_id'=>$line->refund->id,'line_id'=>$line->id,'data'=>$data,'order'=>$this->account($order)];
+        return ['kind'=>$line->refund->kind,'actor_id'=>$actor->id,'refund_id'=>$line->refund->id,'line_id'=>$line->id,'data'=>$data,'order'=>$this->account($order)];
     }
 
     public function previewAction(CustomerRefundLine $line, array $input, User $actor): array
@@ -242,7 +262,7 @@ class CustomerRefunds
     private function audit(CustomerRefund $refund, ?CustomerRefundLine $line, Order $order, User $actor, string $action, string $description): void
     {
         $lines = $refund->lines()->with('credit:id,number,customer_refund_line_id')->get();
-        $snapshot = ['number'=>$refund->number,'reason'=>$refund->reason,'actor'=>$actor->name,'order'=>$this->account($order),
+        $snapshot = ['number'=>$refund->number,'kind'=>$refund->kind,'reason'=>$refund->reason,'actor'=>$actor->name,'order'=>$this->account($order),
             'confirmed_cents'=>(int)$lines->whereIn('status',['confirmed','cleared'])->sum('amount_cents'),
             'pending_cents'=>(int)$lines->where('status','awaiting_clearance')->sum('amount_cents'),
             'cancelled_cents'=>(int)$lines->where('status','cancelled')->sum('amount_cents'),

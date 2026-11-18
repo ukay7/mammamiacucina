@@ -11,6 +11,7 @@ use Tests\TestCase;
 class HelcimPaymentsTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\AssertsDocumentTotals;
 
     private array $transactions = [];
     private bool $outage = false;
@@ -116,9 +117,9 @@ class HelcimPaymentsTest extends TestCase
         $this->assertSame(1, $order->events()->count());
         $this->assertDatabaseCount('payment_events', 1);
         $this->get(route('payment.show', $payment->reference))->assertRedirect('/order-success');
-        $this->get('/order-print')->assertOk()->assertSee('Helcim invoice:')->assertSee('101');
+        $this->get('/order-print')->assertOk()->assertSee('Helcim invoice reference:')->assertSee($payment->fresh()->provider_order_id)->assertSee('Transaction reference:')->assertSee('101')->assertDontSee('checkout-test-token')->assertDontSee('test-secret-token');
         $this->admin();
-        $this->get(route('admin.orders.payments', $order))->assertOk()->assertSee('+$21.00')->assertSee('Invoice / receipt');
+        $this->get(route('admin.orders.payments', $order))->assertOk()->assertSee('+$21.00')->assertSee('Original receipt')->assertSee(route('admin.orders.initial-payment-document',$order),false);
         $this->get('/admin/reports/payments?sandbox=1')->assertOk()->assertViewHas('summary', fn ($summary) => $summary['card']['gross'] === 2100);
     }
 
@@ -276,13 +277,13 @@ class HelcimPaymentsTest extends TestCase
         // Simulate the totals produced by the separately tested order amendment service.
         $payment->order->update(['subtotal_cents' => 1000, 'tax_cents' => 50]);
         $this->admin();
-        $this->get(route('admin.orders.print', $payment->order))->assertOk()->assertSee('Refund due: $10.50')->assertSee('Net received: $21.00');
+        $this->assertDocumentTotals($this->get(route('admin.orders.print', $payment->order))->assertOk(), ['Refund due'=>'$10.50','Net received'=>'$21.00','Balance due'=>'$0.00']);
         $this->assertDatabaseCount('payment_refunds', 0);
         $this->post(route('admin.payments.refund', $payment), ['confirm' => 'REFUND', 'expected_cents' => 2100, 'amount' => '5.00'])->assertSessionHasNoErrors();
         $this->post(route('admin.payments.refund', $payment), ['confirm' => 'REFUND', 'expected_cents' => 1600, 'amount' => '5.50'])->assertSessionHasNoErrors();
         $this->assertSame(0, $payment->order->fresh()->balance_cents);
         $this->get(route('admin.orders.payments', $payment->order))->assertOk()->assertSee('−$5.00')->assertSee('−$5.50')->assertSee('+$21.00');
-        $this->get(route('admin.orders.print', $payment->order))->assertOk()->assertSee('Amount due: $0.00')->assertSee('Net received: $10.50');
+        $this->assertDocumentTotals($this->get(route('admin.orders.print', $payment->order))->assertOk(), ['Balance due'=>'$0.00','Net received'=>'$10.50']);
     }
 
     public function test_manual_paid_resolution_restores_released_stock_and_is_idempotent(): void
@@ -367,7 +368,7 @@ class HelcimPaymentsTest extends TestCase
         $this->assertDatabaseCount('inventory_movements', 1);
     }
 
-    public function test_manual_resolution_requires_permission_confirmation_and_available_stock(): void
+    public function test_manual_resolution_requires_permission_and_confirmation_and_records_stock_shortage(): void
     {
         [$product]=$this->checkout();
         $p=Payment::firstOrFail();
@@ -378,11 +379,24 @@ class HelcimPaymentsTest extends TestCase
         $this->post(route('admin.payments.resolve',$p),array_diff_key($data,['confirmed'=>true]))->assertSessionHasErrors('confirmed');
         $this->travel(71)->minutes();
         app(OnlinePayments::class)->sync($p);
+        $this->assertSame('expired',$p->fresh()->status);
+        $this->assertSame(0,(int)$p->order->items()->first()->stock_deducted);
         $p->order->update(['status'=>'payment_review']);
         $product->inventory->update(['quantity_on_hand'=>0]);
         $data['revision']=$p->order->fresh()->revision;
+        $this->post(route('admin.payments.resolve',$p),$data)->assertSessionHasNoErrors();
+        $this->assertSame('paid',$p->fresh()->manual_resolution);
+        $this->assertSame('warehouse_pending',$p->order->fresh()->status);
+        $this->assertSame('-2.000',$product->inventory->fresh()->quantity_on_hand);
+        $item=$p->order->items()->first();
+        $this->assertSame(1,(int)$item->stock_deducted);
+        $this->assertEquals(2,$item->inventory_shortage_quantity);
+        $this->assertDatabaseHas('inventory_movements',['product_id'=>$product->id,'quantity_change'=>-2,'quantity_before'=>0,'quantity_after'=>-2,'reason'=>'Manual payment resolution '.$p->order->number]);
+        $this->assertDatabaseCount('inventory_movements',3);
         $this->post(route('admin.payments.resolve',$p),$data)->assertSessionHasErrors('payment');
-        $this->assertNull($p->fresh()->manual_resolution);
-        $this->assertSame('payment_review',$p->order->fresh()->status);
+        app(OnlinePayments::class)->sync($p);
+        $this->assertSame('-2.000',$product->inventory->fresh()->quantity_on_hand);
+        $this->assertDatabaseCount('inventory_movements',3);
+        $this->travelBack();
     }
 }

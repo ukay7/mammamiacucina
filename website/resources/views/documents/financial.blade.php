@@ -7,7 +7,7 @@
 @if($doc['discount']??null)<p>{{ $doc['discount'] }}</p>@endif
 @component('documents.payment-summary')
 @slot('instructions')
-<div class="doc-box"><h2>Payment instructions</h2><p>{{ $doc['instructions'] }}</p><p><strong>Payment details:</strong> {{ $doc['payment'] }}</p></div>
+<div class="doc-box"><h2>Payment instructions</h2><p>{{ $doc['instructions'] }}</p><p><strong>Payment details:</strong> {{ $doc['payment'] }}</p>@foreach($doc['payment_references'] ?? [] as $label=>$reference)<p><strong>{{ $label }}:</strong> {{ $reference }}</p>@endforeach</div>
 @endslot
 <table class="doc-totals">@foreach($doc['totals'] as $label=>$value)<tr><td>{{ $label }}</td><td class="money">{{ $value }}</td></tr>@endforeach</table>
 @endcomponent

@@ -30,6 +30,7 @@ class Order extends Model
 
     public function deletionBlockReason(): ?string
     {
+        if ($this->revisions()->exists()) return 'This order has saved revisions after delivery. Preserve it and its original invoice for the audit history.';
         if ($this->refunds()->exists()) return 'This order has refund records. Preserve the order and its credit notes for the audit history.';
         if ($this->trashed()) {
             return 'This order is already deleted.';
@@ -90,6 +91,14 @@ class Order extends Model
     }
 
     public function refunds() { return $this->hasMany(CustomerRefund::class); }
+    public function revisions() { return $this->hasMany(OrderRevision::class); }
+    public function isFulfilled(): bool { return in_array($this->status, ['delivered', 'completed'], true); }
+    public function canAmendBy(User $actor): bool
+    {
+        return !$this->trashed() && $actor->is_active && $actor->hasAdminPermission('orders.manage')
+            && !in_array($this->status, ['cancelled','out_for_delivery','awaiting_payment','payment_review'], true)
+            && (!$this->isFulfilled() || $actor->isSuper());
+    }
     public function credits() { return $this->hasMany(OrderCredit::class); }
     public function getAdjustedTotalCentsAttribute(): ?int
     {
@@ -175,6 +184,7 @@ class Order extends Model
         if ((int)$this->refund_credit_cents > 0) {
             return $this->balance_cents > 0 ? 'Partially refunded · Balance due' : ($this->adjusted_total_cents === 0 ? 'Fully refunded' : 'Partially refunded · Paid');
         }
+        if ($this->payment_status === 'paid' && $this->balance_cents > 0) return 'Partially paid · Balance due';
         if ($this->payment_status === 'pending') {
             return 'Unpaid · Bank Processing';
         }

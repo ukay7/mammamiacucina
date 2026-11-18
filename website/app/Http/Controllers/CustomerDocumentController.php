@@ -55,6 +55,9 @@ class CustomerDocumentController extends Controller
         $data = ['pdf' => $download, 'backUrl' => $backUrl, 'downloadUrl' => $downloadUrl];
         $view = 'documents.financial';
         switch ($kind) {
+            case 'revision':
+                $data += ['revision'=>$record, 'doc'=>['brand'=>$record->brand,'title'=>'Order Adjustment','number'=>$record->number,'date'=>\App\Support\BusinessTime::format($record->created_at)]];
+                $view='documents.order-revision'; break;
             case 'refund':
                 $record->load('refund'); // The document listing deliberately omits large snapshots.
                 $refund=$record->refund; $snapshot=$record->snapshot;
@@ -69,7 +72,7 @@ class CustomerDocumentController extends Controller
             case 'invoice': $data['doc'] = $theme->order($record->order, $record); break;
             case 'settlement': $data['doc'] = $theme->order($record->order, receipt: $record); break;
             case 'initial-payment':
-                $doc = $theme->order($record);
+                $doc = $theme->order($record, $record->revisions()->exists() ? $record->invoice : null);
                 $doc['title'] = 'Payment Receipt'; $doc['number'] = 'PAY-'.$record->number;
                 $doc['date'] = \App\Support\BusinessTime::format($entry['date']);
                 $doc['totals'] = ['This payment' => '$'.number_format($record->collected_cents / 100, 2)] + $doc['totals'];

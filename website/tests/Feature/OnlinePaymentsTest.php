@@ -16,6 +16,7 @@ use Tests\TestCase;
 class OnlinePaymentsTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\AssertsDocumentTotals;
 
     private string $stripeState = 'open';
 
@@ -390,7 +391,8 @@ $this->actingAs(User::factory()->create(['email'=>'jane@example.test','account_t
         $this->assertSame('delivered', $payment->order->fresh()->status);
         $this->assertSame('8.000', $product->inventory()->first()->quantity_on_hand);
         $this->admin();
-        $this->get(route('admin.orders.print', $payment->order))->assertOk()->assertSee('Amount due: $0.00')->assertDontSee('external terminal')->assertSee('pi_1');
+        $this->assertSame(0,$payment->order->fresh()->balance_cents);
+        $this->assertDocumentTotals($this->get(route('admin.orders.print', $payment->order))->assertOk()->assertDontSee('external terminal')->assertSee('Transaction reference:')->assertSee('pi_1'), ['Balance due'=>'$0.00','Net received'=>'$0.00']);
     }
 
     public function test_pending_paypal_capture_holds_stock_even_after_expiry_until_settled(): void

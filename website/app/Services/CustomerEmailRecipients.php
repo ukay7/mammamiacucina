@@ -10,7 +10,7 @@ class CustomerEmailRecipients
     {
         // Invitations and business approval can contain account-verification links too.
         if (preg_match('/verification|invitation|password|business_approved/', $type)
-            || in_array($type, ['smtp_test', 'new_order_notification'], true)
+            || in_array($type, ['smtp_test', 'new_order_notification', 'business_registration_notification'], true)
             || in_array(config('email_templates.'.$type.'.required'), ['verification_url', 'reset_url'], true)) {
             return null;
         }

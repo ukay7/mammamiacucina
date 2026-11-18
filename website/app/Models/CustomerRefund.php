@@ -13,5 +13,6 @@ class CustomerRefund extends Model
     public function author() { return $this->belongsTo(User::class, 'created_by'); }
     public function lines() { return $this->hasMany(CustomerRefundLine::class)->orderBy('id'); }
     public function events() { return $this->hasMany(CustomerRefundEvent::class)->orderBy('id'); }
-    public function scopeSummary($query) { return $query->select(['id','number','customer_id','order_id','total_cents','tax_cents','reason','created_by','revision','created_at','updated_at']); }
+    public function getKindLabelAttribute(): string { return $this->kind === 'overpayment' ? 'Overpayment refund' : 'Return / sales credit'; }
+    public function scopeSummary($query) { return $query->select(['id','kind','number','customer_id','order_id','total_cents','tax_cents','reason','created_by','revision','created_at','updated_at']); }
 }

@@ -21,6 +21,7 @@ class CustomerAccountController extends Controller {
   $user=\Illuminate\Support\Facades\DB::transaction(function()use($d,$role){
    $user=new User();$user->forceFill([...\Illuminate\Support\Arr::except($d,\App\Services\BusinessDetails::FIELDS),'role_id'=>$role->id,'is_active'=>true,'email_verified_at'=>$d['account_type']==='individual' && \App\Models\SmtpSetting::autoVerifyIndividual() ? now() : null])->save();
    $user->customerRecord()->update(\Illuminate\Support\Arr::only($d,\App\Services\BusinessDetails::FIELDS));
+   app(\App\Services\CustomerEmails::class)->businessRegistration($user);
    return $user;
   });
   Auth::login($user);$r->session()->regenerate();$r->session()->forget(['url.intended','checkout_token','checkout_quote','last_order_id','last_order_token']);if(!$user->email_verified_at)$this->sendVerification($user);
