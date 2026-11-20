@@ -148,6 +148,8 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
                 Route::post('/{campaign}/action',[$c,'action'])->name('action');
             });
             Route::get('/{campaign}/export',[$c,'export'])->name('export');
+            Route::get('/{campaign}/attachments/{attachment}',[$c,'attachment'])->whereUuid('attachment')->name('attachment');
+            Route::get('/{campaign}/deliveries/{delivery}/attachments/{attachment}',[$c,'deliveryAttachment'])->whereUuid('attachment')->name('delivery-attachment');
             Route::get('/{campaign}/deliveries/{delivery}',[$c,'delivery'])->name('delivery');
             Route::get('/{campaign}',[$c,'show'])->name('show');
         });

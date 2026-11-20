@@ -15,16 +15,29 @@ class Campaigns
         if (!$settings?->ready()) self::fail('Enable and successfully test the current sender settings in Email Configuration first.');
         return $settings;
     }
-    public function save(?NotificationCampaign $campaign, array $data, int $user): NotificationCampaign
+    public function save(?NotificationCampaign $campaign, array $data, int $user, array $uploads = [], array $remove = [], ?array $copiedFiles = null): NotificationCampaign
     {
-        return DB::transaction(function() use ($campaign,$data,$user) {
+        $created = [];
+        try { return DB::transaction(function() use ($campaign,$data,$user,$uploads,$remove,$copiedFiles,&$created) {
             if ($campaign) {
                 $campaign = NotificationCampaign::lockForUpdate()->findOrFail($campaign->id);
                 if ($campaign->status!=='draft' || $campaign->revision!==(int)$data['revision']) self::fail('This draft changed or has already been queued. Reload before editing.');
             } else $campaign = new NotificationCampaign(['created_by'=>$user, 'revision'=>-1]);
+            $campaign->attachments = app(Attachments::class)->update($campaign->attachments ?? $copiedFiles ?? [], $uploads, $remove, $created);
             $campaign->fill(collect($data)->only(['title','subject','body','audience_mode','customer_type','audience','include_alternate','track_opens','track_clicks'])->all());
             $campaign->forceFill(['channel'=>'email', 'revision'=>$campaign->revision+1, 'tested_revision'=>null, 'tested_at'=>null, 'review'=>null])->save();
             return $campaign;
+        }); } catch (\Throwable $e) { app(Attachments::class)->discardUncommitted($created); throw $e; }
+    }
+    public function duplicate(NotificationCampaign $source, int $user): NotificationCampaign
+    {
+        return DB::transaction(function() use ($source,$user) {
+            $source = NotificationCampaign::lockForUpdate()->findOrFail($source->id);
+            $files = $source->attachments ?? [];
+            app(Attachments::class)->assertReady($files);
+            $data = $source->only(['title','subject','body','audience_mode','customer_type','audience','include_alternate','track_opens','track_clicks']);
+            $data['title'] = mb_substr($data['title'],0,140).' (copy)';
+            return $this->save(null,$data,$user,copiedFiles:$files);
         });
     }
     public function test(NotificationCampaign $campaign, int $revision, string $address, string $key): NotificationDelivery
@@ -33,6 +46,7 @@ class Campaigns
         $delivery = DB::transaction(function() use ($campaign,$revision,$address,$key,$settings) {
             $campaign = NotificationCampaign::lockForUpdate()->findOrFail($campaign->id);
             if ($campaign->status!=='draft' || $campaign->revision!==$revision) self::fail('Reload the current draft before testing.');
+            app(Attachments::class)->assertReady($campaign->attachments ?? []);
             $existing = NotificationDelivery::where('idempotency_key',$key)->first();
             if ($existing) {
                 if ($existing->campaign_id!==$campaign->id || !$existing->is_test || $existing->campaign_revision!==$revision || $existing->address!==$address) self::fail('This test request is no longer current. Reload the page.');
@@ -51,11 +65,12 @@ class Campaigns
         return DB::transaction(function() use($campaign,$revision,$user,$scheduledAt,$settings) {
             $campaign = NotificationCampaign::lockForUpdate()->findOrFail($campaign->id);
             $this->assertTested($campaign,$revision,$settings);
+            app(Attachments::class)->assertReady($campaign->attachments ?? []);
             $audience = app(Audience::class)->resolve($campaign);
             if (!$audience['eligible']) self::fail('There are no eligible recipients. Select customers or add valid email addresses.');
             $token = Str::random(64);
             $review = $audience + ['token_hash'=>hash('sha256',$token), 'user'=>$user, 'revision'=>$revision, 'expires'=>now()->addMinutes(15)->timestamp,
-                'settings_revision'=>$settings->revision, 'scheduled_at'=>$scheduledAt?->toIso8601String()];
+                'settings_revision'=>$settings->revision, 'scheduled_at'=>$scheduledAt?->toIso8601String(), 'attachments'=>$campaign->attachments ?? []];
             $campaign->update(['review'=>$review]);
             return ['review'=>$review,'token'=>$token,'campaign'=>$campaign];
         });
@@ -74,6 +89,8 @@ class Campaigns
             $review = $campaign->review;
             if (!$review || !hash_equals($review['token_hash'],hash('sha256',$token)) || $review['user']!==$user || $review['expires']<now()->timestamp || $review['settings_revision']!==$settings->revision) self::fail('The review expired or settings changed. Review the draft again.');
             $this->assertTested($campaign,$review['revision'],$settings);
+            if (($review['attachments'] ?? []) !== ($campaign->attachments ?? [])) self::fail('Attachments changed. Test and review this draft again.');
+            app(Attachments::class)->assertReady($campaign->attachments ?? []);
             $snapshot = app(Message::class)->snapshot($campaign,$settings) + ['queue_token_hash'=>hash('sha256',$token),'queued_by'=>$user];
             foreach (app(Message::class)->urls($campaign->body) as $url) $campaign->links()->create(['token'=>Str::random(40),'url_hash'=>hash('sha256',$url),'url'=>$url]);
             $now = now();

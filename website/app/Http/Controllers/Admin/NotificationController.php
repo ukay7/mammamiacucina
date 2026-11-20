@@ -3,7 +3,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\{Customer, NotificationCampaign, NotificationDelivery, NotificationSetting, NotificationSuppression, SmtpSetting};
-use App\Services\Notifications\{Audience, Campaigns, Message};
+use App\Services\Notifications\{Attachments, AttachmentUnavailable, Audience, Campaigns, Message};
 use App\Support\BusinessTime;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -43,7 +43,9 @@ class NotificationController extends Controller
     {
         $data = $r->validate(['title'=>'required|string|max:150','subject'=>['required','string','max:200','not_regex:/[\r\n]/'], 'body'=>'required|string|max:30000',
             'audience_mode'=>'required|in:selected,all','customer_type'=>'required|in:all,business,individual','audience'=>'nullable|array|max:500','audience.*'=>'required|string|max:270',
-            'include_alternate'=>'required|boolean','track_opens'=>'required|boolean','track_clicks'=>'required|boolean','revision'=>'required|integer|min:0']);
+            'include_alternate'=>'required|boolean','track_opens'=>'required|boolean','track_clicks'=>'required|boolean','revision'=>'required|integer|min:0',
+            'attachments'=>'sometimes|array|max:5','attachments.*'=>'required|file',
+            'remove_attachments'=>'sometimes|array|max:5','remove_attachments.*'=>'required|uuid|distinct']);
         $values=[];
         foreach ($data['audience']??[] as $value) {
             if (preg_match('/^customer:([1-9]\d*)$/D',$value,$m)) {
@@ -55,8 +57,8 @@ class NotificationController extends Controller
         $data['audience']=array_values(array_unique($values));
         return $data;
     }
-    public function store(Request $r, Campaigns $service) { $c=$service->save(null,$this->data($r),$r->user()->id); return redirect()->route('admin.notifications.edit',$c)->with('status','Draft saved. Send a test email before reviewing the bulk send.'); }
-    public function update(Request $r, NotificationCampaign $campaign, Campaigns $service) { $service->save($campaign,$this->data($r),$r->user()->id); return redirect()->route('admin.notifications.edit',$campaign)->with('status','Draft saved. Test this version before sending.'); }
+    public function store(Request $r, Campaigns $service) { $c=$service->save(null,$this->data($r),$r->user()->id,$r->file('attachments',[]),$r->input('remove_attachments',[])); return redirect()->route('admin.notifications.edit',$c)->with('status','Draft saved. Send a test email before reviewing the bulk send.'); }
+    public function update(Request $r, NotificationCampaign $campaign, Campaigns $service) { $service->save($campaign,$this->data($r),$r->user()->id,$r->file('attachments',[]),$r->input('remove_attachments',[])); return redirect()->route('admin.notifications.edit',$campaign)->with('status','Draft saved. Test this version before sending.'); }
     public function customers(Request $r)
     {
         $data=$r->validate(['q'=>'nullable|string|max:150','page'=>'nullable|integer|min:1|max:10000']); $q=trim($data['q']??'');
@@ -122,10 +124,28 @@ class NotificationController extends Controller
     }
     public function duplicate(Request $r, NotificationCampaign $campaign, Campaigns $service)
     {
-        $data=$campaign->only(['title','subject','body','audience_mode','customer_type','audience','include_alternate','track_opens','track_clicks']);
-        $data['title']=mb_substr($data['title'],0,140).' (copy)';
-        $copy=$service->save(null,$data,$r->user()->id);
+        $copy=$service->duplicate($campaign,$r->user()->id);
         return redirect()->route('admin.notifications.edit',$copy)->with('status','Copied as a new draft. Review recipients and send a new test.');
+    }
+    public function attachment(NotificationCampaign $campaign, string $attachment)
+    {
+        return $this->downloadAttachment($campaign->attachments ?? [],$attachment);
+    }
+    public function deliveryAttachment(NotificationCampaign $campaign, NotificationDelivery $delivery, string $attachment)
+    {
+        abort_unless($delivery->campaign_id===$campaign->id,404);
+        $snapshot=$delivery->is_test ? $delivery->test_snapshot : $campaign->snapshot;
+        return $this->downloadAttachment($snapshot['attachments'] ?? [],$attachment);
+    }
+    private function downloadAttachment(array $files, string $id)
+    {
+        $file=collect($files)->firstWhere('id',$id);
+        abort_unless($file,404);
+        try { $bytes=app(Attachments::class)->read($file); }
+        catch (AttachmentUnavailable $e) { abort(404,'This attachment is unavailable.'); }
+        return response()->streamDownload(fn()=>print($bytes),$file['name'],[
+            'Content-Type'=>$file['mime'],'Cache-Control'=>'no-store, private','X-Content-Type-Options'=>'nosniff',
+        ]);
     }
     public function destroy(NotificationCampaign $campaign)
     {

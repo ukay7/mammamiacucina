@@ -14,6 +14,18 @@ Only email is available today. Campaigns, deliveries, events and suppressions ca
 
 Bulk unsubscribe links use unguessable tokens, confirmation on GET and one-click POST support. Hard bounces and complaints from verified webhooks suppress future bulk sends. These preferences do not alter order confirmations, receipts, verification or password-reset messages. Test bounces never suppress customers. Send only to recipients you are authorized to contact.
 
+## Attachments
+
+Create/edit drafts support up to **five files, 10 MB combined**, including files already saved. Supported formats are PDF, JPG/JPEG, PNG, WebP, DOC/DOCX and XLS/XLSX; the server validates both the extension and detected file type. Save file changes before testing. Removing or adding files invalidates the previous successful test, and a new test and review are required before queuing. File inputs must be selected again after a failed form submission.
+
+The exact saved files are attached to the single test email and to every individually queued email through SMTP or Resend. Preview, confirmation, campaign reports and delivery timelines list filenames and sizes. Draft duplication preserves its attachments and requires a fresh test.
+
+Files live in `storage/app/private/notification-attachments`, with random immutable names and encrypted metadata on the campaign/snapshots. Downloads require Notifications access and are scoped to the campaign or historical test version. Files use mode `0660` inside a shared private directory with mode `2770`: on web01, the PHP-FPM user and `mmcdeploy` scheduler share the `www-data` group. This lets both processes read uploaded files while preventing public filesystem access. Removing files from a draft or archiving a campaign retains their objects because other drafts, test history and queued sends may still reference them. Include this private directory in backups; do not purge files just because a draft was edited. No automatic attachment purge is provided.
+
+Workers store only file metadata in recipient payloads, reading and encoding the bytes at send time. Size and SHA-256 checks stop a missing/modified attachment from being silently omitted. Such deliveries require review; an earlier failed provider attempt may already have sent, so check provider logs before resending. All application instances and scheduled workers must share this private storage.
+
+Apply `2026_11_20_190000_add_notification_attachments.php` with the normal release migrations before using this update. For an existing notification installation, use `sudo -H -u mmcdeploy php8.4 artisan migrate --force` followed by `sudo -H -u mmcdeploy php8.4 artisan optimize:clear` from the website directory. The existing notification cron remains unchanged. PHP must allow at least 10 MB per file, a POST body larger than 10 MB (for multipart overhead), and at least five uploaded files; the existing 100 MB upload / 128 MB POST configuration is sufficient. The initial-install script below is not a substitute for subsequent release migrations.
+
 ## Live deployment (PuTTY, root)
 
 ```bash

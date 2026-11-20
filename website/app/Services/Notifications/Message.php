@@ -10,7 +10,7 @@ class Message
     public function snapshot(NotificationCampaign $campaign, SmtpSetting $settings): array
     {
         $company = GeneralSetting::find(1);
-        return ['subject'=>$campaign->subject, 'body'=>$campaign->body, 'track_opens'=>$campaign->track_opens, 'track_clicks'=>$campaign->track_clicks,
+        return ['subject'=>$campaign->subject, 'body'=>$campaign->body, 'attachments'=>$campaign->attachments ?? [], 'track_opens'=>$campaign->track_opens, 'track_clicks'=>$campaign->track_clicks,
             'from_address'=>$settings->from_address, 'from_name'=>$settings->from_name, 'provider'=>$settings->delivery_method, 'settings_revision'=>$settings->revision,
             'company'=>$company?->document_company_name ?: GeneralSetting::DOCUMENT_COMPANY_NAME, 'address'=>$company?->mailing_address ?: '',
             'phone'=>$company?->phone ?: '', 'email'=>$company?->email ?: $settings->from_address, 'base_url'=>rtrim(config('app.url'),'/')];
@@ -41,7 +41,7 @@ class Message
         $text = $snapshot['body']."\n\n".$snapshot['company']."\n".$snapshot['address']."\n".$snapshot['email'];
         if ($unsubscribe) $text .= "\n\nUnsubscribe from bulk notifications: ".$unsubscribe;
         if ($test) $text .= "\n\nTEST EMAIL — only the test recipient receives this message. Tracking and unsubscribe actions are disabled.";
-        return ['subject'=>($delivery?->is_test?'[TEST] ':'').$snapshot['subject'], 'html'=>$html, 'text'=>$text,
+        return ['subject'=>($delivery?->is_test?'[TEST] ':'').$snapshot['subject'], 'html'=>$html, 'text'=>$text, 'attachments'=>$snapshot['attachments'] ?? [],
             'from_address'=>$snapshot['from_address'], 'from_name'=>$snapshot['from_name'],
             'headers'=>$unsubscribe ? ['List-Unsubscribe'=>'<'.$unsubscribe.'>', 'List-Unsubscribe-Post'=>'List-Unsubscribe=One-Click'] : []];
     }

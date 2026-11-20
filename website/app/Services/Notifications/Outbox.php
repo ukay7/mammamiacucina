@@ -62,12 +62,12 @@ class Outbox
             app(Events::class)->pending($entry->id);
             return true;
         } catch (\Throwable $e) {
-            DB::transaction(function() use ($entry) {
+            DB::transaction(function() use ($entry,$e) {
                 $entry = NotificationDelivery::lockForUpdate()->findOrFail($entry->id);
                 if ($entry->accepted_at) return;
-                $retry = $entry->provider==='resend' && $entry->attempts<5 && $entry->first_attempt_at->gt(now()->subHours(12));
+                $retry = !($e instanceof AttachmentUnavailable) && $entry->provider==='resend' && $entry->attempts<5 && $entry->first_attempt_at->gt(now()->subHours(12));
                 $entry->update(['status'=>$retry?'retry':'needs_review','available_at'=>now()->addMinutes(2 ** $entry->attempts),
-                    'note'=>$retry?'Provider request failed; retry scheduled with the same message and idempotency key.':'Outcome uncertain. Check provider logs before sending again.']);
+                    'note'=>$e instanceof AttachmentUnavailable ? ($entry->attempts>1 ? 'Attachment unavailable on retry. An earlier attempt may have sent; check provider logs before preparing another campaign.' : $e->getMessage()) : ($retry?'Provider request failed; retry scheduled with the same message and idempotency key.':'Outcome uncertain. Check provider logs before sending again.')]);
                 $this->event($entry,$retry?'retry':'needs_review',$entry->note);
             });
             return false;

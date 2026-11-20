@@ -270,6 +270,14 @@ class NotificationModuleTest extends TestCase
         $this->get(route('admin.notifications.settings'))->assertOk()->assertDontSee($secret);
         $this->put(route('admin.notifications.settings.update'),['webhook_secret'=>$secret,'per_run'=>0])->assertSessionHasErrors('per_run')->assertSessionMissing('_old_input.webhook_secret');
     }
+    public function test_settings_use_the_singleton_id_after_the_database_counter_advances(): void
+    {
+        NotificationSetting::forceCreate(['id'=>7,'per_run'=>3]);
+        $this->put(route('admin.notifications.settings.update'),['per_run'=>35])->assertSessionHasNoErrors();
+        $this->assertSame(35,NotificationSetting::findOrFail(1)->per_run);
+        $this->assertSame(3,NotificationSetting::findOrFail(7)->per_run);
+        $this->assertSame(2,NotificationSetting::count());
+    }
     public function test_claim_lease_retry_expiry_and_worker_lock_prevent_duplicate_sends(): void
     {
         $campaign=$this->queued(); $d=$this->bulk($campaign);
