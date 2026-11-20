@@ -34,7 +34,8 @@ class Events
         $delivery = NotificationDelivery::findOrFail($deliveryId);
         if (!$delivery->provider_message_id || $delivery->provider!=='resend') return;
         $ids = NotificationEvent::where('provider_message_id',$delivery->provider_message_id)->whereNull('processed_at')->orderBy('id')->pluck('id');
-        foreach ($ids as $id) DB::transaction(function() use ($deliveryId,$id) {
+        foreach ($ids as $id) DB::transaction(function() use ($deliveryId,$id,$delivery) {
+            app(Consents::class)->subscription($delivery->address,true);
             $d = NotificationDelivery::lockForUpdate()->findOrFail($deliveryId);
             $event = NotificationEvent::lockForUpdate()->findOrFail($id);
             if ($event->processed_at) return;
@@ -46,7 +47,11 @@ class Events
             if ($type==='delivered' && (!$d->delivered_at || $event->occurred_at->lt($d->delivered_at))) $values['delivered_at']=$event->occurred_at;
             if (in_array($type,['sent','delivered']) && !$d->accepted_at) $values['accepted_at']=$event->occurred_at;
             if ($values) $d->update($values);
-            if (!$d->is_test && in_array($type,['bounced','complained','suppressed'])) NotificationSuppression::firstOrCreate(['channel'=>'email','address'=>$d->address],['reason'=>$type]);
+            if (!$d->is_test && in_array($type,['bounced','complained','suppressed'])) {
+                // Preserve provider blocks independently of consent, including a bounce received after an opt-out.
+                $block=NotificationSuppression::firstOrCreate(['channel'=>'email','address'=>$d->address],['reason'=>$type]);
+                if ($block->reason==='unsubscribed') $block->update(['reason'=>$type]);
+            }
             $event->update(['delivery_id'=>$d->id,'processed_at'=>now(),'description'=>'Provider reported: '.str_replace('_',' ',$type).'.']);
         });
     }

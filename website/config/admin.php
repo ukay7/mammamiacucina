@@ -22,6 +22,7 @@ return ['permissions' => ['quotations.view'=>'View and print quotations', 'quota
     'notifications.manage' => 'Create and edit notification drafts',
     'notifications.send' => 'Test, queue, pause and cancel notifications',
     'notifications.configure' => 'Configure notification worker and provider webhooks',
+    'notifications.consent' => 'Manage unsubscribe requests and record consent with evidence',
     'products.manage' => 'Create, edit and assign products',
     'suppliers.view' => 'View suppliers and their linked products',
     'suppliers.manage' => 'Create, edit and delete unused suppliers',

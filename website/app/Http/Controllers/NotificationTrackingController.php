@@ -1,8 +1,8 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\{NotificationDelivery, NotificationLink, NotificationSetting, NotificationSuppression, NotificationEvent};
-use App\Services\Notifications\Events;
+use App\Models\{GeneralSetting, NotificationDelivery, NotificationLink, NotificationSetting, NotificationSuppression};
+use App\Services\Notifications\{Consents, Events};
 use Illuminate\Http\Request;
 
 class NotificationTrackingController extends Controller
@@ -25,11 +25,14 @@ class NotificationTrackingController extends Controller
     {
         $delivery=NotificationDelivery::where('token',$token)->where('is_test',false)->where('attempts','>',0)->firstOrFail();
         if ($r->isMethod('POST')) {
-            NotificationSuppression::firstOrCreate(['channel'=>'email','address'=>$delivery->address],['reason'=>'unsubscribed']);
-            NotificationEvent::firstOrCreate(['event_key'=>'unsubscribe:'.$delivery->id],['delivery_id'=>$delivery->id,'type'=>'unsubscribed','source'=>'recipient','description'=>'Recipient unsubscribed from bulk email notifications.','occurred_at'=>now(),'processed_at'=>now()]);
+            app(Consents::class)->unsubscribe($delivery->address,$delivery);
         }
-        $unsubscribed=NotificationSuppression::where('channel','email')->where('address',$delivery->address)->exists();
-        return response()->view('notifications.unsubscribe',compact('unsubscribed','token'))->header('Cache-Control','no-store')->header('Referrer-Policy','no-referrer');
+        $unsubscribed=app(Consents::class)->subscription($delivery->address)->status==='unsubscribed'
+            || NotificationSuppression::where('channel','email')->where('address',$delivery->address)->where('reason','unsubscribed')->exists();
+        $contact=GeneralSetting::find(1)?->email;
+        if (!filter_var($contact,FILTER_VALIDATE_EMAIL)) $contact=$delivery->campaign?->snapshot['email']??null;
+        if (!filter_var($contact,FILTER_VALIDATE_EMAIL)) $contact=null;
+        return response()->view('notifications.unsubscribe',compact('unsubscribed','token','contact'))->header('Cache-Control','no-store')->header('Referrer-Policy','no-referrer');
     }
     public function webhook(Request $r, Events $events)
     {

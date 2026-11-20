@@ -122,9 +122,19 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         Route::post('/customers/{customer}/verify-email', [\App\Http\Controllers\Admin\CustomerController::class,'verifyEmail'])->middleware(AdminAccess::class.':customers.manage')->name('customers.verify-email');
         Route::get('/customers/create', [\App\Http\Controllers\Admin\CustomerController::class,'create'])->middleware(AdminAccess::class.':customers.manage')->name('customers.create');
         Route::post('/customers', [\App\Http\Controllers\Admin\CustomerController::class,'store'])->middleware(AdminAccess::class.':customers.manage')->name('customers.store');
-        Route::prefix('notifications')->name('notifications.')->middleware(AdminAccess::class.':notifications.view|notifications.manage|notifications.send|notifications.configure')->group(function () {
+        Route::prefix('notifications')->name('notifications.')->middleware(AdminAccess::class.':notifications.view|notifications.manage|notifications.send|notifications.configure|notifications.consent')->group(function () {
             $c=\App\Http\Controllers\Admin\NotificationController::class;
+            $consent=\App\Http\Controllers\Admin\NotificationConsentController::class;
             Route::get('/',[$c,'index'])->name('index');
+            Route::get('/recipients',[$consent,'index'])->name('recipients');
+            Route::get('/recipients/export',[$consent,'export'])->name('recipients.export');
+            Route::get('/recipients/{subscription}',[$consent,'show'])->whereNumber('subscription')->name('recipient');
+            Route::middleware(AdminAccess::class.':notifications.consent')->group(function() use($consent) {
+                Route::post('/recipients',[$consent,'create'])->name('recipients.create');
+                Route::post('/recipients/{subscription}/consent',[$consent,'record'])->name('recipient.consent');
+                Route::post('/recipients/{subscription}/unsubscribe',[$consent,'unsubscribe'])->name('recipient.unsubscribe');
+                Route::get('/recipients/{subscription}/evidence/{event}/{attachment}',[$consent,'evidence'])->whereUuid('attachment')->name('recipient.evidence');
+            });
             Route::get('/suppressions',[$c,'suppressions'])->name('suppressions');
             Route::middleware(AdminAccess::class.':notifications.configure')->group(function() use($c) {
                 Route::get('/settings',[$c,'settings'])->name('settings');

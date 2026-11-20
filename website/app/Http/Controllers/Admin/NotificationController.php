@@ -94,19 +94,22 @@ class NotificationController extends Controller
     }
     private function recipients(Request $r, NotificationCampaign $campaign)
     {
-        $data=$r->validate(['q'=>'nullable|string|max:150','status'=>'nullable|in:queued,retry,sending,accepted,needs_review,cancelled,suppressed','outcome'=>'nullable|in:delivered,delayed,bounced,complained,failed,suppressed', 'engagement'=>'nullable|in:opened,unopened,clicked','tests'=>'nullable|boolean']);
+        $data=$r->validate(['q'=>'nullable|string|max:150','status'=>'nullable|in:queued,retry,sending,accepted,needs_review,cancelled,suppressed','outcome'=>'nullable|in:delivered,delayed,bounced,complained,failed,suppressed', 'engagement'=>'nullable|in:opened,unopened,clicked','tests'=>'nullable|boolean','preference'=>'nullable|in:unsubscribed,subscribed,unknown']);
         return $campaign->deliveries()->where('is_test',$r->boolean('tests'))->when($data['q']??null,fn($q,$s)=>$q->where(fn($q)=>$q->where('address','like','%'.$s.'%')->orWhere('recipient_name','like','%'.$s.'%')))
             ->when($data['status']??null,fn($q,$v)=>$q->where('status',$v))->when($data['outcome']??null,fn($q,$v)=>$q->where('outcome',$v))
+            ->when($data['preference']??null,fn($q,$v)=>$q->whereHas('subscription',fn($s)=>$s->where('status',$v)))
             ->when(($data['engagement']??'')==='opened',fn($q)=>$q->whereNotNull('opened_at'))
             ->when(($data['engagement']??'')==='unopened',fn($q)=>$q->whereNotNull('accepted_at')->whereNull('opened_at'))
             ->when(($data['engagement']??'')==='clicked',fn($q)=>$q->whereNotNull('clicked_at'));
     }
     public function show(Request $r, NotificationCampaign $campaign)
     {
-        $deliveries=$this->recipients($r,$campaign)->select(['id','campaign_id','customer_id','address','recipient_name','source','is_test','status','outcome','attempts','accepted_at','delivered_at','opened_at','open_count','clicked_at','click_count','note'])->orderBy('id')->paginate(30)->withQueryString();
+        $deliveries=$this->recipients($r,$campaign)->select(['id','campaign_id','customer_id','address','recipient_name','source','is_test','status','outcome','attempts','accepted_at','delivered_at','opened_at','open_count','clicked_at','click_count','note'])
+            ->with('subscription')->withCount(['consentEvents as unsubscribe_count'=>fn($q)=>$q->where('action','unsubscribed')])->orderBy('id')->paginate(30)->withQueryString();
         $base=$campaign->deliveries()->where('is_test',false);
         $stats=['Recipients'=>(clone $base)->count(),'Accepted'=>(clone $base)->whereNotNull('accepted_at')->count(),'Delivered'=>(clone $base)->whereNotNull('delivered_at')->count(),
             'Opened (estimated)'=>(clone $base)->whereNotNull('opened_at')->count(),'Clicked'=>(clone $base)->whereNotNull('clicked_at')->count(),
+            'Unsubscribed via this campaign'=>(clone $base)->whereHas('consentEvents',fn($q)=>$q->where('action','unsubscribed'))->count(),
             'Needs attention'=>(clone $base)->where(fn($q)=>$q->where('status','needs_review')->orWhereIn('outcome',['bounced','complained','failed']))->count()];
         $sender=SmtpSetting::find(1); $worker=NotificationSetting::find(1);
         return view('admin.notifications.show',compact('campaign','deliveries','stats','sender','worker'));
@@ -162,10 +165,10 @@ class NotificationController extends Controller
     }
     public function export(Request $r, NotificationCampaign $campaign)
     {
-        $query=$this->recipients($r,$campaign);
+        $query=$this->recipients($r,$campaign)->with('subscription')->withCount(['consentEvents as unsubscribe_count'=>fn($q)=>$q->where('action','unsubscribed')]);
         return $this->csv($campaign->number.($r->boolean('tests')?'-tests':'-recipients').'.csv',function($row) use($query) {
-            $row(['Email','Customer name','Source','Status','Provider outcome','Attempts','Accepted (Toronto)','Delivered (Toronto)','First open (estimated, Toronto)','Open requests','First click (Toronto)','Click requests','Note']);
-            foreach($query->orderBy('id')->cursor() as $d) $row([$d->address,$d->recipient_name,$d->source,$d->status,$d->outcome,$d->attempts,BusinessTime::format($d->accepted_at),BusinessTime::format($d->delivered_at),BusinessTime::format($d->opened_at),$d->open_count,BusinessTime::format($d->clicked_at),$d->click_count,$d->note]);
+            $row(['Email','Customer name','Source','Status','Provider outcome','Attempts','Accepted (Toronto)','Delivered (Toronto)','First open (estimated, Toronto)','Open requests','First click (Toronto)','Click requests','Note','Current email preference','Unsubscribed via this email']);
+            foreach($query->lazyById(500) as $d) $row([$d->address,$d->recipient_name,$d->source,$d->status,$d->outcome,$d->attempts,BusinessTime::format($d->accepted_at),BusinessTime::format($d->delivered_at),BusinessTime::format($d->opened_at),$d->open_count,BusinessTime::format($d->clicked_at),$d->click_count,$d->note,$d->subscription?->status_label??'Consent not recorded',$d->unsubscribe_count?'Yes':'No']);
         });
     }
     public function reviewExport(Request $r, NotificationCampaign $campaign)

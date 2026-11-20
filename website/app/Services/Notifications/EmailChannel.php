@@ -15,9 +15,13 @@ class EmailChannel implements Channel
         app(Attachments::class)->verify($files);
         $attachments = array_map(fn($file)=>['filename'=>$file['name'],'content'=>base64_encode(app(Attachments::class)->read($file))],$files);
         $message = (new Email)->to($delivery->address)->subject($p['subject'])->from(new Address($p['from_address'],$p['from_name']));
-        if ($delivery->provider==='resend') return app(ResendEmail::class)->send($settings,$message,$p['text'],$delivery->idempotency_key,$attachments,$p['html'],$p['headers']);
+        if ($delivery->provider==='resend') {
+            app(Consents::class)->assertCanDeliver($delivery);
+            return app(ResendEmail::class)->send($settings,$message,$p['text'],$delivery->idempotency_key,$attachments,$p['html'],$p['headers']);
+        }
         app(SmtpConfiguration::class)->apply();
         Mail::purge('configured_smtp');
+        app(Consents::class)->assertCanDeliver($delivery);
         $sent = Mail::mailer('configured_smtp')->html($p['html'],function($mail) use ($delivery,$p,$files,$attachments) {
             $mail->to($delivery->address)->from($p['from_address'],$p['from_name'])->subject($p['subject']);
             $email = $mail->getSymfonyMessage();

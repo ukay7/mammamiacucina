@@ -12,7 +12,7 @@ class SendNotifications extends Command
     protected $description = 'Deliver due notifications with locked claims, bounded batches and safe provider retries';
     public function handle(Outbox $outbox): int
     {
-        if (!Schema::hasTable('notification_deliveries')) { $this->error('Run migrations before starting notification delivery.'); return self::FAILURE; }
+        if (!Schema::hasTable('notification_deliveries') || !Schema::hasTable('notification_subscriptions') || !Schema::hasTable('notification_consent_events') || !Schema::hasColumn('notification_deliveries','consent_version')) { $this->error('Run migrations before starting notification delivery.'); return self::FAILURE; }
         $ready = SmtpSetting::find(1)?->ready()??false;
         $query = NotificationDelivery::whereIn('status',['queued','retry','sending'])->where(fn($q)=>$q->whereNull('available_at')->orWhere('available_at','<=',now()))
             ->where(fn($q)=>$q->where('status','!=','sending')->orWhereNull('started_at')->orWhere('started_at','<=',now()->subMinutes(5)))

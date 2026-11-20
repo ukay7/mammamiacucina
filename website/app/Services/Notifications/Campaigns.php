@@ -1,7 +1,7 @@
 <?php
 namespace App\Services\Notifications;
 
-use App\Models\{NotificationCampaign, NotificationDelivery, SmtpSetting};
+use App\Models\{NotificationCampaign, NotificationDelivery, NotificationSubscription, NotificationSuppression, SmtpSetting};
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -47,13 +47,15 @@ class Campaigns
             $campaign = NotificationCampaign::lockForUpdate()->findOrFail($campaign->id);
             if ($campaign->status!=='draft' || $campaign->revision!==$revision) self::fail('Reload the current draft before testing.');
             app(Attachments::class)->assertReady($campaign->attachments ?? []);
+            $subscription=app(Consents::class)->subscription($address,true);
+            if ($reason=app(Consents::class)->reason($subscription)) self::fail($reason.' Test emails cannot bypass this block.');
             $existing = NotificationDelivery::where('idempotency_key',$key)->first();
             if ($existing) {
                 if ($existing->campaign_id!==$campaign->id || !$existing->is_test || $existing->campaign_revision!==$revision || $existing->address!==$address) self::fail('This test request is no longer current. Reload the page.');
                 return $existing;
             }
             return $campaign->deliveries()->create(['address'=>$address, 'channel'=>'email', 'source'=>'test', 'is_test'=>true, 'campaign_revision'=>$revision,
-                'settings_revision'=>$settings->revision, 'token'=>Str::random(64), 'idempotency_key'=>$key, 'available_at'=>now(),
+                'settings_revision'=>$settings->revision, 'consent_version'=>$subscription->version, 'token'=>Str::random(64), 'idempotency_key'=>$key, 'available_at'=>now(),
                 'test_snapshot'=>app(Message::class)->snapshot($campaign,$settings)]);
         });
         app(Outbox::class)->deliver($delivery->id);
@@ -91,6 +93,17 @@ class Campaigns
             $this->assertTested($campaign,$review['revision'],$settings);
             if (($review['attachments'] ?? []) !== ($campaign->attachments ?? [])) self::fail('Attachments changed. Test and review this draft again.');
             app(Attachments::class)->assertReady($campaign->attachments ?? []);
+            // Recheck the reviewed consent state before freezing recipients into a campaign.
+            foreach (array_chunk($review['rows'],500) as $chunk) {
+                $addresses=array_column($chunk,'address');
+                $subscriptions=NotificationSubscription::where('channel','email')->whereIn('address',$addresses)->orderBy('id')->lockForUpdate()->get()->keyBy('address');
+                $blocks=NotificationSuppression::where('channel','email')->whereIn('address',$addresses)->pluck('reason','address');
+                foreach ($chunk as $row) {
+                    $s=$subscriptions->get($row['address']);
+                    $block=$s?->status==='unsubscribed' ? 'unsubscribed' : $blocks->get($row['address']);
+                    if (!$s || ($row['consent_version']??null)!==$s->version || $row['suppression']!==$block) self::fail('A recipient’s email preferences changed. Review recipients again before queuing.');
+                }
+            }
             $snapshot = app(Message::class)->snapshot($campaign,$settings) + ['queue_token_hash'=>hash('sha256',$token),'queued_by'=>$user];
             foreach (app(Message::class)->urls($campaign->body) as $url) $campaign->links()->create(['token'=>Str::random(40),'url_hash'=>hash('sha256',$url),'url'=>$url]);
             $now = now();
@@ -98,7 +111,7 @@ class Campaigns
             foreach (array_chunk($review['rows'],250) as $chunk) {
                 // Insert bounded batches so large audiences do not require one database round trip per address.
                 // These fields contain no encrypted casts; encrypted content remains on the campaign snapshot.
-                $rows = array_map(fn($row)=>collect($row)->except('suppression')->all() + ['campaign_id'=>$campaign->id,'channel'=>'email','campaign_revision'=>$campaign->revision,
+                $rows = array_map(fn($row)=>collect($row)->except(['suppression','consent_status'])->all() + ['campaign_id'=>$campaign->id,'channel'=>'email','campaign_revision'=>$campaign->revision,
                     'settings_revision'=>$settings->revision,'dedupe_key'=>hash('sha256',$row['address']), 'token'=>Str::random(64),'idempotency_key'=>(string)Str::uuid(),
                     'status'=>$row['suppression']?'suppressed':'queued', 'note'=>$row['suppression']?'Excluded: '.$row['suppression']:null,
                     'available_at'=>$availableAt,'created_at'=>$now,'updated_at'=>$now],$chunk);

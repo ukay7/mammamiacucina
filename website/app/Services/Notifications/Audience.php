@@ -1,7 +1,7 @@
 <?php
 namespace App\Services\Notifications;
 
-use App\Models\{Customer, NotificationCampaign, NotificationSuppression};
+use App\Models\{Customer, NotificationCampaign, NotificationSubscription, NotificationSuppression};
 use Illuminate\Validation\ValidationException;
 
 class Audience
@@ -32,12 +32,20 @@ class Audience
             }
         });
         foreach ($campaign->audience as $value) if (str_starts_with($value,'email:')) $add(substr($value,6), null, 'additional');
-        $suppressed = [];
+        app(Consents::class)->register(array_keys($rows));
+        $suppressed = []; $subscriptions=collect();
         foreach (array_chunk(array_keys($rows),500) as $addresses) {
             $suppressed += NotificationSuppression::where('channel','email')->whereIn('address',$addresses)->pluck('reason','address')->all();
+            $subscriptions=$subscriptions->merge(NotificationSubscription::where('channel','email')->whereIn('address',$addresses)->get()->keyBy('address'));
         }
-        foreach ($rows as $address=>&$row) $row['suppression'] = $suppressed[$address] ?? null;
+        foreach ($rows as $address=>&$row) {
+            $subscription=$subscriptions->get($address);
+            $row['consent_version']=$subscription->version;
+            $row['consent_status']=$subscription->status;
+            $row['suppression']=$subscription->status==='unsubscribed' ? 'unsubscribed' : ($suppressed[$address] ?? null);
+        }
         unset($row);
-        return ['rows'=>array_values($rows), 'invalid'=>$invalid, 'duplicates'=>$duplicates, 'suppressed'=>count($suppressed), 'eligible'=>count($rows)-count($suppressed)];
+        $excluded=count(array_filter($rows,fn($row)=>$row['suppression']!==null));
+        return ['rows'=>array_values($rows), 'invalid'=>$invalid, 'duplicates'=>$duplicates, 'suppressed'=>$excluded, 'eligible'=>count($rows)-$excluded];
     }
 }

@@ -1,7 +1,7 @@
 <?php
 namespace App\Services\Notifications;
 
-use App\Models\{NotificationCampaign, NotificationDelivery, NotificationEvent, NotificationSuppression, SmtpSetting};
+use App\Models\{NotificationCampaign, NotificationDelivery, NotificationEvent, SmtpSetting};
 use Illuminate\Support\Facades\DB;
 
 class Outbox
@@ -15,6 +15,7 @@ class Outbox
         // Always lock campaign before delivery, including pause/cancel and completion.
         $entry = DB::transaction(function() use ($candidate,$settings) {
             $campaign = NotificationCampaign::withTrashed()->lockForUpdate()->find($candidate->campaign_id);
+            $subscription=app(Consents::class)->subscription($candidate->address,true);
             $entry = NotificationDelivery::lockForUpdate()->find($candidate->id);
             if (!$entry || !in_array($entry->status,['queued','retry','sending']) || $entry->available_at?->isFuture()) return null;
             if ($entry->status==='sending' && $entry->started_at?->gt(now()->subMinutes(5))) return null;
@@ -26,9 +27,9 @@ class Outbox
                 $entry->update(['status'=>$entry->attempts?'needs_review':'cancelled','note'=>'Draft changed after this test was requested.']);
                 return null;
             }
-            if (!$entry->is_test && NotificationSuppression::where('channel',$entry->channel)->where('address',$entry->address)->exists()) {
-                if ($entry->attempts) $this->review($entry,'Recipient opted out after a delivery attempt. No automatic retry.');
-                else $entry->update(['status'=>'suppressed','note'=>'Recipient is unsubscribed or suppressed.']);
+            if ($reason=app(Consents::class)->reason($subscription,$entry->consent_version ?? 0)) {
+                if ($entry->attempts) $this->review($entry,$reason.' An earlier attempt may already have been accepted; no automatic retry.');
+                else $entry->update(['status'=>'suppressed','note'=>$reason]);
                 return null;
             }
             $snapshot = $entry->is_test ? $entry->test_snapshot : $campaign->snapshot;
@@ -65,10 +66,11 @@ class Outbox
             DB::transaction(function() use ($entry,$e) {
                 $entry = NotificationDelivery::lockForUpdate()->findOrFail($entry->id);
                 if ($entry->accepted_at) return;
-                $retry = !($e instanceof AttachmentUnavailable) && $entry->provider==='resend' && $entry->attempts<5 && $entry->first_attempt_at->gt(now()->subHours(12));
-                $entry->update(['status'=>$retry?'retry':'needs_review','available_at'=>now()->addMinutes(2 ** $entry->attempts),
-                    'note'=>$e instanceof AttachmentUnavailable ? ($entry->attempts>1 ? 'Attachment unavailable on retry. An earlier attempt may have sent; check provider logs before preparing another campaign.' : $e->getMessage()) : ($retry?'Provider request failed; retry scheduled with the same message and idempotency key.':'Outcome uncertain. Check provider logs before sending again.')]);
-                $this->event($entry,$retry?'retry':'needs_review',$entry->note);
+                $blocked=$e instanceof ConsentBlocked;
+                $retry = !$blocked && !($e instanceof AttachmentUnavailable) && $entry->provider==='resend' && $entry->attempts<5 && $entry->first_attempt_at->gt(now()->subHours(12));
+                $entry->update(['status'=>$blocked?'suppressed':($retry?'retry':'needs_review'),'available_at'=>now()->addMinutes(2 ** $entry->attempts),
+                    'note'=>$blocked ? $e->getMessage() : ($e instanceof AttachmentUnavailable ? ($entry->attempts>1 ? 'Attachment unavailable on retry. An earlier attempt may have sent; check provider logs before preparing another campaign.' : $e->getMessage()) : ($retry?'Provider request failed; retry scheduled with the same message and idempotency key.':'Outcome uncertain. Check provider logs before sending again.'))]);
+                $this->event($entry,$blocked?'suppressed':($retry?'retry':'needs_review'),$entry->note);
             });
             return false;
         } finally { app(Campaigns::class)->finish($entry->campaign_id); }

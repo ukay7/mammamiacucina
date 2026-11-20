@@ -24,6 +24,8 @@ sudo -H -u mmcdeploy composer install --no-dev --prefer-dist --optimize-autoload
 sudo -H -u mmcdeploy php8.4 artisan config:clear
 sudo -H -u mmcdeploy php8.4 artisan route:clear
 sudo -H -u mmcdeploy php8.4 artisan migrate --path=database/migrations/2026_11_12_210000_create_notification_module.php --force
+sudo -H -u mmcdeploy php8.4 artisan migrate --path=database/migrations/2026_11_20_190000_add_notification_attachments.php --force
+sudo -H -u mmcdeploy php8.4 artisan migrate --path=database/migrations/2026_11_21_010000_add_notification_consent_history.php --force
 sudo -H -u mmcdeploy php8.4 artisan config:cache
 sudo -H -u mmcdeploy php8.4 artisan view:cache
 sudo -H -u mmcdeploy php8.4 artisan notifications:send --dry-run
