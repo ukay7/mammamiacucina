@@ -32,6 +32,39 @@ function render(){
 }
 // Parse decimal strings without rounding each carton to cents first.
 function scaled(value,places){const s=String(value);if(!/^\d+(\.\d+)?$/.test(s))return null;const [whole,fraction='']=s.split('.');if(fraction.length>places)return null;return BigInt(whole)*(10n**BigInt(places))+BigInt(fraction.padEnd(places,'0'));}
+const bulkDiscount = document.getElementById('quote-bulk-discount');
+const bulkDiscountStatus = document.getElementById('quote-bulk-discount-status');
+function applyLineDiscount() {
+    const basisPoints = scaled(bulkDiscount.value.trim(), 2);
+    const invalid = basisPoints === null || basisPoints > 10000n;
+    if (invalid) bulkDiscount.setAttribute('aria-invalid', 'true');
+    else bulkDiscount.removeAttribute('aria-invalid');
+    bulkDiscountStatus.classList.toggle('text-danger', invalid);
+    if (invalid) {
+        bulkDiscountStatus.textContent = 'Enter a percentage between 0 and 100 with up to two decimal places.';
+        bulkDiscount.focus();
+        return;
+    }
+    if (!rows.length) {
+        bulkDiscountStatus.textContent = 'Add product rows to the quotation first.';
+        return;
+    }
+    const discount = money(Number(basisPoints));
+    rows.forEach(row => { row.discount_percent = discount; });
+    body.querySelectorAll('input[data-field="discount_percent"]').forEach(input => MMCNumber.set(input, discount));
+    totals();
+    bulkDiscountStatus.textContent = `${discount}% applied to ${rows.length} ${rows.length === 1 ? 'row' : 'rows'}.`;
+}
+document.getElementById('apply-line-discount').addEventListener('click', applyLineDiscount);
+bulkDiscount.addEventListener('keydown', event => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    applyLineDiscount();
+});
+bulkDiscount.addEventListener('input', () => {
+    bulkDiscount.removeAttribute('aria-invalid');
+    bulkDiscountStatus.textContent = '';
+});
 function cartonFromSale(value,pieces){const sale=scaled(value,8);if(sale===null)return '';const carton=(sale*BigInt(pieces)+5000n)/10000n;return `${carton/10000n}.${String(carton%10000n).padStart(4,'0')}`;}
 function totals(){let gross=0,discounts=0,valid=rows.length>0&&!!customer.value;rows.forEach((r,i)=>{const price=scaled(r.unit_price,4),qty=Number(r.quantity),bp=cents(r.discount_percent),ok=price!==null&&price<=10000000000n&&Number.isInteger(qty)&&qty>=1&&qty<=10000&&r.discount_percent!==''&&bp>=0&&bp<=10000;const g=ok?Number((price*BigInt(qty)+50n)/100n):0,d=Math.round(g*bp/10000);gross+=g;discounts+=d;body.querySelector(`[data-index="${i}"] .line-total`).textContent=ok?money(g-d):'\u2014';if(!ok)valid=false;});
 const db=cents(document.getElementById('discount_percent').value),cb=cents(document.getElementById('charge_percent').value),tb=cents(document.getElementById('tax_percent').value),discount=Math.round((gross-discounts)*db/10000),net=gross-discounts-discount,charge=Math.round(net*cb/10000),tax=Math.round((net+charge)*tb/10000);

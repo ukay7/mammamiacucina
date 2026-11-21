@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\{Customer, PosDraft, Product, User};
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\{DB, Storage, Validator};
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class PosDrafts
@@ -17,18 +18,19 @@ class PosDrafts
         try { $payload=json_decode($input['payload'],true,32,JSON_THROW_ON_ERROR); }
         catch (\Throwable) { $this->fail('The draft could not be read. Please try again.'); }
         $rules=[
-            'customer_id'=>'required|integer|exists:customers,id','items'=>'required|array|min:1|max:100','items.*'=>'required|array:id,quantity',
+            'customer_id'=>'required|integer|exists:customers,id','items'=>'required|array|min:1|max:100','items.*'=>'required|array:id,quantity,price_override_cents,manual_discount_bps',
             'items.*.id'=>'required|integer|distinct|exists:products,id','items.*.quantity'=>'required|integer|min:1|max:9999',
             'fulfillment'=>'required|in:pickup,delivery','stage'=>'required|in:cart,checkout','product_search'=>'nullable|string|max:255',
             'product_category'=>'nullable|integer|min:1',
-            'checkout'=>'required|array:phone,notes,payment_method,payment_status,delivery_service',
+            'checkout'=>'required|array:phone,notes,payment_method,payment_status,delivery_service,order_channel',
             'checkout.phone'=>'nullable|string|max:40','checkout.notes'=>'nullable|string|max:2000',
             'checkout.payment_method'=>'required|in:cash,etransfer,cheque,credit','checkout.payment_status'=>'required|in:paid,unpaid',
             'checkout.delivery_service'=>'nullable|string|max:20',
+            'checkout.order_channel'=>['nullable',Rule::in(array_keys(\App\Models\Order::POS_CHANNELS))],
             'address'=>'required|array:type,alternate','address.type'=>'required|in:company,alternate','address.alternate'=>'present|array:address,city,province,postal_code,country',
             'schedule'=>'required|array:date,time,reference','schedule.date'=>'nullable|date_format:Y-m-d','schedule.time'=>'nullable|date_format:H:i',
             'schedule.reference'=>'nullable|integer|min:0',
-        ];
+        ] + PosSale::adjustmentRules();
         foreach (['address'=>255,'city'=>100,'province'=>100,'postal_code'=>30,'country'=>100] as $field=>$length) $rules['address.alternate.'.$field]='nullable|string|max:'.$length;
         $payload=Validator::make(is_array($payload)?$payload:[], $rules)->validate();
         $hash=hash('sha256',json_encode($payload).'|'.($receipt?hash_file('sha256',$receipt->getRealPath()):'').'|'.(int)($input['remove_receipt']??false));
@@ -55,7 +57,8 @@ class PosDrafts
                     return ['id'=>$p->id,'quantity'=>(int)$line['quantity'],'name'=>$p->premium_marketing_name,
                         'subtitle'=>$p->italian_subtitle,'source_name'=>$p->original_description,'barcode'=>$p->barcode_number,
                         'code'=>$p->product_code,'active'=>$p->is_active,'unit_cents'=>app(CustomerTerms::class)->price($p,$customer)['unit_cents'],
-                        'stock'=>null,'uom'=>$p->uom,'image'=>($media=$p->media->first())?route('admin.pos.media',[$p,$media]):null];
+                        'stock'=>null,'uom'=>$p->uom,'image'=>($media=$p->media->first())?route('admin.pos.media',[$p,$media]):null]
+                        + array_intersect_key($line, array_flip(['price_override_cents', 'manual_discount_bps']));
                 },$payload['items']);
                 $values=['customer_id'=>$customer->id,'customer_label'=>mb_substr(trim(($customer->account_type==='business' && $customer->business_name?$customer->business_name.' · ':'').$customer->name),0,255),
                     'item_count'=>array_sum(array_column($payload['items'],'quantity')),'snapshot'=>$snapshot,'request_hash'=>$hash,'updated_by'=>$actor->id];

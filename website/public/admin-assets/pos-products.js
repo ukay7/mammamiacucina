@@ -8,12 +8,8 @@ window.MmcPosProducts=function(app,adapter){
     const status=text=>$('#pos-result-status').textContent=text;
     const available=p=>p.active&&p.unit_cents!==null&&p.unit_cents>=0&&(p.stock===null||Number(p.stock)>=1);
     const unavailable=p=>!p.active?'Inactive':p.unit_cents===null||p.unit_cents<0?'Price unavailable':'Out of stock';
-    function nav(){
-        $('#pos-products-prev').disabled=!adapter.ready()||shelf.scrollLeft<=1;
-        $('#pos-products-next').disabled=!adapter.ready()||shelf.scrollLeft+shelf.clientWidth>=shelf.scrollWidth-2;
-    }
     function setEnabled(){
-        app.querySelectorAll('.pos-product-toolbar input,.pos-product-toolbar button,.pos-category-strip button').forEach(e=>e.disabled=!adapter.ready());nav();
+        app.querySelectorAll('.pos-product-toolbar input,.pos-product-toolbar button,.pos-category-strip button').forEach(e=>e.disabled=!adapter.ready());
         $('#pos-recommendations').inert=!adapter.ready();
     }
     function chooseCategory(value){
@@ -58,25 +54,25 @@ window.MmcPosProducts=function(app,adapter){
         qty.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();add.click();}});
         stepper.append(node('span','Qty'),minus,qty,plus);box.append(stepper,add,message);sync();return box;
     }
-    function card(p){
-        const article=node('article',undefined,'pos-product-card');article.dataset.productId=p.id;
-        const image=photo(p),info=node('button',undefined,'pos-product-info');info.type='button';info.title='Product details';info.setAttribute('aria-label','View details for '+p.name);
-        const icon=node('i',undefined,'fas fa-info');icon.setAttribute('aria-hidden','true');info.append(icon);info.onclick=()=>details(p);image.append(info);
-        const cat=node('div',p.category||'Product','pos-product-category');cat.title=p.category||'';
-        const title=node('h3',p.name);title.title=p.name;
-        const code=node('div','Item '+(p.barcode||p.code||'#'+p.id),'pos-product-code');code.title=code.textContent;
-        const pack=node('div',p.pack||'Pack details in ⓘ','pos-product-pack');pack.title=p.pack||'';
-        const availability=node('div',available(p)?stock(p):unavailable(p),'pos-product-stock'+(available(p)?'':' is-unavailable'));
-        article.append(image,cat,title,code,pack,price(p),availability,quantityControl(p));return article;
-    }
-    function suggestion(p,kind){
-        const row=node('article',undefined,'pos-recommendation-item');row.dataset.recommendProductId=p.id;
+    function productRow(p,kind){
+        const row=node('article',undefined,'pos-recommendation-item');
+        if(kind==='browse'){
+            row.classList.add('pos-browse-item');
+            row.dataset.productId=p.id;
+        }else row.dataset.recommendProductId=p.id;
         const info=node('button',undefined,'pos-recommendation-image');info.type='button';info.title='View '+p.name;info.setAttribute('aria-label','View details for '+p.name);
         if(p.image){const image=node('img');image.src=p.image;image.alt='';image.loading='lazy';image.onerror=()=>image.remove();info.append(image);}
         const icon=node('i',undefined,'fas fa-info');icon.setAttribute('aria-hidden','true');info.append(icon);info.onclick=()=>details(p);
         const identity=node('div'),title=node('div',p.name,'pos-recommendation-name');title.title=p.name;
-        const metric=kind==='frequent'?'In '+p.order_count+' completed '+(p.order_count===1?'order':'orders')
-            :MMCNumber.decimal(p.stock,'quantity')+(p.uom?' '+p.uom:'')+' in stock · '+MMCNumber.decimal(p.sold_units,'quantity')+' sold';
+        let metric;
+        if(kind==='browse'){
+            metric=['Item '+(p.code||p.barcode||'#'+p.id), available(p)?stock(p):unavailable(p)].join(' · ');
+            if(p.pack) identity.title=p.pack;
+        }else if(kind==='frequent'){
+            metric='In '+p.order_count+' completed '+(p.order_count===1?'order':'orders');
+        }else{
+            metric=MMCNumber.decimal(p.stock,'quantity')+(p.uom?' '+p.uom:'')+' in stock · '+MMCNumber.decimal(p.sold_units,'quantity')+' sold';
+        }
         identity.append(title,node('small',metric,'pos-recommendation-metric'));
         row.append(info,identity,quantityControl(p));return row;
     }
@@ -92,7 +88,7 @@ window.MmcPosProducts=function(app,adapter){
             const data=await adapter.request(url);
             if(ticket!==suggestionSerial||customer!==adapter.customerId()||!adapter.ready())return;
             for(const [key,id,empty] of [['frequent','#pos-favourites','No available favourites yet. Products appear here from completed orders.'],['slow','#pos-stock-suggestions','No excess-stock products to suggest right now.']]){
-                const list=$(id);list.replaceChildren(...data[key].map(p=>suggestion(p,key)));
+                const list=$(id);list.replaceChildren(...data[key].map(p=>productRow(p,key)));
                 if(!data[key].length)list.append(node('p',empty,'pos-recommendation-empty'));
             }
         }catch(e){if(ticket!==suggestionSerial)return;clearSuggestions('Suggestions could not be loaded. You can still browse products below.');$('#pos-recommendation-retry').hidden=false;}
@@ -100,22 +96,22 @@ window.MmcPosProducts=function(app,adapter){
     $('#pos-recommendation-retry').onclick=loadSuggestions;
     function render(data,append=false){
         const previousCount=products.size;
-        if(!append){products.clear();shelf.replaceChildren();shelf.scrollLeft=0;}
+        if(!append){products.clear();shelf.replaceChildren();shelf.scrollTop=0;}
         shelf.querySelector('.pos-product-more')?.remove();
-        data.products.forEach(p=>{if(!products.has(p.id)){products.set(p.id,p);shelf.append(card(p));}});
+        data.products.forEach(p=>{if(!products.has(p.id)){products.set(p.id,p);shelf.append(productRow(p,'browse'));}});
         nextPage=data.next_page;total=data.total??products.size;
         if(!products.size)shelf.append(node('p','No products found. Try another name, code or category.','pos-empty'));
         if(nextPage){
-            const more=node('div',undefined,'pos-product-more'),button=node('button','Load more →','btn btn-outline-primary');button.type='button';button.onclick=()=>load({append:true});
-            more.append(node('strong',String(Math.max(0,total-products.size))),node('span','more products to explore'),button);shelf.append(more);
+            const more=node('div',undefined,'pos-product-more'),button=node('button','Load more products','btn btn-outline-primary');button.type='button';button.onclick=()=>load({append:true});
+            more.append(button);shelf.append(more);
         }
         status(products.size===total?total+' products':products.size+' of '+total+' products');
-        requestAnimationFrame(()=>{if(append)shelf.querySelectorAll('.pos-product-card')[previousCount]?.scrollIntoView({block:'nearest',inline:'start',behavior:'smooth'});nav();});
+        if(append) requestAnimationFrame(()=>shelf.querySelectorAll('.pos-browse-item')[previousCount]?.scrollIntoView({block:'nearest'}));
     }
     async function load({append=false,exact=false}={}){
         if(!adapter.ready()||(append&&(loading||!nextPage)))return;
         clearTimeout(timer);const ticket=++serial,customer=adapter.customerId();loading=true;adapter.busy(true);
-        if(!append){products.clear();shelf.replaceChildren(node('p','Finding your products…','pos-empty'));shelf.scrollLeft=0;}
+        if(!append){products.clear();shelf.replaceChildren(node('p','Finding your products…','pos-empty'));shelf.scrollTop=0;}
         else shelf.querySelector('.pos-product-more button').disabled=true;
         status('Finding products…');
         const term=input.value.trim(),url=new URL(app.dataset.products,location.href);url.searchParams.set('customer_id',customer);url.searchParams.set('q',term);
@@ -132,7 +128,7 @@ window.MmcPosProducts=function(app,adapter){
         }catch(e){
             if(ticket!==serial)return;status('Products could not be loaded. Try Find again.');adapter.feedback(e.message,true);
             if(!append)shelf.replaceChildren(node('p',e.message,'pos-empty'));else if(shelf.querySelector('.pos-product-more button'))shelf.querySelector('.pos-product-more button').disabled=false;
-        }finally{if(ticket===serial)loading=false;adapter.busy(false);nav();}
+        }finally{if(ticket===serial)loading=false;adapter.busy(false);}
     }
     async function details(p){
         if(!adapter.canEdit())return;
@@ -148,7 +144,7 @@ window.MmcPosProducts=function(app,adapter){
             $('#pos-product-detail-body').replaceChildren(summary,facts);
             const actions=$('#pos-product-detail-actions');actions.replaceChildren(quantityControl(product,()=>{
                 dialog.close();if(products.has(product.id))products.set(product.id,product);
-                shelf.querySelector('[data-product-id="'+product.id+'"]')?.replaceWith(card(product));nav();
+                shelf.querySelector('[data-product-id="'+product.id+'"]')?.replaceWith(productRow(product,'browse'));
                 app.querySelectorAll('[data-recommend-product-id="'+product.id+'"] .pos-product-buy').forEach(control=>control.replaceWith(quantityControl(product)));
             }));actions.hidden=false;
         }catch(e){if(ticket===detailSerial)$('#pos-product-detail-body').replaceChildren(node('p',e.message,'pos-error'));}
@@ -157,9 +153,7 @@ window.MmcPosProducts=function(app,adapter){
     $('#pos-product-search-form').onsubmit=e=>{e.preventDefault();if(adapter.canEdit())load({exact:!!input.value.trim()});};
     input.oninput=()=>{clearTimeout(timer);serial++;timer=setTimeout(()=>load(),250);};
     $('#pos-categories').onclick=e=>{const button=e.target.closest('[data-category]');if(!button||!adapter.canEdit())return;chooseCategory(button.dataset.category);load();};
-    function scroll(direction){shelf.scrollBy({left:direction*Math.max(220,shelf.clientWidth-40),behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});}
-    $('#pos-products-prev').onclick=()=>scroll(-1);$('#pos-products-next').onclick=()=>scroll(1);shelf.addEventListener('scroll',nav,{passive:true});new ResizeObserver(nav).observe(shelf);
-    function reset(){serial++;detailSerial++;clearSuggestions();clearTimeout(timer);loading=false;products.clear();quantities.clear();input.value='';chooseCategory('');nextPage=null;total=0;dialog.close();shelf.replaceChildren(node('p','Select a customer to browse their products and prices.','pos-empty'));status('Select a customer to browse products.');$('#pos-pricing-label').textContent='Select a customer';nav();}
+    function reset(){serial++;detailSerial++;clearSuggestions();clearTimeout(timer);loading=false;products.clear();quantities.clear();input.value='';chooseCategory('');nextPage=null;total=0;dialog.close();shelf.replaceChildren(node('p','Select a customer to browse their products and prices.','pos-empty'));status('Select a customer to browse products.');$('#pos-pricing-label').textContent='Select a customer';}
     return {setEnabled,reset,
         show(data){serial++;loading=false;chooseCategory('');input.value='';render(data);$('#pos-pricing-label').textContent=(data.customer.account_type==='business'?'Business':'Individual')+' pricing';loadSuggestions();},
         scan(code){if(!adapter.canEdit())return;input.value=code;chooseCategory('');load({exact:true});},

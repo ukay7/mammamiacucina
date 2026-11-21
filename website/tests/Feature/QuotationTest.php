@@ -111,6 +111,11 @@ class QuotationTest extends TestCase
         $this->assertSame(6610, $q->subtotal_cents);
         $this->assertSame(5949, $q->total_cents);
         $this->get(route('admin.quotations.print',$q))->assertOk()->assertSee('PRICE QUOTATION')->assertSee('SUGGESTED RETAIL')->assertSee('$19.83')->assertSee('$3.30')->assertSee('$23.79');
+        foreach (['show', 'print'] as $view) {
+            $this->get(route('admin.quotations.'.$view, $q))->assertOk()
+                ->assertSee('Suggested retail / sale unit (+20%)')
+                ->assertSee('<td class="quote-retail-unit">$3.97</td>', false);
+        }
         $this->assertNotSame('Forged', $item['columns']['supplier']);
         $p->update(['dna' => ['pieces_per_carton' => 12], 'premium_marketing_name' => 'Changed name']);
         $category->update(['name' => 'Changed category']);
@@ -144,7 +149,8 @@ class QuotationTest extends TestCase
         foreach (['unit_price', 'sale_unit_price', 'price_basis', 'category', 'pieces_per_carton', 'columns'] as $key) {
             unset($items[0][$key]);
         }$q->update(['items' => $items]);
-        $this->get(route('admin.quotations.print',$q))->assertOk()->assertSee('10.00');
+        $this->get(route('admin.quotations.print',$q))->assertOk()->assertSee('10.00')
+            ->assertSee('<td class="quote-retail-unit">—</td>', false);
         $this->get(route('admin.quotations.edit',$q))->assertOk();
     }
 }

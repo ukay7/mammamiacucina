@@ -73,6 +73,17 @@ class Order extends Model
         });
     }
 
+    public const POS_CHANNELS = [
+        'in_person' => 'In person', 'whatsapp' => 'WhatsApp', 'website' => 'Website',
+        'email' => 'Email', 'phone' => 'Phone call', 'sms' => 'Text message',
+        'social' => 'Social media', 'other' => 'Other',
+    ];
+
+    public function getOrderChannelLabelAttribute(): string
+    {
+        return self::POS_CHANNELS[$this->order_channel] ?? ($this->source === 'pos' ? 'Quick Sale / POS' : 'Website');
+    }
+
     public const STATUSES = ['parked_admin' => 'Parked to Admin', 'awaiting_payment' => 'Awaiting payment', 'payment_review' => 'Payment needs review', 'out_for_delivery' => 'Out for Delivery', 'delivered' => 'Delivered', 'completed' => 'Completed', 'warehouse_pending' => 'Sent to warehouse', 'packing' => 'Packing', 'warehouse_issue' => 'Warehouse issue — admin action needed', 'ready_to_dispatch' => 'Ready for dispatch', 'cancelled' => 'Cancelled'];
 
     public function getStatusLabelAttribute(): string

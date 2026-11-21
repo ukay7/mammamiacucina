@@ -86,9 +86,10 @@ class CustomerController extends Controller {
  public function edit(Customer $customer){$documents=app(\App\Services\CustomerDocuments::class)->listing($customer,auth()->user(),request());return view('admin.customers.edit',compact('customer','documents'));}
  public function update(Request $r,Customer $customer){
   $d=$r->validate(['name'=>'required|string|max:100','alternate_email'=>'sometimes|nullable|email:filter|max:255','phone'=>'nullable|string|max:40','address'=>'nullable|string|max:255','city'=>'nullable|string|max:100','province'=>'nullable|string|max:100','postal_code'=>'nullable|string|max:30','country'=>'nullable|string|max:100','website'=>'nullable|url:http,https|max:255'] + \App\Services\BusinessDetails::rules($customer->account_type==='business'));
+  $d += $r->validate(['tier'=>['sometimes','required',\Illuminate\Validation\Rule::in(array_keys(Customer::TIERS))]]);
   \Illuminate\Support\Facades\DB::transaction(function()use($customer,$d){
    $customer->user->forceFill(\Illuminate\Support\Arr::only($d,['name','phone']))->save();
-   $customer->update(\Illuminate\Support\Arr::only($d,array_merge(['alternate_email','address','city','province','postal_code','country','website'],\App\Services\BusinessDetails::FIELDS)));
+   $customer->update(\Illuminate\Support\Arr::only($d,array_merge(['tier','alternate_email','address','city','province','postal_code','country','website'],\App\Services\BusinessDetails::FIELDS)));
   });
   return back()->with('status','Customer details updated.');
  }

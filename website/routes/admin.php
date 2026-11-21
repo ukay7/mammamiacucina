@@ -61,6 +61,7 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
                 Route::delete('/{draft}',[$drafts,'destroy'])->name('destroy');
             });
             Route::post('/customers', [PosController::class, 'customer'])->middleware('throttle:20,1')->name('customer');
+            Route::get('/customer-summary', [PosController::class, 'customerSummary'])->name('customer-summary');
             Route::get('/orders', [PosController::class, 'orders'])->name('orders');
             Route::post('/orders/{order}/handover', [PosController::class, 'handover'])->name('handover');
             Route::get('/orders/{order}', [PosController::class, 'order'])->name('order');

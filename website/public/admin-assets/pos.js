@@ -61,9 +61,71 @@
     }
     function customerGate(ready){
         customerReady=ready;
+        if(!ready){
+            $('#pos-customer-insights').hidden=true;
+            $('#pos-last-order').hidden=true;
+        }
         products?.setEnabled();
         $('#review-sale').disabled=!ready||!cart.size;
         drafts?.refreshButtons();
+    }
+    function renderLastOrder(order){
+        const container=$('#pos-last-order');
+        const details=make(order?.url?'a':'span',order?.number??'No orders yet');
+        if(order?.url) Object.assign(details,{href:order.url,target:'_blank',rel:'noopener'});
+        if(order){
+            const total=order.total_cents===null?'Pending':money(order.total_cents);
+            details.textContent=order.number+' · '+total;
+            details.title=[order.date,order.status].filter(Boolean).join(' · ');
+        }
+        container.replaceChildren(make('small','Last order'),details);
+        container.hidden=false;
+    }
+    function renderDueOrders(orders){
+        const list=$('#pos-dues-orders');
+        list.replaceChildren();
+        for(const order of orders){
+            const row=make('li'), details=make('div');
+            const reference=make(order.url?'a':'strong',order.number);
+            if(order.url) Object.assign(reference,{href:order.url,target:'_blank',rel:'noopener'});
+            details.append(reference,make('small',[order.date,order.status].filter(Boolean).join(' · ')));
+            row.append(details,make('strong',money(order.balance_cents)));
+            list.append(row);
+        }
+    }
+    const duesDialog=$('#pos-dues');
+    $('#pos-open-dues').onclick=()=>duesDialog.showModal();
+    $('#pos-close-dues').onclick=()=>duesDialog.close();
+    async function loadCustomerInsights(){
+        const panel=$('#pos-customer-insights'), status=$('#pos-insights-status'), content=$('#pos-insights-content');
+        const version=customerVersion;
+        panel.hidden=false;
+        content.hidden=true;
+        status.hidden=false;
+        status.textContent='Loading customer account…';
+        const url=new URL(panel.dataset.url,location.href);
+        url.searchParams.set('customer_id',customerId);
+        try{
+            const data=await request(url);
+            if(version!==customerVersion || data.customer_id!==customerId || !customerReady) return;
+            const tier=$('#pos-customer-tier'), profile=$('#pos-open-profile'), dues=data.last_month;
+            tier.textContent=data.tier_label;
+            tier.dataset.tier=data.tier;
+            $('#pos-available-credit').textContent=data.credit_enabled?money(data.available_credit_cents):'Not enabled';
+            profile.hidden=!data.profile_url;
+            if(data.profile_url) profile.href=data.profile_url;
+            else profile.removeAttribute('href');
+            renderLastOrder(data.last_order);
+            $('#pos-open-dues').hidden=dues.amount_cents<=0;
+            $('#pos-dues-warning-text').textContent=dues.label+' · '+money(dues.amount_cents)+' still due';
+            $('#pos-dues-caption').textContent=money(dues.amount_cents)+' remaining on '+dues.count+' '+(dues.count===1?'order':'orders')+' placed in '+dues.label+' (Toronto time).';
+            renderDueOrders(dues.orders);
+            $('#pos-dues-note').textContent=dues.orders.length>0 && dues.count>dues.orders.length?'Showing '+dues.orders.length+' orders. Open the customer profile for the full list.':'';
+            status.hidden=true;
+            content.hidden=false;
+        }catch(error){
+            if(version===customerVersion && customerReady) status.textContent='Could not load customer account details. Select the customer again to retry.';
+        }
     }
     const customerSelect=$('#pos-customer'), customerPicker=$('#pos-customer-picker'), customerToggle=$('#pos-customer-toggle');
     const customerSearch=$('#pos-customer-search'), customerMenu=$('#pos-customer-menu'), customerOptions=$('#pos-customer-options');
@@ -180,8 +242,15 @@
             const data=await request(url);
             profile=data.customer||profile;option.dataset.profile=JSON.stringify(profile);
             if(cart.size){
-                const reviewed=await request(app.dataset.quote,{customer_id:customerId,items:items(),fulfillment:'pickup',customer_id:id});
-                reviewed.items.forEach(line=>{cart.get(line.id).unit_cents=line.unit_cents;});
+                const reviewed=await request(app.dataset.quote,{customer_id:id,items:items(false),fulfillment:'pickup'});
+                reviewed.items.forEach(line=>{
+                    const cartLine=cart.get(line.id);
+                    cartLine.unit_cents=line.unit_cents;
+                    if(customerId!==id){
+                        delete cartLine.price_override_cents;
+                        delete cartLine.manual_discount_bps;
+                    }
+                });
             }
             customerId=id;customerVersion++;customerGate(true);quote=null;
             form.elements.customer_id.value=id;
@@ -195,18 +264,82 @@
             summary.append(document.createTextNode(' · '+(profile.account_type==='business'?'Business':'Individual')+' pricing'+(cart.size?' · Cart prices updated':'')));
             $('#confirm-customer').textContent='Customer selected';
             products.show(data);renderCart();$('#product-search').focus();
+            loadCustomerInsights();
             feedback('Customer selected. Search and scans now use '+profile.account_type+' prices.');
         }catch(error){feedback(error.message,true);$('#pos-customer-summary').textContent=error.message;}
         finally{confirmingCustomer=false;button.disabled=false;select.disabled=false;customerToggle.disabled=false;customerSearch.disabled=false;drafts?.refreshButtons();}
     };
-    const items = () => Array.from(cart.values()).map(line => ({id:line.id,quantity:line.quantity}));
+    const items = (includeAdjustments=true) => Array.from(cart.values()).map(line => {
+        const item={id:line.id,quantity:line.quantity};
+        if(includeAdjustments && line.price_override_cents!=null) item.price_override_cents=line.price_override_cents;
+        if(includeAdjustments && line.manual_discount_bps>0) item.manual_discount_bps=line.manual_discount_bps;
+        return item;
+    });
+    function saleUnitPrice(line){
+        const base=line.price_override_cents??line.unit_cents;
+        return base-Math.round(base*(line.manual_discount_bps||0)/10000);
+    }
+    function updateSubtotal(){
+        const subtotal=Array.from(cart.values()).reduce((total,line)=>total+line.quantity*saleUnitPrice(line),0);
+        $('#pos-subtotal').textContent=money(subtotal);
+    }
+    function linePricingEditor(line, onUpdate){
+        const editor=make('div',undefined,'pos-line-pricing');
+        const priceLabel=make('label','Unit price (CAD)'), discountLabel=make('label','Discount (%)');
+        const price=make('input',undefined,'form-control'), discount=make('input',undefined,'form-control');
+        Object.assign(price,{type:'number',min:'0',max:'9999999.99',step:'0.01',inputMode:'decimal'});
+        Object.assign(discount,{type:'number',min:'0',max:'100',step:'0.01',inputMode:'decimal'});
+        price.setAttribute('aria-label','Unit price for '+line.name);
+        discount.setAttribute('aria-label','Discount percent for '+line.name);
+        const reset=make('button',undefined,'pos-line-reset');
+        reset.type='button';
+        reset.title='Reset price and discount';
+        reset.setAttribute('aria-label','Reset price and discount for '+line.name);
+        const resetIcon=make('i',undefined,'fas fa-undo');
+        resetIcon.setAttribute('aria-hidden','true');
+        reset.append(resetIcon);
+        const sync=()=>{
+            price.value=((line.price_override_cents??line.unit_cents)/100).toFixed(2);
+            discount.value=String((line.manual_discount_bps||0)/100);
+        };
+        function update(){
+            reset.hidden=line.price_override_cents==null && !line.manual_discount_bps;
+            onUpdate();
+        }
+        price.oninput=()=>{
+            if(!canEdit() || !price.validity.valid) return;
+            const cents=price.value===''?null:Math.round(Number(price.value)*100);
+            line.price_override_cents=cents===line.unit_cents?null:cents;
+            update();
+        };
+        discount.oninput=()=>{
+            if(!canEdit() || !discount.validity.valid) return;
+            line.manual_discount_bps=Math.round(Number(discount.value)*100);
+            update();
+        };
+        price.onblur=discount.onblur=sync;
+        reset.onclick=()=>{
+            if(!canEdit()) return;
+            delete line.price_override_cents;
+            delete line.manual_discount_bps;
+            sync();
+            update();
+            price.focus();
+        };
+        reset.hidden=line.price_override_cents==null && !line.manual_discount_bps;
+        priceLabel.append(price);
+        discountLabel.append(discount);
+        editor.append(priceLabel,discountLabel,reset);
+        sync();
+        return editor;
+    }
     function canEdit() { return customerReady && !draftBusy && !checkout.open && !success.open && !reviewing && !submitting && !frozenPayload; }
     function renderCart() {
         const container = $('#pos-lines');
         container.replaceChildren();
-        let subtotal = 0, count = 0;
+        let count = 0;
         cart.forEach(line => {
-            subtotal += line.quantity * line.unit_cents; count += line.quantity;
+            count += line.quantity;
             const row = make('div',undefined,'pos-line');
             const photo = make('div',undefined,'pos-line-photo');
             if(line.image){const img=make('img');img.src=line.image;img.alt=line.name;img.loading='lazy';img.onerror=()=>photo.replaceChildren(make('span','No image'));photo.append(img);}
@@ -214,11 +347,15 @@
             const description = make('div',undefined,'pos-line-description');
             description.append(make('h3',line.name));
             appendAlternateNames(description, line);
-            if(line.barcode) description.append(make('small','Barcode: '+line.barcode));
             const controls = make('div',undefined,'pos-line-controls');
-            controls.append(make('small',money(line.unit_cents)+' each'+(line.uom?' · '+line.uom:'')));
+            const unit=make('small',money(saleUnitPrice(line))+' each'+(line.uom?' · '+line.uom:''));
+            const meta=make('div',undefined,'pos-line-meta');
+            if(line.barcode) meta.append(make('small','Barcode: '+line.barcode));
+            meta.append(unit);
+            description.append(meta);
             const summary = make('div',undefined,'pos-line-summary');
-            summary.append(make('strong',money(line.quantity * line.unit_cents),'pos-line-total'));
+            const total=make('strong',money(line.quantity * saleUnitPrice(line)),'pos-line-total');
+            summary.append(total);
             const actions = make('div',undefined,'pos-line-actions');
             const minus = make('button','−'), plus = make('button','+'), remove = make('button','Remove','pos-remove');
             [minus,plus,remove].forEach(button => button.type = 'button');
@@ -231,11 +368,22 @@
             plus.onclick = () => changeQuantity(line.id,line.quantity + 1);
             quantity.onchange = () => { changeQuantity(line.id,Number(quantity.value)); quantity.value = String(cart.get(line.id)?.quantity || 1); };
             remove.onclick = () => { if(canEdit()){cart.delete(line.id);quote=null;renderCart();} };
-            actions.append(minus,quantity,plus);controls.append(actions);summary.append(remove);
-            row.append(photo,description,controls,summary);container.append(row);
+            actions.append(minus,quantity,plus);
+            summary.append(remove);
+            const pricing=linePricingEditor(line,()=>{
+                quote=null;
+                unit.textContent=money(saleUnitPrice(line))+' each'+(line.uom?' · '+line.uom:'');
+                total.textContent=money(line.quantity*saleUnitPrice(line));
+                updateSubtotal();
+            });
+            const quantityRow=make('div',undefined,'pos-line-quantity-row');
+            quantityRow.append(actions,summary);
+            controls.append(pricing,quantityRow);
+            row.append(photo,description,controls);
+            container.append(row);
         });
         if (!cart.size) container.append(make('p','No products added yet.','pos-empty'));
-        $('#pos-subtotal').textContent = money(subtotal);
+        updateSubtotal();
         $('#pos-item-count').textContent = String(count);
         $('#review-sale').disabled = !customerReady || !cart.size || pendingScans > 0 || reviewing;
         drafts?.refreshButtons();
@@ -261,7 +409,8 @@
         if (quantity > 9999 || (product.stock !== null && quantity > Number(product.stock))) {
             feedback('Not enough stock for '+product.name+'. Available: '+(product.stock === null ? '9,999 per sale' : MMCNumber.decimal(product.stock,'quantity')),true);return false;
         }
-        cart.set(product.id,{...product,quantity});quote=null;renderCart();
+        const previous=cart.get(product.id);
+        cart.set(product.id,{...product,quantity,price_override_cents:previous?.price_override_cents,manual_discount_bps:previous?.manual_discount_bps});quote=null;renderCart();
         feedback('Added '+product.name+' · quantity '+quantity);
         return true;
     }
@@ -304,7 +453,21 @@
         $('#pos-credit-warning').dataset.projected=data.credit_order_warning||'';$('#pos-credit-warning').dataset.current=data.credit_warning||'';configurePayment();
         if(data.delivery_route?.delivery_service_name && form.elements.delivery_service.selectedOptions[0])form.elements.delivery_service.selectedOptions[0].textContent=data.delivery_route.delivery_service_name+(form.elements.delivery_service.selectedOptions[0].dataset.description?' ('+form.elements.delivery_service.selectedOptions[0].dataset.description+')':'')+' — '+money(data.delivery);
         const lines=$('#quote-lines');lines.replaceChildren();
-        data.items.forEach(line=>{const row=make('div',undefined,'pos-quote-line'),amount=make('strong'),description=make('span',line.name+' × '+line.quantity);appendAlternateNames(description,line);if(line.discount_bps){const before=make('del',money(line.original_unit_cents*line.quantity)),hint=make('abbr',' * '+(line.discount_bps/100)+'%');hint.title='Admin special discount for this customer';hint.tabIndex=0;amount.append(before,document.createTextNode(' '),hint,document.createElement('br'));}amount.append(document.createTextNode(money(line.unit_cents*line.quantity)));row.append(description,amount);lines.append(row);});
+        data.items.forEach(line=>{
+            const row=make('div',undefined,'pos-quote-line'), amount=make('strong'), description=make('span',line.name+' × '+line.quantity);
+            appendAlternateNames(description,line);
+            if(line.price_override_cents!=null) description.append(make('small','Custom unit price '+money(line.price_override_cents),'pos-alternate-name'));
+            if(line.discount_bps){
+                const before=make('del',money(line.original_unit_cents*line.quantity));
+                const hint=make('abbr',' · '+(line.discount_bps/100)+'% off');
+                hint.title=line.manual_discount_bps?'Sale discount':'Customer product discount';
+                hint.tabIndex=0;
+                amount.append(before,hint,document.createElement('br'));
+            }
+            amount.append(document.createTextNode(money(line.unit_cents*line.quantity)));
+            row.append(description,amount);
+            lines.append(row);
+        });
         const totals=$('#quote-totals');totals.replaceChildren();
         [['Product subtotal before overall discount',data.subtotal+(data.order_discount_cents||0)],['Admin special order discount *',-(data.order_discount_cents||0)],['Discounted subtotal',data.subtotal],[($('#fulfillment').value==='pickup'?'Pick up':'Delivery')+(data.delivery_route?.delivery_service_name?' · '+data.delivery_route.delivery_service_name:''),data.delivery],['Tax ('+MMCNumber.decimal(data.tax_percent)+'%)',data.tax],['Total (CAD)',data.total]].forEach(([label,value])=>{
             const row=make('div');row.append(make('span',label),make('span',money(value)));totals.append(row);
@@ -335,7 +498,7 @@
         $('#pos-delivery-choice').hidden=!matrixDelivery();
         form.elements.delivery_service.disabled=!matrixDelivery();form.elements.delivery_service.required=matrixDelivery();
     }
-    function clearQuote(){quote=null;$('#quote-lines').replaceChildren();cart.forEach(line=>{const row=make('div',undefined,'pos-quote-line'),description=make('span',line.name+' × '+line.quantity);appendAlternateNames(description,line);row.append(description,make('strong',money(line.unit_cents*line.quantity)));$('#quote-lines').append(row);});$('#complete-button').disabled=true;$('#complete-button').textContent='Complete sale';$('#quote-totals').textContent=matrixDelivery()?'Select a delivery service to calculate the total.':'Updating order total…';}
+    function clearQuote(){quote=null;$('#quote-lines').replaceChildren();cart.forEach(line=>{const row=make('div',undefined,'pos-quote-line'),description=make('span',line.name+' × '+line.quantity);appendAlternateNames(description,line);row.append(description,make('strong',money(saleUnitPrice(line)*line.quantity)));$('#quote-lines').append(row);});$('#complete-button').disabled=true;$('#complete-button').textContent='Complete sale';$('#quote-totals').textContent=matrixDelivery()?'Select a delivery service to calculate the total.':'Updating order total…';}
     async function refreshDelivery(){
         if(draftBusy||!matrixDelivery()||frozenPayload||submitting)return;
         const serial=++deliverySerial;quoteSerial++;clearQuote();
@@ -449,7 +612,7 @@
             if(value){stopCamera();quoteSerial++;deliverySerial++;clearTimeout(deliveryTimer);}
         },
         capture:()=>({customer_id:customerId,items:items(),fulfillment:$('#fulfillment').value,stage:checkout.open?'checkout':'cart',...products.snapshot(),
-            checkout:Object.fromEntries(['phone','notes','payment_method','payment_status','delivery_service'].map(key=>[key,form.elements[key].value])),
+            checkout:Object.fromEntries(['phone','order_channel','notes','payment_method','payment_status','delivery_service'].map(key=>[key,form.elements[key].value])),
             address:addressPicker.snapshot(),schedule:schedulePicker.snapshot()}),
         receipt:()=>$('#pos-transfer-file').files[0]||null,
         reset:resetDraftCart,
@@ -466,10 +629,12 @@
                 addressPicker.setCustomer(profile);customerGate(true);
                 const summary=$('#pos-customer-summary');summary.textContent=customerBusinessPrefix(profile)+profile.name;
                 window.mmcBusinessCustomerIcon.append(summary,profile.account_type);$('#confirm-customer').textContent='Customer selected';
+                loadCustomerInsights();
             }else $('#pos-customer-summary').textContent='The saved customer is unavailable. Select a customer to continue.';
             state.items.forEach(line=>cart.set(line.id,{...line,stock:null}));
             $('#fulfillment').value=state.fulfillment;products.restore(state,profile);
             for(const key of ['phone','notes','payment_method','payment_status'])form.elements[key].value=state.checkout[key]||'';
+            form.elements.order_channel.value=state.checkout.order_channel||'in_person';
             cashPaymentStatus=state.checkout.payment_method==='cash'?state.checkout.payment_status:'paid';
             if(state.checkout.delivery_service)form.elements.delivery_service.add(new Option(state.checkout.delivery_service,state.checkout.delivery_service));
             form.elements.delivery_service.value=state.checkout.delivery_service||'';

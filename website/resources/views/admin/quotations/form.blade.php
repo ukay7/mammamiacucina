@@ -11,12 +11,33 @@
 <div class="form-group col-md-3"><label>Due / valid until</label><input type="date" class="form-control" name="due_date" value="{{ old('due_date',$quotation->due_date?->format('Y-m-d')??\App\Support\BusinessTime::now()->addDays(30)->format('Y-m-d')) }}" required></div></div>
 <p>All active products load when you select a customer. Remove unwanted rows. Quote prices are editable for this quotation only. Sale-unit and carton prices are linked using pieces per carton; quantity counts cartons. Products without a known pack size show no sale-unit price. Changing customer or pricing tier reloads the standard prices.</p>
 <div class="d-flex flex-wrap mb-3"><input id="product-filter" class="form-control mr-2" style="max-width:350px" placeholder="Find product by name, code or number"><button type="button" id="remove-selected" class="btn btn-outline-danger mr-2">Remove checked</button><button type="button" id="restore-products" class="btn btn-outline-primary">Add missing products</button></div>
-<details class="quote-column-picker mb-3"><summary class="btn btn-outline-primary">Choose columns</summary>
+<div class="quote-table-toolbar mb-3">
+<details class="quote-column-picker"><summary class="btn btn-outline-primary">Choose columns</summary>
 <div class="p-3"><p class="text-muted">Product details are read-only. Choose which details to show alongside the quotation fields.</p>
 <div class="d-flex flex-wrap mb-3" style="gap:8px">@foreach($columnPresets as $label=>$keys)<button type="button" class="btn btn-outline-primary quote-column-preset" data-columns="{{ implode(',',$keys) }}">{{ $label }}</button>@endforeach<button type="button" class="btn btn-outline-primary quote-column-preset" data-columns="{{ implode(',',array_keys($columnLabels)) }}">All columns</button><button type="button" class="btn btn-outline-primary quote-column-preset" data-columns="">Clear selection</button></div>
 <div class="quote-column-options">@foreach($columnLabels as $key=>$label)<label><input type="checkbox" class="quote-column-toggle" value="{{ $key }}"> {{ $label }}</label>@endforeach</div></div></details>
+<div class="quote-bulk-discount">
+    <label for="quote-bulk-discount">Line discount for all (%)</label>
+    <div class="quote-bulk-discount-controls">
+        <input class="form-control" id="quote-bulk-discount" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off" aria-describedby="quote-bulk-discount-status">
+        <button type="button" class="btn btn-outline-primary" id="apply-line-discount">Apply</button>
+    </div>
+    <small id="quote-bulk-discount-status" role="status"></small>
+</div>
+</div>
+<style>
+.quote-table-toolbar { display:flex; flex-wrap:wrap; align-items:flex-start; gap:12px 16px; padding:12px; border:1px solid #dfcaab; border-radius:8px; }
+.quote-table-toolbar .quote-column-picker { min-width:0; }
+.quote-table-toolbar .quote-column-picker[open] { flex-basis: min(100%, 32rem); }
+.quote-bulk-discount, .quote-bulk-discount-controls { display:flex; align-items:center; gap:8px; }
+.quote-bulk-discount { flex-wrap:wrap; min-width:0; }
+.quote-bulk-discount label { margin:0; }
+#quote-bulk-discount { width:6rem; }
+#quote-bulk-discount-status { flex-basis:100%; }
+#quote-bulk-discount-status:empty { display:none; }
+</style>
 <div class="table-responsive quote-table-wrap"><table class="table quote-table"><thead><tr id="quote-head"></tr></thead><tbody id="quote-items"></tbody></table></div>
-<style>.quote-column-picker{border:1px solid #dfcaab;border-radius:8px;padding:12px}.quote-column-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}.quote-column-options label{margin:0}.quote-table-wrap{max-width:100%;max-height:72vh;overflow:auto}.quote-table{margin:0}.quote-table thead th{background:#3d241b!important;color:#fff!important;white-space:nowrap;position:sticky;top:0;z-index:1}.quote-table .quote-category th{background:#eee4d4;color:#3d241b;text-transform:uppercase;font-weight:700;padding:9px 12px}.quote-table .quote-product:nth-child(even){background:#f8f3eb}.quote-table td{vertical-align:middle}.quote-table .quote-name{min-width:210px}.quote-table .quote-detail{min-width:145px;max-width:320px;overflow-wrap:anywhere}.quote-table .quote-detail img{width:52px;height:52px;object-fit:contain}.quote-table .line-total{white-space:nowrap;font-weight:600}.quote-table input[type=number]{min-width:115px}.quote-table input[data-field=quantity],.quote-table input[data-field=discount_percent]{min-width:85px}</style>
+<style>.quote-column-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}.quote-column-options label{margin:0}.quote-table-wrap{max-width:100%;max-height:72vh;overflow:auto}.quote-table{margin:0}.quote-table thead th{background:#3d241b!important;color:#fff!important;white-space:nowrap;position:sticky;top:0;z-index:1}.quote-table .quote-category th{background:#eee4d4;color:#3d241b;text-transform:uppercase;font-weight:700;padding:9px 12px}.quote-table .quote-product:nth-child(even){background:#f8f3eb}.quote-table td{vertical-align:middle}.quote-table .quote-name{min-width:210px}.quote-table .quote-detail{min-width:145px;max-width:320px;overflow-wrap:anywhere}.quote-table .quote-detail img{width:52px;height:52px;object-fit:contain}.quote-table .line-total{white-space:nowrap;font-weight:600}.quote-table input[type=number]{min-width:115px}.quote-table input[data-field=quantity],.quote-table input[data-field=discount_percent]{min-width:85px}</style>
 <div class="row">@foreach(['discount_percent'=>'Overall discount (%)','charge_percent'=>'Additional charge (%)','tax_percent'=>'Tax (%)'] as $field=>$label)<div class="form-group col-md-4"><label>{{ $label }}</label><input class="form-control quote-adjustment" data-number-display="decimal" id="{{ $field }}" name="{{ $field }}" type="number" min="0" step="0.01" max="100" value="{{ old($field,$field==='discount_percent'?($quotation->discount_basis_points!==null?$quotation->discount_basis_points/100:round(($quotation->discount_cents??0)*100/max(1,($quotation->subtotal_cents??0)-($quotation->line_discount_cents??0)),2)):($field==='charge_percent'?($quotation->charge_basis_points??0)/100:($quotation->tax_basis_points??$tax)/100)) }}" required></div>@endforeach</div>
 <p class="text-muted">Line discounts and overall discount are deducted first. The percentage charge applies next, and tax applies to that amount. Delivery is not included.</p>
 @if($quotation->exists && $quotation->discount_basis_points===null)<p class="text-muted">This older quotation used fixed discounts. Editing converts them to percentages; review the recalculated totals before saving.</p>@endif

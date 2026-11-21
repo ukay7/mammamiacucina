@@ -98,6 +98,19 @@ class PosDraftTest extends TestCase
         $this->postJson(route('admin.pos.drafts.save'),$input)->assertUnprocessable();
     }
 
+    public function test_draft_retains_sale_adjustments_and_contact_channel(): void
+    {
+        $payload = $this->payload();
+        $payload['items'][0] += ['price_override_cents' => 1095, 'manual_discount_bps' => 850];
+        $payload['checkout']['order_channel'] = 'email';
+        $id = $this->postJson(route('admin.pos.drafts.save'), $this->input($payload))->assertOk()->json('id');
+        $this->getJson(route('admin.pos.drafts.show', $id))->assertOk()
+            ->assertJsonPath('payload.checkout.order_channel', 'email')
+            ->assertJsonPath('payload.items.0.price_override_cents', 1095)
+            ->assertJsonPath('payload.items.0.manual_discount_bps', 850)
+            ->assertJsonPath('payload.items.0.unit_cents', 1500);
+    }
+
     public function test_only_super_admin_can_use_any_draft_endpoint_or_convert_one(): void
     {
         $draft=$this->save(['receipt'=>UploadedFile::fake()->image('private.png')]);

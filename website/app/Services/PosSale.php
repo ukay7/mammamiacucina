@@ -9,6 +9,14 @@ use Illuminate\Validation\ValidationException;
 
 class PosSale
 {
+    public static function adjustmentRules(): array
+    {
+        return [
+            'items.*.price_override_cents' => 'nullable|integer|min:0|max:999999999',
+            'items.*.manual_discount_bps' => 'nullable|integer|min:0|max:10000',
+        ];
+    }
+
     private function fail(string $message): never
     {
         throw ValidationException::withMessages(['sale' => $message]);
@@ -31,15 +39,31 @@ class PosSale
             }
             $query = Inventory::where('product_id', $product->id);
             $inventory = ($lock ? $query->lockForUpdate() : $query)->first();
+            $adjustment = [];
+            $override = $item['price_override_cents'] ?? null;
+            $manualDiscount = (int) ($item['manual_discount_bps'] ?? 0);
+            if ($override !== null || $manualDiscount > 0) {
+                $base = $override === null ? $price : (int) $override;
+                $adjustment = [
+                    'price_override_cents' => $override === null ? null : $base,
+                    'manual_discount_bps' => $manualDiscount,
+                    'customer_unit_cents' => $price,
+                ];
+                $pricing = [
+                    'original_unit_cents' => $base,
+                    'discount_bps' => $manualDiscount,
+                    'unit_cents' => $base - (int) round($base * $manualDiscount / 10000),
+                ];
+            }
             $lines[] = ['product' => $product, 'inventory' => $inventory, 'quantity' => (int) $item['quantity'],
-                'unit_cents' => $price, 'original_unit_cents'=>$pricing['original_unit_cents'],'discount_bps'=>$pricing['discount_bps']];
+                'adjustment' => $adjustment] + $pricing;
         }
         return $lines;
     }
 
     private function snapshot(array $lines): array
     {
-        return array_map(fn ($line) => ['id' => $line['product']->id, 'quantity' => $line['quantity'], 'unit_cents' => $line['unit_cents'],'original_unit_cents'=>$line['original_unit_cents'],'discount_bps'=>$line['discount_bps']], $lines);
+        return array_map(fn ($line) => ['id' => $line['product']->id, 'quantity' => $line['quantity'], 'unit_cents' => $line['unit_cents'],'original_unit_cents'=>$line['original_unit_cents'],'discount_bps'=>$line['discount_bps']] + $line['adjustment'], $lines);
     }
 
     public function quote(array $items, string $fulfillment, int $userId, array $destination=[]): array
@@ -70,7 +94,7 @@ class PosSale
             'tax' => $tax, 'total' => $subtotal + $delivery + $tax, 'tax_percent' => $settings->tax_basis_points / 100,
             'items' => array_map(fn ($line) => ['id'=>$line['product']->id,'name' => $line['product']->premium_marketing_name, 'quantity' => $line['quantity'],
                 'subtitle' => $line['product']->italian_subtitle, 'source_name' => $line['product']->original_description,
-                'unit_cents' => $line['unit_cents'],'original_unit_cents'=>$line['original_unit_cents'],'discount_bps'=>$line['discount_bps']], $lines)];
+                'unit_cents' => $line['unit_cents'],'original_unit_cents'=>$line['original_unit_cents'],'discount_bps'=>$line['discount_bps']] + $line['adjustment'], $lines)];
     }
 
     public function complete(string $encrypted, array $customer, int $userId): Order
@@ -164,6 +188,7 @@ class PosSale
                 'order_discount_cents'=>$discount,'credit_warning'=>$warning,
                 'customer_id'=>$profile?->id, 'checkout_token' => $quote['token'], 'number' => 'POS-'.Str::ulid(),
                 'notes' => $customer['notes'] ?? null, 'source' => 'pos', 'created_by' => $userId,
+                'order_channel' => $customer['order_channel'] ?? null,
                 'fulfillment' => $quote['fulfillment'], 'pickup_address'=>$pickup ? $settings->pickup_address : null,
                 'delivery_scheduled_at' => $deliverySchedule,
                 'status' => $warehouseSale ? 'ready_to_dispatch' : 'warehouse_pending',
@@ -192,6 +217,10 @@ class PosSale
                 }
             }
             $order->events()->create(['user_id' => $userId, 'description' => 'Quick Sale created Â· '.($pickup ? 'Pick up' : 'Delivery').' Â· '.$customer['payment_method'].' '.$customer['payment_status'], 'created_at' => now()]);
+            $adjustedCount = count(array_filter($lines, fn ($line) => $line['adjustment'] !== []));
+            if ($adjustedCount > 0) {
+                $order->events()->create(['user_id' => $userId, 'description' => 'Manual pricing applied in Quick Sale to '.$adjustedCount.' item line(s).', 'created_at' => now()]);
+            }
             if ($warehouseSale) app(CustomerInvoicing::class)->issue($order);
             app(CustomerEmails::class)->order($order, 'order_confirmation', 'order-created:'.$order->id);
             return $order;

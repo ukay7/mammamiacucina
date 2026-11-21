@@ -20,7 +20,7 @@
             <span><b>Phone:</b> {{ filled($order->phone)?$order->phone:'Not provided' }}</span>
         </div></div>
         <div><i class="fas fa-{{ $order->fulfillment==='pickup'?'store':'truck' }}" aria-hidden="true"></i><div><strong>{{ $order->fulfillment==='pickup'?'Pick up':'Delivery' }}</strong><span>{{ $order->fulfillment==='pickup'?'Pick up in store':trim($order->address.', '.$order->city.', '.$order->province.' '.$order->postal_code.', '.$order->country,', ') }}</span></div></div>
-        <div><i class="fas fa-calendar-alt" aria-hidden="true"></i><div><strong>{{ \App\Support\BusinessTime::format($order->ordered_at,'d M Y') }}</strong><span>{{ \App\Support\BusinessTime::format($order->ordered_at,'H:i T') }} · {{ $order->source==='pos'?'Quick Sale / POS':'Website' }}</span></div></div>
+        <div><i class="fas fa-calendar-alt" aria-hidden="true"></i><div><strong>{{ \App\Support\BusinessTime::format($order->ordered_at,'d M Y') }}</strong><span>{{ \App\Support\BusinessTime::format($order->ordered_at,'H:i T') }} · {{ $order->order_channel_label }}</span></div></div>
     </div>
     @include('partials.order-delivery-schedule')
     @if($order->notes)<div class="wh-customer-note"><strong>Customer instructions</strong><p>{{ $order->notes }}</p></div>@endif

@@ -10,10 +10,21 @@ REFERENCE &nbsp;|&nbsp; {{ $quotation->number }}</p></div></section>
 $quoteImages=app(\App\Services\DocumentProductImages::class)->forItems($quotation->items ?? []);
 $quoteGroups=collect($quotation->items)->map(fn($item,$index)=>array_merge($item,['image'=>$quoteImages[$index]??null]))->groupBy(fn($item)=>$item['category']??'Uncategorized')->sortKeys();
 $quoteMoney=fn($value)=>'$'.\App\Support\NumberDisplay::decimal($value);
+$retailMultiplier=1.2;
 @endphp
-<div class="quote-lines-scroll"><table class="quote-lines"><thead><tr><th style="width:6%">PHOTO</th><th style="width:8%">CODE</th><th style="width:23%">PRODUCT</th><th style="width:9%">CARTON<br>PACK</th><th style="width:10%">DISCOUNT</th><th style="width:14%" aria-label="Quote / Sale Unit">QUOTE /<br>SALE UNIT</th><th style="width:14%">QUOTE /<br>CARTON</th><th style="width:16%">SUGGESTED RETAIL<br>/ CARTON (+20%)</th></tr></thead><tbody>
+<div class="quote-lines-scroll"><table class="quote-lines"><thead><tr>
+    <th style="width:5.5%">PHOTO</th>
+    <th style="width:8%">CODE</th>
+    <th style="width:23%">PRODUCT</th>
+    <th style="width:8%">CARTON<br>PACK</th>
+    <th style="width:7.5%">DISCOUNT</th>
+    <th style="width:10%" aria-label="Quote / Sale Unit">QUOTE /<br>SALE UNIT</th>
+    <th style="width:10%">QUOTE /<br>CARTON</th>
+    <th style="width:14%">SUGGESTED RETAIL<br>/ CARTON (+20%)</th>
+    <th style="width:14%" aria-label="Suggested retail / sale unit (+20%)">SUGGESTED RETAIL<br>/ SALE UNIT (+20%)</th>
+</tr></thead><tbody>
 @foreach($quoteGroups as $category=>$items)
-<tr class="quote-category"><th colspan="8">{{ $category }}</th></tr>
+<tr class="quote-category"><th colspan="9">{{ $category }}</th></tr>
 @foreach($items as $item)
 @php
 $carton=(float)($item['unit_price']??($item['unit_cents']/100));
@@ -21,8 +32,10 @@ $factor=isset($item['discount_basis_points'])?1-$item['discount_basis_points']/1
 $netCarton=$carton*$factor;
 $pack=$item['pieces_per_carton']??null;
 $unit=$pack?$netCarton/$pack:(isset($item['sale_unit_price'])?(float)$item['sale_unit_price']*$factor:null);
+$suggestedCarton=$netCarton*$retailMultiplier;
+$suggestedUnit=$unit!==null?$unit*$retailMultiplier:null;
 @endphp
-<tr><td>@if($item['image'])<img class="quote-product-image" src="{{ $item['image'] }}" alt="{{ $item['name'] }}" width="26" height="26">@else<span class="quote-no-image" aria-label="No product photo">—</span>@endif</td><td class="quote-code">{{ $item['code'] }}</td><td>{{ $item['name'] }}@if($item['quantity']>1)<small> · {{ $item['quantity'] }} cartons</small>@endif</td><td>{{ $pack?$pack.' '.($pack===1?'pc':'pcs'):'—' }}</td><td>{{ \App\Support\NumberDisplay::decimal((1-$factor)*100) }}%</td><td>{{ $unit!==null?$quoteMoney($unit):'—' }}</td><td>{{ $quoteMoney($netCarton) }}</td><td>{{ $quoteMoney($netCarton*1.2) }}</td></tr>
+<tr><td>@if($item['image'])<img class="quote-product-image" src="{{ $item['image'] }}" alt="{{ $item['name'] }}" width="26" height="26">@else<span class="quote-no-image" aria-label="No product photo">—</span>@endif</td><td class="quote-code">{{ $item['code'] }}</td><td>{{ $item['name'] }}@if($item['quantity']>1)<small> · {{ $item['quantity'] }} cartons</small>@endif</td><td>{{ $pack?$pack.' '.($pack===1?'pc':'pcs'):'—' }}</td><td>{{ \App\Support\NumberDisplay::decimal((1-$factor)*100) }}%</td><td>{{ $unit!==null?$quoteMoney($unit):'—' }}</td><td>{{ $quoteMoney($netCarton) }}</td><td>{{ $quoteMoney($suggestedCarton) }}</td><td class="quote-retail-unit">{{ $suggestedUnit!==null?$quoteMoney($suggestedUnit):'—' }}</td></tr>
 @endforeach
 @endforeach
 </tbody></table></div>
@@ -38,6 +51,6 @@ $unit=$pack?$netCarton/$pack:(isset($item['sale_unit_price'])?(float)$item['sale
 .quote-lines thead th:nth-child(5),.quote-lines td:nth-child(5){text-align:left}
 .quote-product-image{display:block;width:26px;height:26px;object-fit:contain;border:1px solid #e1d1b9;border-radius:3px;background:white}
 .quote-no-image{display:block;width:26px;text-align:center;color:#a0907b}
-@media screen and (max-width:700px){.quote-lines-scroll{overflow-x:auto}.quote-lines{min-width:620px;font-size:8.5px}}
+@media screen and (max-width:700px){.quote-document{width:100%;min-width:0}.quote-lines-scroll{overflow-x:auto}.quote-lines{min-width:690px;font-size:8.5px}}
 </style>
 @include('documents.header-style')

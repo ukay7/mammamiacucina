@@ -10,7 +10,15 @@
 <div id="pos-feedback" class="pos-feedback" role="status" aria-live="polite" hidden></div>
 <div class="pos-layout pos-workspace">
 <div class="pos-workspace-column">
-<section class="pos-panel pos-customer-step"><div class="pos-panel-heading"><h2>1 · Customer</h2><a class="btn btn-outline-primary" href="{{ route('admin.pos.orders') }}">My POS orders</a></div><form id="pos-customer-form" class="pos-customer-body">
+<section class="pos-panel pos-customer-step">
+<div class="pos-panel-heading">
+    <h2>1 · Customer</h2>
+    <div class="pos-customer-heading-actions">
+        <a class="btn btn-outline-primary" href="{{ route('admin.pos.orders') }}">My POS orders</a>
+        <div id="pos-last-order" class="pos-last-order" hidden></div>
+    </div>
+</div>
+<form id="pos-customer-form" class="pos-customer-body">
 <label id="pos-customer-fallback">Customer<select class="form-control" name="existing_customer_id" id="pos-customer"><option value="">Choose a customer…</option><option value="new">+ Add new customer</option>@foreach($customers as $customer)<option value="{{ $customer->id }}" data-pending="{{ $customer->user->businessApprovalPending()?'1':'0' }}" data-profile="{{ json_encode($customer->only(['name','email','phone','address','city','province','postal_code','country','account_type','business_name'])) }}">#{{ $customer->id }} · @if($customer->account_type==='business' && filled($customer->business_name)){{ trim($customer->business_name) }} · @endif{{ $customer->name }}@if(filled($customer->email)) — {{ $customer->email }}@endif @if(filled($customer->phone)) · {{ $customer->phone }}@endif</option>@endforeach</select></label>
 <div class="pos-customer-picker" id="pos-customer-picker" hidden>
 <label id="pos-customer-label" for="pos-customer-toggle">Customer</label>
@@ -25,7 +33,9 @@
 @include('partials.business-fields',['businessDynamic'=>true])
 
 <div class="pos-customer-grid"><label>First name<input class="form-control" name="first_name" maxlength="100" autocomplete="given-name"></label><label>Last name<input class="form-control" name="last_name" maxlength="100" autocomplete="family-name"></label><label>Phone<input class="form-control" name="phone" maxlength="40" type="tel" autocomplete="tel"></label><label>Email (required for new customers)<input class="form-control" name="email" required maxlength="255" type="email" autocomplete="email"></label></div>
-<details><summary>Address (optional)</summary><div class="pos-customer-grid">@foreach(['address'=>'Street address','city'=>'City','province'=>'Province','postal_code'=>'Postal code','country'=>'Country'] as $key=>$label)<label>{{ $label }}<input class="form-control" name="{{ $key }}" maxlength="255" value="{{ $key==='country'?'Canada':'' }}"></label>@endforeach</div></details></div><div class="pos-customer-actions"><button type="submit" class="btn btn-primary" id="confirm-customer">Use selected customer</button><span id="pos-customer-summary" role="status">Select a customer or create one to start.</span></div></form></section>
+<details><summary>Address (optional)</summary><div class="pos-customer-grid">@foreach(['address'=>'Street address','city'=>'City','province'=>'Province','postal_code'=>'Postal code','country'=>'Country'] as $key=>$label)<label>{{ $label }}<input class="form-control" name="{{ $key }}" maxlength="255" value="{{ $key==='country'?'Canada':'' }}"></label>@endforeach</div></details></div><div class="pos-customer-actions"><button type="submit" class="btn btn-primary" id="confirm-customer">Use selected customer</button><span id="pos-customer-summary" role="status">Select a customer or create one to start.</span></div>
+@include('admin.pos.customer-insights')
+</form></section>
 <section class="pos-panel pos-discovery" aria-labelledby="scan-heading">
 <div class="pos-panel-heading"><div><span class="pos-eyebrow">BROWSE THE COLLECTION</span><h2 id="scan-heading">2 · Products</h2></div><span id="pos-pricing-label" class="pos-badge">Select a customer</span></div>
 <form id="pos-product-search-form" class="pos-product-toolbar" method="get">
@@ -35,8 +45,8 @@
 </form>
 <div id="camera-area" hidden><video id="pos-video" muted playsinline></video><div class="pos-camera-tools"><span>Hold the code steady, then move it away to scan again.</span><button id="camera-stop" type="button" class="btn btn-outline-primary">Stop camera</button></div></div>
 <div id="pos-categories" class="pos-category-strip" role="group" aria-label="Filter products by category"><button type="button" class="pos-category is-selected" data-category="" aria-pressed="true">All products</button>@foreach($categories as $category)<button type="button" class="pos-category" data-category="{{ $category->id }}" aria-pressed="false">{{ $category->name }}</button>@endforeach</div>
-<div class="pos-shelf-heading"><span id="pos-result-status" role="status" aria-live="polite">Select a customer to browse products.</span><div class="pos-shelf-navigation"><button type="button" id="pos-products-prev" aria-label="Scroll products left" title="Previous products">←</button><button type="button" id="pos-products-next" aria-label="Scroll products right" title="Next products">→</button></div></div>
-<div id="pos-results" class="pos-results pos-product-shelf" role="region" aria-label="Products — scroll horizontally" tabindex="0"><p class="pos-empty">Your collection is ready.<br><small>Select a customer above to see their prices.</small></p></div>
+<div class="pos-shelf-heading"><span id="pos-result-status" role="status" aria-live="polite">Select a customer to browse products.</span></div>
+<div id="pos-results" class="pos-results pos-product-list" role="region" aria-label="Browse products" tabindex="0"><p class="pos-empty">Your collection is ready.<br><small>Select a customer above to see their prices.</small></p></div>
 </section>
 </div>
 <div class="pos-workspace-column">
@@ -52,10 +62,27 @@
 </div>
 </div>
 @include('admin.pos.product-details')
+<dialog id="pos-dues" aria-labelledby="pos-dues-heading">
+    <header class="pos-panel-heading"><h2 id="pos-dues-heading">Outstanding balance</h2><button type="button" id="pos-close-dues" class="pos-link">Close ×</button></header>
+    <div class="pos-checkout-body">
+        <p id="pos-dues-caption"></p>
+        <ul id="pos-dues-orders" class="pos-recent-orders"></ul>
+        <p id="pos-dues-note" class="pos-insights-status"></p>
+    </div>
+</dialog>
 <dialog id="pos-checkout" aria-labelledby="checkout-heading">
 <form id="complete-sale"><header class="pos-panel-heading"><div><span class="pos-eyebrow">FINAL CHECK</span><h2 id="checkout-heading">Review & place order</h2></div><button type="button" id="close-checkout" class="pos-link">Close ×</button></header>
 <div class="pos-checkout-body"><div id="quote-lines"></div><div class="pos-totals" id="quote-totals"></div>
-<p id="customer-help" class="pos-help"></p><input type="hidden" name="customer_id"><input type="hidden" name="first_name"><input type="hidden" name="last_name"><input type="hidden" name="email"><label>Customer phone<input class="form-control" name="phone" maxlength="40" type="tel"></label>
+<p id="customer-help" class="pos-help"></p><input type="hidden" name="customer_id"><input type="hidden" name="first_name"><input type="hidden" name="last_name"><input type="hidden" name="email"><div class="pos-customer-grid pos-checkout-contact">
+    <label>Customer phone<input class="form-control" name="phone" maxlength="40" type="tel"></label>
+    <label>Order source
+        <select class="form-control" name="order_channel">
+            @foreach(\App\Models\Order::POS_CHANNELS as $channel => $label)
+                <option value="{{ $channel }}">{{ $label }}</option>
+            @endforeach
+        </select>
+    </label>
+</div>
 <div class="pos-customer-grid"><label>Payment method<select class="form-control" name="payment_method"><option value="cash">Cash on pickup</option><option value="etransfer">E-transfer</option><option value="cheque">Cheque</option><option value="credit">Customer Credit</option></select></label><label>Payment status<select class="form-control" name="payment_status"><option value="paid">Paid · payment received</option><option value="unpaid">Unpaid · collect on delivery</option></select></label></div>
 <p class="pos-help">For cash, choose Paid only after receiving payment, or Unpaid to collect later. Cheque/E-transfer await admin verification; customer credit remains unpaid.</p>
 @if(auth()->user()->isWarehouseUserType())

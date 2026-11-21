@@ -98,6 +98,33 @@ class PosSaleTest extends TestCase
 
     }
 
+    public function test_manual_line_prices_and_order_source_are_saved_without_changing_catalogue_prices(): void
+    {
+        $this->staff();
+        GeneralSetting::findOrFail(1)->update(['tax_basis_points' => 500]);
+        $product = $this->product();
+        $payload = [
+            'customer_id' => $this->customerId,
+            'items' => [['id' => $product->id, 'quantity' => 2, 'price_override_cents' => 900, 'manual_discount_bps' => 1250]],
+            'fulfillment' => 'pickup',
+        ];
+        $invalid = $payload;
+        $invalid['items'][0]['manual_discount_bps'] = 10001;
+        $this->postJson(route('admin.pos.quote'), $invalid)->assertJsonValidationErrors('items.0.manual_discount_bps');
+
+        $quote = $this->postJson(route('admin.pos.quote'), $payload)->assertOk()
+            ->assertJsonPath('subtotal', 1574)->assertJsonPath('tax', 79)->json();
+        $this->sale($quote, ['order_channel' => 'unknown_channel'])->assertJsonValidationErrors('order_channel');
+        $this->sale($quote, ['order_channel' => 'whatsapp'])->assertOk()->assertJsonPath('total', 1653);
+
+        $order = Order::firstOrFail();
+        $this->assertSame('pos', $order->source);
+        $this->assertSame('whatsapp', $order->order_channel);
+        $this->assertDatabaseHas('order_items', ['order_id' => $order->id, 'unit_cents' => 787, 'original_unit_cents' => 900, 'discount_bps' => 1250, 'line_cents' => 1574]);
+        $this->assertSame(2140, $this->quote($product)['subtotal']);
+        $this->get(route('admin.pos.orders'))->assertOk()->assertSee('WhatsApp');
+    }
+
     public function test_zero_and_insufficient_stock_accept_sales_and_record_shortages(): void
     {
         $this->staff();
