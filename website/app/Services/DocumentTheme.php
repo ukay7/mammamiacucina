@@ -86,9 +86,9 @@ class DocumentTheme {
   }
   $doc['invoice_payment_methods'] = [
    'eft' => array_filter([
-    'Transit No.' => $settings->invoice_eft_transit,
-    'Institution No.' => $settings->invoice_eft_institution,
-    'Account No.' => $settings->invoice_eft_account,
+    'transit' => $settings->invoice_eft_transit,
+    'institution' => $settings->invoice_eft_institution,
+    'account' => $settings->invoice_eft_account,
    ], fn ($value) => $value !== null),
    'etransfer' => $settings->eTransferEmail(),
    'cheque' => $doc['brand']['mailing_address'],

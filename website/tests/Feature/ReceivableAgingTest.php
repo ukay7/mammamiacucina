@@ -87,7 +87,7 @@ class ReceivableAgingTest extends TestCase
         ], $doc['summary']);
         $this->get(route('admin.invoices.show', $invoice))->assertOk()->assertSee('Invoice snapshot cake')->assertDontSee('Edited live product')
             ->assertSee('21 Sep 2026')->assertSee('Oct 10, 2026')->assertDontSee('Other open order balances')
-            ->assertSeeTextInOrder(['Payment status', 'Pickup Details', 'Product subtotal', 'Payment Methods'])
+            ->assertSeeTextInOrder(['Payment status', 'Pickup Details', 'Product subtotal', 'Remit payment to'])
             ->assertDontSee('Delivery Details')->assertDontSee('Delivery / pickup details');
         $this->assertArrayNotHasKey('invoice_payment_methods', app(DocumentTheme::class)->order($order, $invoice));
     }
@@ -131,8 +131,9 @@ class ReceivableAgingTest extends TestCase
         $order->update(['fulfillment' => 'pickup']);
         $this->actingAs($buyer->user);
         $this->get(URL::temporarySignedRoute('invoice.document', now()->addHour(), ['invoice' => $invoice]))->assertOk()
-            ->assertSee('01234')->assertSee('000012345')->assertSee('remit@example.test')->assertSee('Test Mailing Address')
-            ->assertSeeTextInOrder(['Payment status', 'Delivery Details', 'Test delivery address', 'Product subtotal', 'Payment Methods'])
+            ->assertSeeTextInOrder(['Transit: 01234', 'Institution: 001', 'Account No.: 000012345'])
+            ->assertSee('remit@example.test')->assertSee('Test Mailing Address')
+            ->assertSeeTextInOrder(['Payment status', 'Delivery Details', 'Test delivery address', 'Product subtotal', 'Remit payment to'])
             ->assertDontSee('Pickup Details')->assertDontSee('Delivery / pickup details');
         $pdf = $this->get(route('customer.documents.file', ['kind' => 'invoice', 'document' => $invoice->id, 'download' => 1]))
             ->assertOk()->assertHeader('Content-Type', 'application/pdf');

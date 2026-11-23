@@ -9,9 +9,15 @@
 <div class="customer-account">
 
 <section class="panel panel-content customer-account-header">
-<div><span class="customer-eyebrow">CUSTOMER ACCOUNT</span><h2>{{ $customer->name }} <x-business-customer-icon :customer="$customer" /></h2>
-<p class="mb-2">Customer ID <strong>#{{ $customer->id }}</strong> · {{ $customer->account_type==='business'?'Business owner':'Individual' }} · <span class="badge {{ $customer->user->is_active?'badge-success':'badge-secondary' }}">{{ $customer->user->is_active?'Active':'Inactive' }}</span></p>
+@php($showBusinessName = $customer->account_type === 'business' && filled($customer->business_name))
+<div>
+<span class="customer-eyebrow">CUSTOMER ACCOUNT</span>
+<h2 class="text-break">{{ $showBusinessName ? $customer->business_name : $customer->name }} <x-business-customer-icon :customer="$customer" /></h2>
+@if($showBusinessName)
+<p class="mb-1 customer-contact"><strong>Owner:</strong> {{ $customer->name }}</p>
+@endif
 <p class="mb-2 customer-contact">{{ $customer->email }} · {{ $customer->phone ?: 'No phone provided' }}</p>
+<p class="mb-2">Customer ID <strong>#{{ $customer->id }}</strong> · {{ $customer->account_type==='business'?'Business owner':'Individual' }} · <span class="badge {{ $customer->user->is_active?'badge-success':'badge-secondary' }}">{{ $customer->user->is_active?'Active':'Inactive' }}</span></p>
 <span class="badge {{ $customer->user->email_verified_at?'badge-success':'badge-danger' }}">{{ $customer->user->email_verified_at?'Email verified':'Email verification pending' }}</span>
 @if($customer->account_type==='business')<span class="badge {{ $customer->user->business_approved_at?'badge-success':'badge-danger' }}">{{ $customer->user->business_approved_at?'Business approved':'Business approval pending' }}</span>@endif
 </div>

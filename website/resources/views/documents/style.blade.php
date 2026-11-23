@@ -29,15 +29,31 @@
 .doc-info .doc-invoice-aging td{width:32%;white-space:nowrap;font-weight:700}
 .doc-invoice-aging tr:first-child th,.doc-info .doc-invoice-aging tr:first-child td{background:#eadbc3;font-weight:700;font-size:11px}
 .doc-invoice-aging tr:last-child th,.doc-info .doc-invoice-aging tr:last-child td{border:0}
-.doc-invoice-remittance{background:#f7f0e6;border:1px solid #b98c45;border-radius:6px;margin:12px 0 0;padding:8px 10px;page-break-inside:avoid;break-inside:avoid}
-.doc-invoice-remittance h2{font-size:12px;margin:0 0 6px;color:#66471e}
+.doc-invoice-remittance{background:#f7f0e6;border:1px solid #b98c45;border-radius:8px;margin:9px 0 0;padding:8px;page-break-inside:avoid;break-inside:avoid}
 .doc-invoice-remittance table{width:100%;table-layout:fixed;border-collapse:collapse}
-.doc-invoice-remittance td{width:33.33%;padding:1px 8px;font-size:10px;line-height:1.4;vertical-align:top;border-left:1px solid #dfcfb7;word-wrap:break-word}
-.doc-invoice-remittance td:first-child{padding-left:0;border-left:0}
-.doc-invoice-remittance h3{font-size:10px;margin:0 0 3px}
+.doc-invoice-remittance td{padding:3px 9px;font-size:10px;line-height:1.4;text-align:left;vertical-align:top;word-wrap:break-word}
+.doc-invoice-remittance td+td{border-left:1px solid #d8c4a5}
+.doc-invoice-remittance .doc-remittance-label{width:17%;padding:0 9px 0 0;vertical-align:middle}
+.doc-invoice-remittance .doc-remittance-eft,.doc-invoice-remittance .doc-remittance-cheque{width:29%}
+.doc-invoice-remittance .doc-remittance-transfer{width:25%}
+.doc-remittance-badge{position:relative;margin:0 12px 0 0;padding:7px 8px;border-radius:4px 0 0 4px;background:#795323;color:#fff;font-size:12px;line-height:12px;text-transform:uppercase}
+.doc-remittance-badge span{display:block;width:60px}
+.doc-remittance-badge:after{content:"";position:absolute;top:0;left:100%;width:0;height:0;margin-left:-1px;border-top:25px solid transparent;border-bottom:25px solid transparent;border-left:13px solid #795323}
+.doc-invoice-remittance h3{font-size:10px;margin:0 0 2px;color:#66471e}
 .doc-remittance-icon{width:16px;height:16px;margin-right:5px;vertical-align:middle}
 .doc-remittance-email{overflow-wrap:anywhere}
-@media screen and (max-width:470px){.doc-invoice-remittance table,.doc-invoice-remittance tbody,.doc-invoice-remittance tr,.doc-invoice-remittance td{display:block;width:100%}.doc-invoice-remittance td{border-left:0;padding:4px 0}}
+.doc-remittance-routing span{white-space:nowrap}
+.doc-remittance-routing span+span{margin-left:6px}
+@media screen and (max-width:680px){
+    .doc-invoice-remittance table,.doc-invoice-remittance tbody,.doc-invoice-remittance tr,.doc-invoice-remittance td{display:block;width:100%}
+    .doc-invoice-remittance td,.doc-invoice-remittance .doc-remittance-eft,.doc-invoice-remittance .doc-remittance-transfer,.doc-invoice-remittance .doc-remittance-cheque{width:100%;padding:6px 4px}
+    .doc-invoice-remittance .doc-remittance-label{width:100%;padding:0}
+    .doc-invoice-remittance td+td{border-left:0;border-top:1px solid #d8c4a5}
+    .doc-invoice-remittance .doc-remittance-label+td{border-top:0}
+    .doc-remittance-badge{margin:0;border-radius:4px}
+    .doc-remittance-badge span{width:auto}
+    .doc-remittance-badge:after{display:none}
+}
 @media screen and (max-width:600px){.doc-payment-summary,.doc-payment-summary>tbody,.doc-payment-summary>tbody>tr{display:block}.doc-payment-summary>tbody>tr>.doc-payment-instructions,.doc-payment-summary>tbody>tr>.doc-payment-amounts{display:block;width:100%;padding:0}.doc-payment-summary>tbody>tr>.doc-payment-amounts{padding-top:12px}}
 </style>
 @include('documents.header-style')

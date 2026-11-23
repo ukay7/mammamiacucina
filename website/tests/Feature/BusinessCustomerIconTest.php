@@ -101,9 +101,15 @@ class BusinessCustomerIconTest extends TestCase
             'subtotal_cents'=>10000,'delivery_cents'=>0,'tax_cents'=>0,'currency'=>'CAD','payment_method'=>'cash','payment_status'=>'unpaid','status'=>'warehouse_pending','fulfillment'=>'delivery','ordered_at'=>now()]);
         $order->refresh();
         $before=$order->getRawOriginal();
-        foreach ([route('admin.orders.index'),route('admin.orders.show',$order),route('admin.dashboard.balances'),route('admin.customers.show',$business)] as $url) {
+        foreach ([route('admin.orders.index'),route('admin.orders.show',$order),route('admin.dashboard.balances')] as $url) {
             $this->get($url)->assertOk()->assertSee('class="business-customer-icon"',false);
         }
+        $this->get(route('admin.customers.show', $business))->assertOk()
+            ->assertSee('class="business-customer-icon"', false)
+            ->assertSeeTextInOrder([$business->business_name, 'Owner: '.$business->name, $business->email, 'Customer ID']);
+        $this->get(route('admin.customers.show', $individual))->assertOk()
+            ->assertSeeTextInOrder([$individual->name, $individual->email, 'Customer ID'])
+            ->assertDontSee('Owner: '.$individual->name);
         foreach (['financial'=>app(DocumentTheme::class)->order($order),'delivery-form'=>app(OrderDeliveryDocuments::class)->data($order),
             'delivery-envelope'=>app(OrderDeliveryDocuments::class)->data($order,true)] as $view=>$doc) {
             $html=view('documents.'.$view,['doc'=>$doc,'pdf'=>true])->render();
