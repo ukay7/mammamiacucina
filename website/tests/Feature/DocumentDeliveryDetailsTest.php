@@ -87,4 +87,28 @@ class DocumentDeliveryDetailsTest extends TestCase
         $this->assertSame('Delivery: 10 Original Warehouse, Toronto, ON, M1P 1A1, Canada', $doc['delivery']);
         $this->assertSame($before, $invoice->fresh()->getRawOriginal());
     }
+
+    public function test_delivery_charge_remains_visible_when_other_changes_offset_it(): void
+    {
+        $order = $this->order(['fulfillment' => 'pickup', 'delivery_cents' => 0, 'tax_cents' => 0]);
+        $invoice = app(CustomerInvoicing::class)->issue($order);
+        $order->updateQuietly(['fulfillment' => 'delivery', 'delivery_cents' => 500, 'subtotal_cents' => 500]);
+
+        $theme = app(DocumentTheme::class);
+        $doc = $theme->invoice($invoice->fresh());
+        $this->assertSame('$5.00', $doc['totals']['Additional delivery charge']);
+        $this->assertSame('-$5.00', $doc['totals']['Other order adjustments']);
+        $this->assertSame('$10.00', $doc['totals']['Current order total CAD']);
+        $this->assertArrayNotHasKey('Current credit notes', $doc['totals']);
+
+        $order->updateQuietly(['refund_credit_cents' => 200]);
+        $doc = $theme->invoice($invoice->fresh());
+        $this->assertSame('-$2.00', $doc['totals']['Current credit notes']);
+        $this->assertSame('$8.00', $doc['totals']['Current adjusted order amount']);
+
+        $order->updateQuietly(['delivery_cents' => 0]);
+        $doc = $theme->invoice($invoice->fresh());
+        $this->assertStringContainsString('Delivery date & time: To be confirmed', $doc['current_delivery']);
+        $this->assertArrayNotHasKey('Additional delivery charge', $doc['totals']);
+    }
 }

@@ -62,6 +62,7 @@ class OrderDeliveryDocuments
                     'pieces_per_carton' => NumberDisplay::quantity(data_get($product?->dna, 'pieces_per_carton')),
                     'quantity' => NumberDisplay::quantity($item->quantity)];
             })->all(),
+            'total_quantity' => $envelope ? null : NumberDisplay::quantity($order->items->sum('quantity')),
             'italy_art' => $envelope ? 'data:image/svg+xml;base64,'.base64_encode(file_get_contents(public_path('assets/images/delivery-italy.svg'))) : null,
         ];
     }

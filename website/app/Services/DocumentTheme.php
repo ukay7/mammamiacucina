@@ -65,7 +65,20 @@ class DocumentTheme {
  public function invoice(\App\Models\CustomerInvoice $invoice): array
  {
   $order = $invoice->order;
-  $doc = $this->order($order, $invoice);
+  $issuedFulfillment = data_get($invoice->snapshot, 'order.fulfillment', $order->fulfillment);
+  $changedToDelivery = $issuedFulfillment === 'pickup' && $order->fulfillment === 'delivery';
+  $additionalDeliveryCents = $changedToDelivery && $order->final_total_cents !== null
+   ? max(0, (int)$order->delivery_cents - (int)data_get($invoice->snapshot, 'order.delivery_cents'))
+   : 0;
+  $doc = $this->order($order, $invoice, additionalDeliveryCents: $additionalDeliveryCents);
+  if ($changedToDelivery) {
+   $doc['current_delivery'] = $this->deliveryDetails(
+    $order->only(['fulfillment', 'address', 'city', 'province', 'postal_code', 'country', 'delivery_scheduled_at'])
+   );
+   if (!$order->delivery_scheduled_at) {
+    $doc['current_delivery'] .= "\nDelivery date & time: To be confirmed";
+   }
+  }
   $aging = app(ReceivableAging::class);
   $balance = $aging->report($order->customer_id, $order->customer_id ? null : $invoice->id)['totals'];
   $money = fn ($cents) => '$'.number_format($cents / 100, 2);
@@ -80,7 +93,7 @@ class DocumentTheme {
   }
   $settings = GeneralSetting::find(1) ?? new GeneralSetting;
   $doc['invoice_due_date'] = $invoice->paymentDueDate();
-  $doc['invoice_fulfillment'] = data_get($invoice->snapshot, 'order.fulfillment', $order->fulfillment);
+  $doc['invoice_fulfillment'] = $issuedFulfillment;
   if ($order->payment_method === 'cheque') {
    $doc['instructions'] = 'Cheque payment is confirmed only after admin clearance.';
   }
@@ -97,7 +110,7 @@ class DocumentTheme {
   return $doc;
  }
 
- public function order(Order $order,?\App\Models\CustomerInvoice $invoice=null,?\App\Models\OrderSettlement $receipt=null):array {
+ public function order(Order $order,?\App\Models\CustomerInvoice $invoice=null,?\App\Models\OrderSettlement $receipt=null,int $additionalDeliveryCents=0):array {
   $order->loadMissing('items','customer','payment','settlements');$money=fn($n)=>$n===null?'To be confirmed':'$'.number_format($n/100,2);
   $snapshot=$invoice?->snapshot;$o=$snapshot['order']??$order->getAttributes();$items=$snapshot['items']??$order->items->toArray();$c=$order->customer;
   $images=app(DocumentProductImages::class)->forItems($items);
@@ -116,8 +129,31 @@ class DocumentTheme {
    $totals=['Product subtotal'=>$money($o['subtotal_cents']),'Delivery'=>$money($o['delivery_cents']),'Tax'=>$money($o['tax_cents']),'Original document total CAD'=>$money($invoice?->total_cents??$order->final_total_cents),'Current credit notes'=>'-'.$money($order->refund_credit_cents),'Current adjusted order amount'=>$money($order->adjusted_total_cents),'Net received'=>$money($order->net_received_cents),'Current balance due'=>$money(max(0,$order->balance_cents))];
    if($order->balance_cents<0)$totals['Current refund due']=$money(-$order->balance_cents);
   }
-  if($invoice && $order->final_total_cents !== $invoice->total_cents){
-   $totals=['Product subtotal'=>$money($o['subtotal_cents']),'Delivery'=>$money($o['delivery_cents']),'Tax'=>$money($o['tax_cents']),'Original invoice total CAD'=>$money($invoice->total_cents),'Subsequent order adjustment'=>$money($order->final_total_cents-$invoice->total_cents),'Current order total CAD'=>$money($order->final_total_cents),'Current credit notes'=>'-'.$money($order->refund_credit_cents),'Current adjusted order amount'=>$money($order->adjusted_total_cents),'Net received'=>$money($order->net_received_cents),'Current balance due'=>$money(max(0,$order->balance_cents))];
+  if($invoice && ($order->final_total_cents !== $invoice->total_cents || $additionalDeliveryCents > 0)){
+   $change = $order->final_total_cents - $invoice->total_cents;
+   $adjustments = ['Subsequent order adjustment' => $money($change)];
+   if ($additionalDeliveryCents > 0) {
+    $adjustments = ['Additional delivery charge' => $money($additionalDeliveryCents)];
+    $otherChange = $change - $additionalDeliveryCents;
+    if ($otherChange !== 0) {
+     $adjustments['Other order adjustments'] = ($otherChange < 0 ? '-' : '').$money(abs($otherChange));
+    }
+   }
+   $creditRows = $additionalDeliveryCents === 0 || $order->refund_credit_cents ? [
+    'Current credit notes' => '-'.$money($order->refund_credit_cents),
+    'Current adjusted order amount' => $money($order->adjusted_total_cents),
+   ] : [];
+   $totals = [
+    'Product subtotal' => $money($o['subtotal_cents']),
+    'Delivery' => $money($o['delivery_cents']),
+    'Tax' => $money($o['tax_cents']),
+    'Original invoice total CAD' => $money($invoice->total_cents),
+   ] + $adjustments + [
+    'Current order total CAD' => $money($order->final_total_cents),
+   ] + $creditRows + [
+    'Net received' => $money($order->net_received_cents),
+    'Current balance due' => $money(max(0,$order->balance_cents)),
+   ];
    if($order->balance_cents<0)$totals['Current refund due']=$money(-$order->balance_cents);
   }
   $billing=array_filter([$c?->business_name?:trim(($o['first_name']??'').' '.($o['last_name']??'')),$c?'Customer account #'.$c->id:null,$c?->address?:($o['address']??null),implode(', ',array_filter([$c?->city?:($o['city']??null),$c?->province?:($o['province']??null),$c?->postal_code?:($o['postal_code']??null)])),$o['email']??null,$o['phone']??null]);

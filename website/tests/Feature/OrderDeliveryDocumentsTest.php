@@ -57,6 +57,8 @@ class OrderDeliveryDocumentsTest extends TestCase
     public function test_form_uses_product_record_columns_and_delivery_handover_without_printed_amounts(): void
     {
         $f=$this->fixture();
+        $f['order']->items()->create(['name'=>'Second item','product_code'=>'SECOND',
+            'quantity'=>3,'unit_cents'=>2000,'line_cents'=>6000]);
         $response=$this->get(route('admin.orders.delivery-form',$f['order']))->assertOk();
         foreach (['Sample Bakery &amp; Cafe','Alex Receiver','Customer account #'.$f['customer']->id,
             '100 Customer Head Office','975 Sample Receiving Road, Unit 4','order-contact@example.test','+1 416 555 0123',
@@ -74,11 +76,15 @@ class OrderDeliveryDocumentsTest extends TestCase
         $dom=new \DOMDocument; @$dom->loadHTML($response->getContent()); $xpath=new \DOMXPath($dom);
         $this->assertSame(0,$xpath->query('//table[contains(@class,"doc-header")]//*[contains(text(),"GST/HST")]')->length);
         $this->assertSame(1,$xpath->query('//footer//div[contains(@class,"doc-registration")]')->length);
-        $cells=$xpath->query('//table[contains(@class,"delivery-products")]/tbody/tr/td');
+        $cells=$xpath->query('//table[contains(@class,"delivery-products")]/tbody/tr[1]/td');
         $this->assertSame(8,$cells->length);
         foreach ([0=>'1',2=>'MMC-CAKE-18',3=>'Current catalogue cake',4=>'10.2',5=>'1.02',6=>'120',7=>'2'] as $i=>$value) {
             $this->assertSame($value,trim($cells->item($i)->textContent));
         }
+        $totalRow = '//table[contains(@class,"delivery-products")]/tbody/tr[last()][@class="delivery-quantity-total"]';
+        $this->assertSame(1, $xpath->query($totalRow.'/td[1][@colspan="6"]')->length);
+        $this->assertSame('Total Qty', trim($xpath->query($totalRow.'/th')->item(0)->textContent));
+        $this->assertSame('5', trim($xpath->query($totalRow.'/td[last()]')->item(0)->textContent));
         $this->assertSame(10,$xpath->query('//table[contains(@class,"handover-table")]/tbody/tr')->length);
         $this->assertSame('CAD$',trim($xpath->query('//table[contains(@class,"handover-table")]/tbody/tr[8]/td[6]')->item(0)->textContent));
         $this->assertSame(1,$xpath->query('//table[contains(@class,"handover-table")]/tbody/tr[1]/td[@rowspan="3"]')->length);
@@ -156,8 +162,10 @@ class OrderDeliveryDocumentsTest extends TestCase
         $this->assertSame(1,substr_count($html,'<h2>Delivery Order Handover Form</h2>'));
         $this->assertLessThan(strpos($html,'<h2>Delivery Order Handover Form</h2>'),strpos($html,'ITEM-30'));
         $dom=new \DOMDocument; @$dom->loadHTML($html); $xpath=new \DOMXPath($dom);
-        $this->assertSame(30,$xpath->query('//table[contains(@class,"delivery-products")]/tbody/tr')->length);
-        $this->assertSame('30',trim($xpath->query('//table[contains(@class,"delivery-products")]/tbody/tr[last()]/td[1]')->item(0)->textContent));
+        $productRows = '//table[contains(@class,"delivery-products")]/tbody/tr[not(th)]';
+        $this->assertSame(30, $xpath->query($productRows)->length);
+        $this->assertSame('30', trim($xpath->query($productRows.'[last()]/td[1]')->item(0)->textContent));
+        $this->assertSame('89', trim($xpath->query('//tr[@class="delivery-quantity-total"]/td[last()]')->item(0)->textContent));
         $this->assertStringNotContainsString('999.99',$html);
         $pdf=$this->get(route('admin.orders.delivery-form',[$order,'download'=>1]))->assertOk();
         $this->assertGreaterThan(1,preg_match_all('/\/Type\s*\/Page\b/',$pdf->getContent()));

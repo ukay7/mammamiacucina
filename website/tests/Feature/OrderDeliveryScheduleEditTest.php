@@ -132,6 +132,48 @@ class OrderDeliveryScheduleEditTest extends TestCase
         $this->assertSame('2026-11-14 14:45:00',$order->fresh()->getRawOriginal('delivery_scheduled_at'));
     }
 
+    public function test_pickup_invoice_shows_current_delivery_and_separate_charge_after_admin_edit(): void
+    {
+        $f = $this->fixture('pos', null);
+        $order = $f['order'];
+        $order->updateQuietly([
+            'fulfillment' => 'pickup',
+            'pickup_address' => 'Original pickup counter',
+            'delivery_cents' => 0,
+            'status' => 'ready_to_dispatch',
+        ]);
+        $invoice = app(CustomerInvoicing::class)->issue($order);
+        $original = $invoice->fresh()->getRawOriginal();
+        $invoiceUrl = route('admin.invoices.show', $invoice);
+
+        $this->get($invoiceUrl)->assertOk()->assertSee('Pickup Details')->assertDontSee('Current Delivery Details');
+        $this->post(route('admin.orders.amend', $order), array_replace($this->payload($order), [
+            'fulfillment' => 'delivery',
+            'address' => '24 New Receiving Street',
+            'delivery_date' => '2026-11-14',
+            'delivery_time' => '09:45',
+            'tax_mode' => 'manual',
+            'tax' => '1.25',
+        ]))->assertSessionHasNoErrors()->assertRedirect();
+
+        $this->get($invoiceUrl)->assertOk()->assertSeeTextInOrder([
+            'Pickup Details at Issuance', 'Original pickup counter', 'Current Delivery Details',
+            '24 New Receiving Street', '14 Nov 2026, 9:45 AM EST',
+            'This order was changed from pickup to delivery after the invoice was issued.',
+            'Original invoice total CAD', '$10.00', 'Additional delivery charge', '$5.00',
+            'Other order adjustments', '$1.25', 'Current order total CAD', '$16.25', 'Current balance due', '$6.25',
+        ]);
+        $doc = app(DocumentTheme::class)->invoice($invoice->fresh());
+        $this->assertSame('$6.25', $doc['summary']['Total Due']);
+        $this->assertArrayNotHasKey('Subsequent order adjustment', $doc['totals']);
+        $this->assertSame($original, $invoice->fresh()->getRawOriginal());
+
+        $this->actingAs($f['user']);
+        $url = route('customer.documents.file', ['kind' => 'invoice', 'document' => $invoice]);
+        $this->get($url)->assertOk()->assertSee('Current Delivery Details')->assertSee('Additional delivery charge');
+        $this->get($url.'?download=1')->assertOk()->assertHeader('Content-Type', 'application/pdf');
+    }
+
     public function test_legacy_orders_get_an_editable_default_but_old_forms_preserve_null(): void
     {
         $f=$this->fixture(scheduled:null); $order=$f['order'];

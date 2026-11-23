@@ -23,6 +23,11 @@
 .doc-payment-summary .doc-totals{width:100%;margin:0;table-layout:fixed}
 .doc-payment-summary .doc-totals td:first-child{width:65%}
 .doc-payment-summary .doc-totals td.money{width:35%;white-space:nowrap}
+.doc-delivery-changed .doc-payment-summary{margin:10px 0}
+.doc-delivery-changed .doc-payment-summary .doc-box{padding:7px 10px}
+.doc-delivery-changed .doc-payment-summary .doc-delivery{margin-top:6px}
+.doc-delivery-changed .doc-payment-summary .doc-box p{margin:3px 0}
+.doc-delivery-changed .doc-financial-ending{page-break-inside:avoid;break-inside:avoid}
 .doc-invoice-aging{width:100%;border-collapse:collapse;font-size:10px}
 .doc-invoice-aging th,.doc-info .doc-invoice-aging td{padding:3px 4px;border:0;border-bottom:1px solid #dfcfb7;border-radius:0;background:transparent;vertical-align:middle}
 .doc-invoice-aging th{text-align:left;font-weight:400}

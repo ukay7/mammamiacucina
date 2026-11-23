@@ -1,6 +1,6 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{{ $doc['title'] }} {{ mb_strtoupper((string)$doc['number']) }} - Mamma Mia Cucina</title>@include('documents.style')@if(!empty($pdf))<style>body{background:#fff}.document{margin:0;padding:0;max-width:none}.doc-toolbar{display:none}</style>@endif</head><body>
 @if(empty($pdf))<div class="doc-toolbar">@isset($backUrl)<a href="{{ $backUrl }}">Back</a>@endisset<span>{{ $doc['title'] }}</span><button onclick="window.print()">Print / Save as PDF</button>@isset($downloadUrl)<a href="{{ $downloadUrl }}">Download PDF</a>@endisset</div>@endif
-<main class="document doc-financial">@include('documents.header')
+<main @class(['document', 'doc-financial', 'doc-delivery-changed' => isset($doc['current_delivery'])])>@include('documents.header')
 @php($isInvoice = isset($doc['invoice_payment_methods']))
 <table class="doc-info"><tr><td><h2>Bill to</h2>@foreach($doc['billing'] as $billingIndex=>$line)<div @class(['doc-billing-line','doc-billing-name'=>$billingIndex===0,'doc-billing-account'=>$billingIndex===1 && str_starts_with((string)$line,'Customer account #')])>{{ $line }}@if($billingIndex===0)<x-business-customer-icon :business="$doc['business_customer'] ?? false" :embedded="true" />@endif</div>@endforeach</td>
 <td><h2>{{ $isInvoice ? 'Account Summary' : 'Account summary' }}</h2>
@@ -29,9 +29,20 @@
 <div class="doc-box"><h2>{{ $isInvoice ? 'Payment status' : 'Payment instructions' }}</h2><p>{{ $doc['instructions'] }}</p><p><strong>Payment details:</strong> {{ $doc['payment'] }}</p>@foreach($doc['payment_references'] ?? [] as $label=>$reference)<p><strong>{{ $label }}:</strong> {{ $reference }}</p>@endforeach</div>
 @if($isInvoice)
     <div class="doc-box doc-delivery">
-        <h2>{{ $doc['invoice_fulfillment'] === 'pickup' ? 'Pickup Details' : 'Delivery Details' }}</h2>
+        @if(isset($doc['current_delivery']))
+            <h2>Pickup Details at Issuance</h2>
+        @else
+            <h2>{{ $doc['invoice_fulfillment'] === 'pickup' ? 'Pickup Details' : 'Delivery Details' }}</h2>
+        @endif
         <p style="white-space:pre-line">{{ $doc['delivery'] }}</p>
     </div>
+    @isset($doc['current_delivery'])
+        <div class="doc-box doc-delivery">
+            <h2>Current Delivery Details</h2>
+            <p style="white-space:pre-line">{{ $doc['current_delivery'] }}</p>
+            <p><small>This order was changed from pickup to delivery after the invoice was issued.</small></p>
+        </div>
+    @endisset
 @endif
 @endslot
 <table class="doc-totals">@foreach($doc['totals'] as $label=>$value)<tr><td>{{ $label }}</td><td class="money">{{ $value }}</td></tr>@endforeach</table>
@@ -40,5 +51,7 @@
 <div class="doc-box doc-delivery"><h2>Delivery / pickup details</h2><p style="white-space:pre-line">{{ $doc['delivery'] }}</p></div>
 @endunless
 @if($doc['notes'])<div class="doc-box"><h2>Notes</h2><p style="white-space:pre-line">{{ $doc['notes'] }}</p></div>@endif
+<div class="doc-financial-ending">
 @if($isInvoice) @include('documents.invoice-payment-methods', ['methods' => $doc['invoice_payment_methods']]) @endif
-<footer class="doc-footer"><strong>Thank you for choosing Mamma Mia Cucina.</strong><p>Please quote <strong class="doc-order-reference">{{ mb_strtoupper((string)$doc['order_number']) }}</strong> with any enquiries. Order confirmations, invoices and payment receipts are separate records; they do not create additional charges.</p>@include('documents.registration')</footer></main></body></html>
+<footer class="doc-footer"><strong>Thank you for choosing Mamma Mia Cucina.</strong><p>Please quote <strong class="doc-order-reference">{{ mb_strtoupper((string)$doc['order_number']) }}</strong> with any enquiries. Order confirmations, invoices and payment receipts are separate records; they do not create additional charges.</p>@include('documents.registration')</footer>
+</div></main></body></html>
