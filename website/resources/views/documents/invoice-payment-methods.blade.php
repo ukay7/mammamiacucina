@@ -16,10 +16,10 @@
                 <h3><img class="doc-remittance-icon" src="{{ $bankIcon }}" width="16" height="16" alt="">EFT (Direct Deposit)</h3>
                 @if(count($methods['eft']) === 3)
                     <div class="doc-remittance-routing">
-                        <span>Transit: {{ $methods['eft']['transit'] }}</span>
-                        <span>Institution: {{ $methods['eft']['institution'] }}</span>
+                        <span><strong>Transit:</strong> {{ $methods['eft']['transit'] }}</span>
+                        <span><strong>Institution:</strong> {{ $methods['eft']['institution'] }}</span>
                     </div>
-                    <div>Account No.: {{ $methods['eft']['account'] }}</div>
+                    <div><strong>Account No.:</strong> {{ $methods['eft']['account'] }}</div>
                 @else
                     <div>Contact us for direct deposit details.</div>
                 @endif
