@@ -35,6 +35,7 @@
 .doc-invoice-remittance td{width:33.33%;padding:1px 8px;font-size:10px;line-height:1.4;vertical-align:top;border-left:1px solid #dfcfb7;word-wrap:break-word}
 .doc-invoice-remittance td:first-child{padding-left:0;border-left:0}
 .doc-invoice-remittance h3{font-size:10px;margin:0 0 3px}
+.doc-remittance-icon{width:16px;height:16px;margin-right:5px;vertical-align:middle}
 .doc-remittance-email{overflow-wrap:anywhere}
 @media screen and (max-width:470px){.doc-invoice-remittance table,.doc-invoice-remittance tbody,.doc-invoice-remittance tr,.doc-invoice-remittance td{display:block;width:100%}.doc-invoice-remittance td{border-left:0;padding:4px 0}}
 @media screen and (max-width:600px){.doc-payment-summary,.doc-payment-summary>tbody,.doc-payment-summary>tbody>tr{display:block}.doc-payment-summary>tbody>tr>.doc-payment-instructions,.doc-payment-summary>tbody>tr>.doc-payment-amounts{display:block;width:100%;padding:0}.doc-payment-summary>tbody>tr>.doc-payment-amounts{padding-top:12px}}
