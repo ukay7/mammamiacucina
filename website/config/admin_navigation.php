@@ -24,6 +24,7 @@ return [
     'Reports' => [
         $link('pricing-lists.view|pricing-lists.manage', 'admin.pricing-lists.index', 'admin.pricing-lists.*', 'Pricing Lists', 'tags'),
         $link('orders.view', 'admin.reports.overdue-cheques', 'admin.reports.overdue-cheques', 'Overdue Cheques', 'money-check'),
+        $link('orders.view', 'admin.reports.receivable-aging', 'admin.reports.receivable-aging', 'Accounts Receivable Aging', 'file-invoice-dollar'),
         $link('inventory.view', 'admin.reports.inventory', 'admin.reports.inventory*', 'Inventory Dashboard', 'boxes'),
         $link('inventory.view', 'admin.reports.inventory-valuation', 'admin.reports.inventory-valuation*', 'Inventory Valuation', 'calculator'),
         $link('orders.view', 'admin.reports.index', 'admin.reports.*', 'Reporting Centre', 'chart-bar'),

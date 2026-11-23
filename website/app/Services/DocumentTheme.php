@@ -62,6 +62,41 @@ class DocumentTheme {
    'address'=>$warehouse,'mailing_address'=>$s?->mailing_address,'warehouse_address'=>$warehouse,
    'email'=>$s?->email,'phone'=>$s?->phone,'registration'=>$s?->business_number,'tax_number'=>$s?->gst_hst_number??$s?->tax_number];
  }
+ public function invoice(\App\Models\CustomerInvoice $invoice): array
+ {
+  $order = $invoice->order;
+  $doc = $this->order($order, $invoice);
+  $aging = app(ReceivableAging::class);
+  $balance = $aging->report($order->customer_id, $order->customer_id ? null : $invoice->id)['totals'];
+  $money = fn ($cents) => '$'.number_format($cents / 100, 2);
+  $doc['summary'] = [
+   'Total Due' => $money($aging->invoiceBalance($invoice)),
+   'Current Balance Owing' => $money($balance['total']),
+  ];
+  foreach (ReceivableAging::BUCKETS as $bucket => $label) {
+   if ($bucket !== 'current') {
+    $doc['summary'][$label] = $money($balance[$bucket]);
+   }
+  }
+  $settings = GeneralSetting::find(1) ?? new GeneralSetting;
+  $doc['invoice_due_date'] = $invoice->paymentDueDate();
+  $doc['invoice_fulfillment'] = data_get($invoice->snapshot, 'order.fulfillment', $order->fulfillment);
+  if ($order->payment_method === 'cheque') {
+   $doc['instructions'] = 'Cheque payment is confirmed only after admin clearance.';
+  }
+  $doc['invoice_payment_methods'] = [
+   'eft' => array_filter([
+    'Transit No.' => $settings->invoice_eft_transit,
+    'Institution No.' => $settings->invoice_eft_institution,
+    'Account No.' => $settings->invoice_eft_account,
+   ], fn ($value) => $value !== null),
+   'etransfer' => $settings->eTransferEmail(),
+   'cheque' => $doc['brand']['mailing_address'],
+  ];
+
+  return $doc;
+ }
+
  public function order(Order $order,?\App\Models\CustomerInvoice $invoice=null,?\App\Models\OrderSettlement $receipt=null):array {
   $order->loadMissing('items','customer','payment','settlements');$money=fn($n)=>$n===null?'To be confirmed':'$'.number_format($n/100,2);
   $snapshot=$invoice?->snapshot;$o=$snapshot['order']??$order->getAttributes();$items=$snapshot['items']??$order->items->toArray();$c=$order->customer;

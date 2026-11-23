@@ -78,6 +78,7 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         Route::resource('allergies', AllergyController::class)->except('show')->middleware(AdminAccess::class.':allergies.manage');
         Route::middleware(AdminAccess::class.':orders.view')->group(function () {
             Route::get('/reports', [\App\Http\Controllers\Admin\BusinessReportController::class,'index'])->name('reports.index');
+            Route::get('/reports/receivable-aging', [\App\Http\Controllers\Admin\ReceivableAgingController::class, 'index'])->name('reports.receivable-aging');
             Route::get('/reports/view/{kind}', [\App\Http\Controllers\Admin\BusinessReportController::class,'show'])->name('reports.business');
             Route::get('/reports/export/{kind}', [\App\Http\Controllers\Admin\BusinessReportController::class,'export'])->name('reports.business.export');
             Route::get('/reports/order/{order}', [\App\Http\Controllers\Admin\BusinessReportController::class,'detail'])->name('reports.order');

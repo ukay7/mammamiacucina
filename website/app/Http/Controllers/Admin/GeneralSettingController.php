@@ -52,6 +52,9 @@ class GeneralSettingController extends Controller
             'document_warehouse_address' => 'sometimes|nullable|string|max:2000',
             'gst_hst_number' => 'sometimes|nullable|string|max:80',
             'etransfer_email' => 'sometimes|required|email:rfc|max:255',
+            'invoice_eft_transit' => ['sometimes', 'nullable', 'string', 'regex:/\A[0-9]{5}\z/'],
+            'invoice_eft_institution' => ['sometimes', 'nullable', 'string', 'regex:/\A[0-9]{3}\z/'],
+            'invoice_eft_account' => ['sometimes', 'nullable', 'string', 'regex:/\A[0-9]{1,20}\z/'],
         ]);
         if (isset($d['etransfer_email'])) $d['etransfer_email'] = strtolower(trim($d['etransfer_email']));
         foreach (['document_company_name', 'mailing_address', 'document_warehouse_address', 'gst_hst_number'] as $field) {
@@ -98,6 +101,15 @@ class GeneralSettingController extends Controller
                 return (int) $parts[0] * 100 + (int) str_pad($parts[1] ?? '', 2, '0');
             };
             $extra=array_intersect_key($d,array_flip(['pickup_address','warehouse_postal_code','matrix_delivery_enabled','email','phone','opening_hours','facebook_url','instagram_url','twitter_url','document_company_name','mailing_address','document_warehouse_address','gst_hst_number','etransfer_email']));
+            $eftFields = ['invoice_eft_transit', 'invoice_eft_institution', 'invoice_eft_account'];
+            $eft = array_intersect_key($d, array_flip($eftFields));
+            if ($eft !== []) {
+                $configured = array_filter($eft + $settings->only($eftFields), fn ($value) => $value !== null);
+                if ($configured !== [] && count($configured) !== count($eftFields)) {
+                    throw ValidationException::withMessages(['invoice_eft_transit' => 'Enter all three direct deposit numbers, or clear all three.']);
+                }
+                $extra += $eft;
+            }
             if (array_key_exists('youtube',$d)) $extra['youtube_video_id']=GeneralSetting::youtubeId($d['youtube']);
             if ($bannerPath) {$oldBanner=$settings->page_banner_path;$extra['page_banner_path']=$bannerPath;}
             if ($path) {$old=$settings->logo_path;$extra['logo_path']=$path;}

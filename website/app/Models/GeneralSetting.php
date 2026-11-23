@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class GeneralSetting extends Model
 {
     protected $guarded = ['id'];
+    protected $hidden = ['invoice_eft_transit', 'invoice_eft_institution', 'invoice_eft_account'];
 
     public const DOCUMENT_COMPANY_NAME = 'Mamma Mia Cucina INC.';
 
@@ -67,6 +68,7 @@ class GeneralSetting extends Model
 
     protected function casts(): array
     {
-        return ['contact_links' => 'array', 'show_email' => 'boolean', 'show_phone' => 'boolean', 'opening_hours' => 'array', 'delivery_cents' => 'integer', 'tax_basis_points' => 'integer', 'revision' => 'integer'];
+        return ['contact_links' => 'array', 'show_email' => 'boolean', 'show_phone' => 'boolean', 'opening_hours' => 'array', 'delivery_cents' => 'integer', 'tax_basis_points' => 'integer', 'revision' => 'integer',
+            'invoice_eft_transit' => 'encrypted', 'invoice_eft_institution' => 'encrypted', 'invoice_eft_account' => 'encrypted'];
     }
 }

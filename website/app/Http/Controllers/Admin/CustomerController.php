@@ -76,7 +76,9 @@ class CustomerController extends Controller {
   $accountReceipts=auth()->user()->isSuper()?\App\Models\CustomerReceipt::with('lines','author')->where('customer_id',$customer->id)->latest('id')->paginate(10,['*'],'receipts_page')->withQueryString():null;
   $documents=app(\App\Services\CustomerDocuments::class)->listing($customer,auth()->user(),request());
   $accountRefunds=auth()->user()->isSuper()?\App\Models\CustomerRefund::summary()->with('lines','order:id,number','author')->where('customer_id',$customer->id)->latest('id')->paginate(10,['*'],'refunds_page')->withQueryString():null;
-  return view('admin.customers.show',compact('customer','orders','latestOrder','notes','invoices','paymentOrders','balances','accountReceipts','accountRefunds','documents'));
+  $aging=app(\App\Services\ReceivableAging::class)->report($customer->id);
+  $balances['receivables']=$aging['totals']['total'];
+  return view('admin.customers.show',compact('customer','orders','latestOrder','notes','invoices','paymentOrders','balances','accountReceipts','accountRefunds','documents','aging'));
  }
  public function storeNote(Request $request,Customer $customer){
   $data=$request->validate(['body'=>'required|string|max:5000']);

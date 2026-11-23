@@ -17,6 +17,19 @@
 <div class="row"><div class="form-group col-md-6"><label for="document-phone">Contact phone</label><input class="form-control" id="document-phone" name="phone" maxlength="60" value="{{ old('phone',$settings->phone) }}"></div><div class="form-group col-md-6"><label for="document-email">Contact email</label><input class="form-control" id="document-email" type="email" name="email" maxlength="255" value="{{ old('email',$settings->email) }}"></div></div>
 <p class="text-muted">Phone and email are shared with Contact Us settings.</p>
 <div class="row"><div class="form-group col-md-6"><label for="document-mailing-address">Mailing address</label><textarea class="form-control" id="document-mailing-address" name="mailing_address" rows="3" maxlength="2000">{{ old('mailing_address',$settings->mailing_address) }}</textarea></div><div class="form-group col-md-6"><label for="document-warehouse-address">Warehouse address for documents</label><textarea class="form-control" id="document-warehouse-address" name="document_warehouse_address" rows="3" maxlength="2000">{{ old('document_warehouse_address',$settings->document_warehouse_address) }}</textarea><small>Pickup instructions for customers are managed above.</small></div></div>
+<fieldset class="mb-3">
+    <legend class="h5">Invoice Payment Methods</legend>
+    <p class="text-muted">Invoices use the E-transfer receiving email and mailing address above. Enter the direct deposit details below to display them alongside those methods.</p>
+    <div class="row">
+        @foreach(['invoice_eft_transit' => ['Transit number', 5, 5], 'invoice_eft_institution' => ['Institution number', 3, 3], 'invoice_eft_account' => ['Account number', 1, 20]] as $field => [$label, $min, $max])
+            <div class="col-md-4 form-group">
+                <label for="{{ $field }}">{{ $label }}</label>
+                <input class="form-control" id="{{ $field }}" name="{{ $field }}" value="{{ old($field, $settings->$field) }}" type="text" inputmode="numeric" autocomplete="off" minlength="{{ $min }}" maxlength="{{ $max }}" pattern="[0-9]+">
+                @error($field)<div class="text-danger">{{ $message }}</div>@enderror
+            </div>
+        @endforeach
+    </div>
+</fieldset>
 <div class="form-group"><label for="document-gst-hst">GST/HST number</label><input class="form-control" id="document-gst-hst" name="gst_hst_number" maxlength="80" value="{{ old('gst_hst_number',$settings->gst_hst_number) }}"><small>Printed at the bottom right of documents, in the footer.</small></div>
 <hr><h2>Business Customer Icon</h2>
 <p>Show this icon beside business customer names throughout customer and order screens, reports and printed documents.</p>

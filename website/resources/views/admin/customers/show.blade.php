@@ -38,7 +38,7 @@
 
 <section class="panel customer-tab-panel">
 <ul class="nav nav-tabs" role="tablist" aria-label="Customer account sections">
-@foreach(['details'=>'Customer Details','orders'=>'Orders','invoices'=>'Invoices','payments'=>'Payments & Cheques','refunds'=>'Refunds','documents'=>'Documents','settings'=>'Manager Settings','discounts'=>'Discounts'] as $key=>$label)
+@foreach(['details'=>'Customer Details','orders'=>'Orders','invoices'=>'Invoices','aging'=>'A/R Aging','payments'=>'Payments & Cheques','refunds'=>'Refunds','documents'=>'Documents','settings'=>'Manager Settings','discounts'=>'Discounts'] as $key=>$label)
 @continue($key==='refunds' && !auth()->user()->isSuper())
 @continue(in_array($key,['settings','discounts']) && !auth()->user()->hasAdminPermission('customers.manage'))
 <li class="nav-item"><a class="nav-link {{ $key==='details'?'active':'' }}" id="customer-tab-{{ $key }}" href="#customer-{{ $key }}" data-toggle="tab" role="tab" aria-controls="customer-{{ $key }}" aria-selected="{{ $key==='details'?'true':'false' }}">{{ $label }}</a></li>
@@ -62,6 +62,10 @@
 @forelse($orders as $order)<tr><td>{{ $order->number }}</td><td>{{ \App\Support\BusinessTime::format($order->ordered_at,'d M Y H:i T') }}</td><td>{{ $order->order_channel_label }}</td><td>{{ $order->status_label }}</td><td>{{ $order->payment_status_label }}</td><td>{{ $order->final_total_cents===null?'Pending':number_format($order->final_total_cents/100,2) }}</td><td><a class="btn btn-outline-primary btn-sm" href="{{ route('admin.orders.show',$order) }}" title="View order" aria-label="View order"><i class="fas fa-eye" aria-hidden="true"></i></a></td></tr>@empty<tr><td colspan="7">No orders placed yet.</td></tr>@endforelse
 </tbody></table></div><p>Showing {{ $orders->firstItem() ?? 0 }}–{{ $orders->lastItem() ?? 0 }} of {{ $orders->total() }} orders</p>{{ $orders->withQueryString()->fragment('customer-orders')->links() }}</div>
 @include('admin.customers.financial-tabs')
+<div class="tab-pane fade" id="customer-aging" role="tabpanel" aria-labelledby="customer-tab-aging">
+    <h3>Accounts Receivable Aging</h3>
+    @include('admin.reports.receivable-aging-table', ['profile' => true])
+</div>
 @include('admin.customers.refund-tab')
 <div class="tab-pane fade" id="customer-documents" role="tabpanel" aria-labelledby="customer-tab-documents">@include('partials.customer-documents')</div>
 

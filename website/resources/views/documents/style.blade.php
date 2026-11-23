@@ -19,9 +19,24 @@
 .doc-payment-summary>tbody>tr>.doc-payment-instructions{width:55%;padding-right:18px}
 .doc-payment-summary>tbody>tr>.doc-payment-amounts{width:45%}
 .doc-payment-summary .doc-box{margin:0}
+.doc-payment-summary .doc-delivery{margin-top:8px}
 .doc-payment-summary .doc-totals{width:100%;margin:0;table-layout:fixed}
 .doc-payment-summary .doc-totals td:first-child{width:65%}
 .doc-payment-summary .doc-totals td.money{width:35%;white-space:nowrap}
+.doc-invoice-aging{width:100%;border-collapse:collapse;font-size:10px}
+.doc-invoice-aging th,.doc-info .doc-invoice-aging td{padding:3px 4px;border:0;border-bottom:1px solid #dfcfb7;border-radius:0;background:transparent;vertical-align:middle}
+.doc-invoice-aging th{text-align:left;font-weight:400}
+.doc-info .doc-invoice-aging td{width:32%;white-space:nowrap;font-weight:700}
+.doc-invoice-aging tr:first-child th,.doc-info .doc-invoice-aging tr:first-child td{background:#eadbc3;font-weight:700;font-size:11px}
+.doc-invoice-aging tr:last-child th,.doc-info .doc-invoice-aging tr:last-child td{border:0}
+.doc-invoice-remittance{background:#f7f0e6;border:1px solid #b98c45;border-radius:6px;margin:12px 0 0;padding:8px 10px;page-break-inside:avoid;break-inside:avoid}
+.doc-invoice-remittance h2{font-size:12px;margin:0 0 6px;color:#66471e}
+.doc-invoice-remittance table{width:100%;table-layout:fixed;border-collapse:collapse}
+.doc-invoice-remittance td{width:33.33%;padding:1px 8px;font-size:10px;line-height:1.4;vertical-align:top;border-left:1px solid #dfcfb7;word-wrap:break-word}
+.doc-invoice-remittance td:first-child{padding-left:0;border-left:0}
+.doc-invoice-remittance h3{font-size:10px;margin:0 0 3px}
+.doc-remittance-email{overflow-wrap:anywhere}
+@media screen and (max-width:470px){.doc-invoice-remittance table,.doc-invoice-remittance tbody,.doc-invoice-remittance tr,.doc-invoice-remittance td{display:block;width:100%}.doc-invoice-remittance td{border-left:0;padding:4px 0}}
 @media screen and (max-width:600px){.doc-payment-summary,.doc-payment-summary>tbody,.doc-payment-summary>tbody>tr{display:block}.doc-payment-summary>tbody>tr>.doc-payment-instructions,.doc-payment-summary>tbody>tr>.doc-payment-amounts{display:block;width:100%;padding:0}.doc-payment-summary>tbody>tr>.doc-payment-amounts{padding-top:12px}}
 </style>
 @include('documents.header-style')

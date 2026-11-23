@@ -8,9 +8,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 class CustomerTermsController extends Controller {
  public function save(Request $r,Customer $customer){
-  $d=$r->validate(['revision'=>'required|integer','credit_limit'=>'required|numeric|min:0|max:9999999','overage'=>'required|numeric|min:0|max:9999999','credit_policy'=>'required|in:block,warn','cheque_days'=>'required|in:7,10,15','permissions'=>'nullable|array','permissions.*'=>'array','permissions.*.*'=>'boolean']);
+  $d=$r->validate(['revision'=>'required|integer','credit_limit'=>'required|numeric|min:0|max:9999999','overage'=>'required|numeric|min:0|max:9999999','credit_policy'=>'required|in:block,warn','cheque_days'=>'required|in:7,10,15','invoice_term_days'=>'sometimes|nullable|integer|min:0|max:365','permissions'=>'nullable|array','permissions.*'=>'array','permissions.*.*'=>'boolean']);
   $permissions=[];foreach(['website','pos'] as $source)foreach(array_keys(CustomerTerms::METHODS) as $m)$permissions[$source][$m]=$r->boolean('permissions.'.$source.'.'.$m);
-  $this->persist($customer,$d['revision'],['credit_limit_cents'=>(int)round($d['credit_limit']*100),'overage_cents'=>(int)round($d['overage']*100),'credit_policy'=>$d['credit_policy'],'cheque_days'=>(int)$d['cheque_days'],'payment_permissions'=>$permissions],$r);
+  $values=['credit_limit_cents'=>(int)round($d['credit_limit']*100),'overage_cents'=>(int)round($d['overage']*100),'credit_policy'=>$d['credit_policy'],'cheque_days'=>(int)$d['cheque_days'],'payment_permissions'=>$permissions];
+  if(array_key_exists('invoice_term_days',$d))$values['invoice_term_days']=$d['invoice_term_days']===null?null:(int)$d['invoice_term_days'];
+  $this->persist($customer,$d['revision'],$values,$r);
   return redirect(route('admin.customers.show',$customer).'#customer-settings')->with('status','Manager settings saved.');
  }
  private function persist(Customer $customer,int $revision,array $values,Request $r,array $rows=[]):void {

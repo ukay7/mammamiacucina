@@ -69,7 +69,7 @@ class CustomerDocumentController extends Controller
                     'doc'=>['brand'=>$record->snapshot['brand'],'title'=>'Credit Note','number'=>$record->number,'date'=>$record->snapshot['refund_date']]];
                 $view='documents.order-credit'; break;
             case 'order': $data['doc'] = $theme->order($record); break;
-            case 'invoice': $data['doc'] = $theme->order($record->order, $record); break;
+            case 'invoice': $data['doc'] = $theme->invoice($record); break;
             case 'settlement': $data['doc'] = $theme->order($record->order, receipt: $record); break;
             case 'initial-payment':
                 $doc = $theme->order($record, $record->revisions()->exists() ? $record->invoice : null);

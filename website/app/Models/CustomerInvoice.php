@@ -7,4 +7,9 @@ class CustomerInvoice extends Model {
  protected function casts():array{return ['snapshot'=>'array','issued_at'=>'datetime','historical'=>'boolean'];}
  public function order(){return $this->belongsTo(Order::class);}
  public function getLabelAttribute():string{return 'INV-'.$this->number;}
+
+ public function paymentDueDate(): ?string
+ {
+  return $this->due_date ?: data_get($this->snapshot, 'order.cheque_due_date');
+ }
 }
