@@ -29,6 +29,7 @@
                 <th scope="col">Photo</th>
                 <th scope="col">Item code</th>
                 <th scope="col">Description</th>
+                <th scope="col" class="money">Unit Price<br> Before Discount</th>
                 <th scope="col" class="money">Unit Price<br> After Discount</th>
                 <th scope="col" class="money">Qty</th>
                 <th scope="col" class="money">Line Total</th>
@@ -46,6 +47,7 @@
                     </td>
                     <td>{{ $item['code'] }}</td>
                     <td>{{ $item['name'] }}@if($item['discount'] ?? null)<br><small>{{ $item['discount'] }}</small>@endif</td>
+                    <td class="money">{{ $item['original'] ?? '—' }}</td>
                     <td class="money">{{ $item['unit'] }}</td>
                     <td class="money">{{ $item['quantity'] }}</td>
                     <td class="money">{{ $item['total'] }}</td>

@@ -103,14 +103,15 @@ class DocumentProductImagesTest extends TestCase
         foreach ($xpath->query($table.'/thead/tr/th') as $header) {
             $headers[] = $xpath->evaluate('normalize-space(.)', $header);
         }
-        $this->assertSame(['Photo', 'Item code', 'Description', 'Unit Price After Discount', 'Qty', 'Line Total'], $headers);
+        $this->assertSame(['Photo', 'Item code', 'Description', 'Unit Price Before Discount', 'Unit Price After Discount', 'Qty', 'Line Total'], $headers);
         $row = $table.'/tbody/tr[1]';
-        $this->assertStringNotContainsString('$50.00', $xpath->evaluate('normalize-space('.$row.')'));
-        $this->assertSame(0, $xpath->query($table.'//del')->length);
-        $this->assertSame('$42.50', $xpath->evaluate('normalize-space('.$row.'/td[4])'));
-        $this->assertSame('2', $xpath->evaluate('normalize-space('.$row.'/td[5])'));
-        $this->assertSame('$85.00', $xpath->evaluate('normalize-space('.$row.'/td[6])'));
-        $this->assertSame('$25.00', $xpath->evaluate('normalize-space('.$table.'/tbody/tr[2]/td[4])'));
+        $this->assertSame('$50.00', $xpath->evaluate('normalize-space('.$row.'/td[4])'));
+        $this->assertSame(0, $xpath->query($row.'/td[4]/*')->length);
+        $this->assertSame('$42.50', $xpath->evaluate('normalize-space('.$row.'/td[5])'));
+        $this->assertSame('2', $xpath->evaluate('normalize-space('.$row.'/td[6])'));
+        $this->assertSame('$85.00', $xpath->evaluate('normalize-space('.$row.'/td[7])'));
+        $this->assertSame('—', $xpath->evaluate('normalize-space('.$table.'/tbody/tr[2]/td[4])'));
+        $this->assertSame('$25.00', $xpath->evaluate('normalize-space('.$table.'/tbody/tr[2]/td[5])'));
         $this->assertSame(1, $xpath->query('//td[@class="doc-payment-instructions"]//h2[.="Delivery / pickup details"]')->length);
     }
 
