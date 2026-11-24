@@ -41,7 +41,7 @@
 <form id="pos-product-search-form" class="pos-product-toolbar" method="get">
 <label for="product-search">Find a product or scan a barcode</label>
 <div class="pos-unified-search"><i class="fas fa-search" aria-hidden="true"></i><input id="product-search" type="search" class="form-control" maxlength="255" placeholder="Product name, item code, QR / barcode…" autocomplete="off"><button class="btn btn-primary" type="submit">Find</button><button type="button" id="camera-start" class="btn btn-outline-primary" title="Scan with camera" aria-label="Scan with camera"><i class="fas fa-camera" aria-hidden="true"></i></button></div>
-<p>Search or scan, choose your quantity, then add to the sale.</p>
+<p>Search or scan, enter a quantity, then press Enter to add and return to search.</p>
 </form>
 <div id="camera-area" hidden><video id="pos-video" muted playsinline></video><div class="pos-camera-tools"><span>Hold the code steady, then move it away to scan again.</span><button id="camera-stop" type="button" class="btn btn-outline-primary">Stop camera</button></div></div>
 <div id="pos-categories" class="pos-category-strip" role="group" aria-label="Filter products by category"><button type="button" class="pos-category is-selected" data-category="" aria-pressed="true">All products</button>@foreach($categories as $category)<button type="button" class="pos-category" data-category="{{ $category->id }}" aria-pressed="false">{{ $category->name }}</button>@endforeach</div>

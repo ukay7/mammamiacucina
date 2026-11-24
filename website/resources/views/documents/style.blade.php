@@ -8,7 +8,11 @@
 .doc-financial .doc-lines td,.doc-financial .doc-lines th{padding:4px;border-bottom:1px solid #dfcfb7}
 .doc-financial .doc-lines th{font-size:9px}
 .doc-financial .doc-lines th:first-child{width:7%}
-.doc-financial .doc-lines th:nth-child(3){width:36%}
+.doc-financial .doc-lines th:nth-child(2){width:12%}
+.doc-financial .doc-lines th:nth-child(3){width:31%}
+.doc-financial .doc-lines th:nth-child(4),.doc-financial .doc-lines th:nth-child(5){width:16%}
+.doc-financial .doc-lines th:nth-child(6){width:6%}
+.doc-financial .doc-lines th:nth-child(7){width:12%}
 .doc-financial .doc-product-image{width:28px;height:28px;border-radius:3px}
 .doc-financial .doc-product-no-image{width:28px;min-height:28px;padding-top:8px;font-size:6px;border-radius:3px}
 .doc-financial .doc-lines small{font-size:8px;line-height:1.25}
@@ -59,6 +63,12 @@
     .doc-remittance-badge span{width:auto}
     .doc-remittance-badge:after{display:none}
 }
-@media screen and (max-width:600px){.doc-payment-summary,.doc-payment-summary>tbody,.doc-payment-summary>tbody>tr{display:block}.doc-payment-summary>tbody>tr>.doc-payment-instructions,.doc-payment-summary>tbody>tr>.doc-payment-amounts{display:block;width:100%;padding:0}.doc-payment-summary>tbody>tr>.doc-payment-amounts{padding-top:12px}}
+@media screen and (max-width:600px){
+    .doc-financial .doc-line-table{overflow-x:auto}
+    .doc-financial .doc-line-table .doc-lines{min-width:560px}
+    .doc-payment-summary,.doc-payment-summary>tbody,.doc-payment-summary>tbody>tr{display:block}
+    .doc-payment-summary>tbody>tr>.doc-payment-instructions,.doc-payment-summary>tbody>tr>.doc-payment-amounts{display:block;width:100%;padding:0}
+    .doc-payment-summary>tbody>tr>.doc-payment-amounts{padding-top:12px}
+}
 </style>
 @include('documents.header-style')

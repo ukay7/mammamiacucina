@@ -48,10 +48,18 @@ window.MmcPosProducts=function(app,adapter){
             const value=Number(qty.value);
             if(!Number.isInteger(value)||value<1||value>9999)return;
             if(p.stock!==null&&value>Number(p.stock)){message.textContent='Only '+MMCNumber.decimal(p.stock,'quantity')+' available. Reduce the quantity.';message.hidden=false;return;}
-            if(adapter.add(p,value)){message.hidden=true;quantities.set(p.id,1);qty.value='1';sync();onAdded?.();}
+            if(adapter.add(p,value)){
+                message.hidden=true;quantities.set(p.id,1);qty.value='1';sync();onAdded?.();
+                input.focus();
+                input.select();
+            }
             else{message.textContent='Could not add this quantity. Check available stock and the quantity already in your sale.';message.hidden=false;}
         };
-        qty.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();add.click();}});
+        qty.addEventListener('keydown',e=>{
+            if(e.key!=='Enter'||e.isComposing)return;
+            e.preventDefault();
+            if(!e.repeat)add.click();
+        });
         stepper.append(node('span','Qty'),minus,qty,plus);box.append(stepper,add,message);sync();return box;
     }
     function productRow(p,kind){
@@ -151,6 +159,7 @@ window.MmcPosProducts=function(app,adapter){
     }
     $('#close-pos-product').onclick=()=>dialog.close();dialog.addEventListener('close',()=>detailSerial++);
     $('#pos-product-search-form').onsubmit=e=>{e.preventDefault();if(adapter.canEdit())load({exact:!!input.value.trim()});};
+    input.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.repeat)e.preventDefault();});
     input.oninput=()=>{clearTimeout(timer);serial++;timer=setTimeout(()=>load(),250);};
     $('#pos-categories').onclick=e=>{const button=e.target.closest('[data-category]');if(!button||!adapter.canEdit())return;chooseCategory(button.dataset.category);load();};
     function reset(){serial++;detailSerial++;clearSuggestions();clearTimeout(timer);loading=false;products.clear();quantities.clear();input.value='';chooseCategory('');nextPage=null;total=0;dialog.close();shelf.replaceChildren(node('p','Select a customer to browse their products and prices.','pos-empty'));status('Select a customer to browse products.');$('#pos-pricing-label').textContent='Select a customer';}

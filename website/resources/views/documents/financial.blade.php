@@ -22,34 +22,70 @@
     </p>
 @endif
 <p class="doc-notice">Order: <strong class="doc-order-reference">{{ mb_strtoupper((string)$doc['order_number']) }}</strong>. {{ $doc['notice'] }}</p>
-<table class="doc-lines"><thead><tr><th>Photo</th><th>Item code</th><th>Description</th><th class="money">Qty</th><th class="money">Unit price</th><th class="money">Line total</th></tr></thead><tbody>@foreach($doc['items'] as $item)<tr><td>@if($item['image']??null)<img class="doc-product-image" src="{{ $item['image'] }}" alt="{{ $item['name'] }}" width="28" height="28">@else<span class="doc-product-no-image">No image</span>@endif</td><td>{{ $item['code'] }}</td><td>{{ $item['name'] }}@if($item['discount']??null)<br><small>{{ $item['discount'] }}</small>@endif</td><td class="money">{{ $item['quantity'] }}</td><td class="money">@if($item['original']??null)<del>{{ $item['original'] }}</del><br>@endif{{ $item['unit'] }}</td><td class="money">{{ $item['total'] }}</td></tr>@endforeach</tbody></table>
+<div class="doc-line-table" role="region" aria-label="Order items" tabindex="0">
+    <table class="doc-lines">
+        <thead>
+            <tr>
+                <th scope="col">Photo</th>
+                <th scope="col">Item code</th>
+                <th scope="col">Description</th>
+                <th scope="col" class="money">Unit Price<br> Before Discount</th>
+                <th scope="col" class="money">Unit Price<br> After Discount</th>
+                <th scope="col" class="money">Qty</th>
+                <th scope="col" class="money">Line Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($doc['items'] as $item)
+                <tr>
+                    <td>
+                        @if($item['image'] ?? null)
+                            <img class="doc-product-image" src="{{ $item['image'] }}" alt="{{ $item['name'] }}" width="28" height="28">
+                        @else
+                            <span class="doc-product-no-image">No image</span>
+                        @endif
+                    </td>
+                    <td>{{ $item['code'] }}</td>
+                    <td>{{ $item['name'] }}@if($item['discount'] ?? null)<br><small>{{ $item['discount'] }}</small>@endif</td>
+                    <td class="money">
+                        @if($item['original'] ?? null)
+                            <del>{{ $item['original'] }}</del>
+                        @else
+                            &mdash;
+                        @endif
+                    </td>
+                    <td class="money">{{ $item['unit'] }}</td>
+                    <td class="money">{{ $item['quantity'] }}</td>
+                    <td class="money">{{ $item['total'] }}</td>
+                </tr>
+            @endforeach
+        </tbody>
+    </table>
+</div>
 @if($doc['discount']??null)<p>{{ $doc['discount'] }}</p>@endif
 @component('documents.payment-summary')
 @slot('instructions')
 <div class="doc-box"><h2>{{ $isInvoice ? 'Payment status' : 'Payment instructions' }}</h2><p>{{ $doc['instructions'] }}</p><p><strong>Payment details:</strong> {{ $doc['payment'] }}</p>@foreach($doc['payment_references'] ?? [] as $label=>$reference)<p><strong>{{ $label }}:</strong> {{ $reference }}</p>@endforeach</div>
-@if($isInvoice)
+<div class="doc-box doc-delivery">
+    @if(isset($doc['current_delivery']))
+        <h2>Pickup Details at Issuance</h2>
+    @elseif($isInvoice)
+        <h2>{{ $doc['invoice_fulfillment'] === 'pickup' ? 'Pickup Details' : 'Delivery Details' }}</h2>
+    @else
+        <h2>Delivery / pickup details</h2>
+    @endif
+    <p style="white-space:pre-line">{{ $doc['delivery'] }}</p>
+</div>
+@isset($doc['current_delivery'])
     <div class="doc-box doc-delivery">
-        @if(isset($doc['current_delivery']))
-            <h2>Pickup Details at Issuance</h2>
-        @else
-            <h2>{{ $doc['invoice_fulfillment'] === 'pickup' ? 'Pickup Details' : 'Delivery Details' }}</h2>
-        @endif
-        <p style="white-space:pre-line">{{ $doc['delivery'] }}</p>
+        <h2>Current Delivery Details</h2>
+        <p style="white-space:pre-line">{{ $doc['current_delivery'] }}</p>
+        <p><small>This order was changed from pickup to delivery after the invoice was issued.</small></p>
     </div>
-    @isset($doc['current_delivery'])
-        <div class="doc-box doc-delivery">
-            <h2>Current Delivery Details</h2>
-            <p style="white-space:pre-line">{{ $doc['current_delivery'] }}</p>
-            <p><small>This order was changed from pickup to delivery after the invoice was issued.</small></p>
-        </div>
-    @endisset
-@endif
+@endisset
 @endslot
 <table class="doc-totals">@foreach($doc['totals'] as $label=>$value)<tr><td>{{ $label }}</td><td class="money">{{ $value }}</td></tr>@endforeach</table>
 @endcomponent
-@unless($isInvoice)
-<div class="doc-box doc-delivery"><h2>Delivery / pickup details</h2><p style="white-space:pre-line">{{ $doc['delivery'] }}</p></div>
-@endunless
 @if($doc['notes'])<div class="doc-box"><h2>Notes</h2><p style="white-space:pre-line">{{ $doc['notes'] }}</p></div>@endif
 <div class="doc-financial-ending">
 @if($isInvoice) @include('documents.invoice-payment-methods', ['methods' => $doc['invoice_payment_methods']]) @endif

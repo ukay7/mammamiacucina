@@ -84,6 +84,36 @@ class DocumentProductImagesTest extends TestCase
         $this->assertStringContainsString('/Height 160', $output);
     }
 
+    public function test_order_print_separates_discounted_prices_and_places_pickup_under_payment(): void
+    {
+        $order = $this->order($this->product());
+        $order->items()->update(['original_unit_cents' => 5000, 'unit_cents' => 4250, 'discount_bps' => 1500, 'line_cents' => 8500]);
+        $order->items()->create(['name' => 'Undiscounted item', 'product_code' => 'FULL', 'quantity' => 1, 'unit_cents' => 2500, 'line_cents' => 2500]);
+        $order->updateQuietly(['payment_method' => 'credit', 'subtotal_cents' => 11000]);
+
+        $this->actingAs(User::factory()->create(['role_id' => Role::where('is_super', true)->value('id'), 'is_active' => true]));
+        $response = $this->get(route('admin.orders.print', $order))->assertOk()->assertSee('15% admin special discount')
+            ->assertSeeTextInOrder(['Payment instructions', 'Delivery / pickup details', 'Pick up: Warehouse', 'Product subtotal']);
+
+        $dom = new \DOMDocument;
+        @$dom->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($dom);
+        $table = '//table[@class="doc-lines"]';
+        $headers = [];
+        foreach ($xpath->query($table.'/thead/tr/th') as $header) {
+            $headers[] = $xpath->evaluate('normalize-space(.)', $header);
+        }
+        $this->assertSame(['Photo', 'Item code', 'Description', 'Unit Price Before Discount', 'Unit Price After Discount', 'Qty', 'Line Total'], $headers);
+        $row = $table.'/tbody/tr[1]';
+        $this->assertSame('$50.00', $xpath->evaluate('normalize-space('.$row.'/td[4]/del)'));
+        $this->assertSame('$42.50', $xpath->evaluate('normalize-space('.$row.'/td[5])'));
+        $this->assertSame('2', $xpath->evaluate('normalize-space('.$row.'/td[6])'));
+        $this->assertSame('$85.00', $xpath->evaluate('normalize-space('.$row.'/td[7])'));
+        $this->assertSame(0, $xpath->query($table.'/tbody/tr[2]/td[4]/del')->length);
+        $this->assertSame('$25.00', $xpath->evaluate('normalize-space('.$table.'/tbody/tr[2]/td[5])'));
+        $this->assertSame(1, $xpath->query('//td[@class="doc-payment-instructions"]//h2[.="Delivery / pickup details"]')->length);
+    }
+
     public function test_old_invoice_snapshots_get_photos_without_changing_their_saved_details(): void
     {
         Storage::fake('local');
