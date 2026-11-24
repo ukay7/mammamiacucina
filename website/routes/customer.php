@@ -1,5 +1,6 @@
 <?php
 use App\Http\Controllers\CustomerAccountController as Customer;
+use App\Http\Controllers\CustomerCatalogueController;
 use App\Http\Middleware\CustomerAccess;
 use Illuminate\Support\Facades\Route;
 Route::get('/account/login',[Customer::class,'login'])->name('customer.login');
@@ -14,6 +15,9 @@ Route::middleware(CustomerAccess::class.':no')->group(function(){
  Route::post('/account/logout',[Customer::class,'logout'])->name('customer.logout');
 });
 Route::middleware(CustomerAccess::class)->group(function(){
+ Route::get('/admin/my-catalogue',[CustomerCatalogueController::class,'index'])->block(10,10)->name('customer.catalogue');
+ Route::post('/admin/my-catalogue/cart',[CustomerCatalogueController::class,'save'])->block(10,10)->name('customer.catalogue.cart');
+ Route::post('/admin/my-catalogue/cart/{product}/remove',[CustomerCatalogueController::class,'remove'])->whereNumber('product')->block(10,10)->name('customer.catalogue.cart.remove');
  Route::get('/admin/my-documents',[\App\Http\Controllers\CustomerDocumentController::class,'index'])->name('customer.documents');
  Route::get('/admin/my-documents/{kind}/{document}',[\App\Http\Controllers\CustomerDocumentController::class,'customerFile'])->whereNumber('document')->name('customer.documents.file');
  Route::get('/admin/my-profile',[Customer::class,'profile'])->name('customer.profile');

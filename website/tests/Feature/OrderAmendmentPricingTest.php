@@ -56,7 +56,8 @@ class OrderAmendmentPricingTest extends TestCase
     {
         [$order, $product, $customer] = $this->fixture('business');
         DB::table('customer_product_discounts')->insert(['customer_id' => $customer->id, 'product_id' => $product->id, 'discount_bps' => 1000, 'enabled' => true]);
-        $this->get(route('admin.orders.show', $order))->assertOk()->assertSee('value="'.$product->id.'" data-price="10.80"', false);
+        $this->get(route('admin.orders.show', $order))->assertOk()->assertSee('value="'.$product->id.'" data-price="12.00"', false)
+            ->assertSee('data-discount="10"', false);
         $this->add($order, $product, '10.80')->assertSessionHasNoErrors();
         $line = $order->items()->where('product_id', $product->id)->sole();
         $this->assertSame(1080, $line->unit_cents);
@@ -85,5 +86,35 @@ class OrderAmendmentPricingTest extends TestCase
             $this->add($order, $product)->assertSessionHasNoErrors();
             $this->assertSame($expected, $order->items()->where('product_id', $product->id)->sole()->unit_cents);
         }
+    }
+
+    public function test_editor_shows_existing_photo_and_saved_discount_and_saves_line_discounts(): void
+    {
+        [$order, $added] = $this->fixture('business');
+        $order->update(['source' => 'pos', 'order_discount_bps' => 500]);
+        $product = $added->replicate();
+        $product->fill(['slug' => Str::uuid(), 'qr_code' => Str::uuid(), 'premium_marketing_name' => 'Existing cake'])->save();
+        $product->media()->create(['kind' => 'image', 'path' => 'test/photo.png', 'original_name' => 'photo.png', 'mime_type' => 'image/png', 'sort_order' => 0]);
+        $line = $order->items()->sole();
+        $line->update(['product_id' => $product->id, 'name' => 'Existing cake', 'quantity' => 2,
+            'original_unit_cents' => 2000, 'discount_bps' => 1500, 'unit_cents' => 1700, 'line_cents' => 3400]);
+
+        $this->get(route('admin.orders.show', $order))->assertOk()->assertSee(route('admin.orders.item-image', [$order, $line]))
+            ->assertSee('name="items['.$line->id.'][discount_percent]" value="15.00"', false)
+            ->assertSee('Order discount (5%)');
+
+        $data = ['revision' => $order->revision, 'items' => [$line->id => ['quantity' => 2, 'unit_price' => '20.00', 'discount_percent' => '12.50']],
+            'add_items' => [['product_id' => $added->id, 'quantity' => 2, 'unit_price' => '12.00', 'discount_percent' => '25']],
+            'fulfillment' => 'pickup', 'delivery' => '0', 'tax' => '0', 'tax_mode' => 'manual', 'reason' => 'Adjust discounts', 'first_name' => 'Buyer'];
+        $invalid = $data;
+        $invalid['items'][$line->id]['discount_percent'] = '100.01';
+        $this->post(route('admin.orders.amend', $order), $invalid)->assertSessionHasErrors('items.'.$line->id.'.discount_percent');
+        $this->assertSame(1500, $line->fresh()->discount_bps);
+
+        $this->post(route('admin.orders.amend', $order), $data)->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('order_items', ['id' => $line->id, 'original_unit_cents' => 2000, 'discount_bps' => 1250, 'unit_cents' => 1750, 'line_cents' => 3500]);
+        $this->assertDatabaseHas('order_items', ['order_id' => $order->id, 'product_id' => $added->id,
+            'original_unit_cents' => 1200, 'discount_bps' => 2500, 'unit_cents' => 900, 'line_cents' => 1800]);
+        $this->assertSame(5035, $order->fresh()->subtotal_cents);
     }
 }

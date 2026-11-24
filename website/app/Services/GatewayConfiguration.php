@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\GatewaySetting;
+use Illuminate\Contracts\Encryption\DecryptException;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
 class GatewayConfiguration
@@ -51,7 +53,13 @@ class GatewayConfiguration
         if (! isset(self::FIELDS[$provider]) || ! in_array($mode, ['sandbox', 'live'], true)) {
             return false;
         }
-        $values = $this->credentials($provider, $mode);
+        try {
+            $values = $this->credentials($provider, $mode);
+        } catch (DecryptException) {
+            Log::warning('Saved payment gateway credentials could not be decrypted.', ['provider' => $provider, 'mode' => $mode]);
+
+            return false;
+        }
         foreach (self::FIELDS[$provider] as $key => $label) {
             if (empty($values[$key])) {
                 return false;

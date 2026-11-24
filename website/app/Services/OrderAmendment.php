@@ -6,6 +6,7 @@ use App\Models\GeneralSetting;
 use App\Models\Inventory;
 use App\Models\InventoryMovement;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\User;
 use App\Models\OrderRevision;
@@ -24,6 +25,23 @@ class OrderAmendment
         $parts = explode('.', $value);
 
         return (int) $parts[0] * 100 + (int) str_pad($parts[1] ?? '', 2, '0');
+    }
+
+    public function savedLinePricing(OrderItem $item): array
+    {
+        $unit = (int) $item->unit_cents;
+        $base = (int) ($item->original_unit_cents ?? $unit);
+        $discount = (int) $item->discount_bps;
+        if ($this->discountedUnit($base, $discount) !== $unit) {
+            return ['original_unit_cents' => $unit, 'discount_bps' => 0];
+        }
+
+        return ['original_unit_cents' => $base, 'discount_bps' => $discount];
+    }
+
+    private function discountedUnit(int $base, int $discount): int
+    {
+        return $base - (int) round($base * $discount / 10000);
     }
 
     public function productPrices(Order $order, \Illuminate\Support\Collection $products): array
@@ -88,7 +106,8 @@ class OrderAmendment
                 $order->manual_collected_cents = $order->payment_status === 'paid' ? ($oldTotal ?? 0) : 0;
             }
             if (!$order->payment) $order->manual_refunded_cents ??= $order->payment_status === 'refunded' ? $order->collected_cents : 0;
-            $before = $items->map(fn ($i) => ['name' => $i->name, 'quantity' => $i->quantity, 'unit_cents' => $i->unit_cents])->values()->all();
+            $eventFields = ['name', 'quantity', 'original_unit_cents', 'discount_bps', 'unit_cents'];
+            $before = $items->map(fn ($item) => $item->only($eventFields))->values()->all();
             $stock = function ($productId, int $difference, string $name) use ($inventories, $order, $user) {
                 if (! $difference) {
                     return null;
@@ -127,12 +146,20 @@ class OrderAmendment
                     continue;
                 }
                 $unit = self::cents($row['unit_price']);
+                $priceFields = [];
+                if (isset($row['discount_percent'])) {
+                    $discount = self::cents($row['discount_percent']);
+                    $priceFields = ['original_unit_cents' => $unit, 'discount_bps' => $discount];
+                    $unit = $this->discountedUnit($unit, $discount);
+                } elseif ($unit !== (int) $item->unit_cents) {
+                    $priceFields = ['original_unit_cents' => $unit, 'discount_bps' => 0];
+                }
                 $changes = ['quantity' => $qty, 'unit_cents' => $unit, 'line_cents' => $qty * $unit, 'inventory_shortage_quantity' => $item->inventory_shortage_quantity];
                 // Price/contact changes do not invalidate a physical packing check.
                 if ($difference !== 0) {
                     $changes += ['packed' => false, 'packed_by' => null, 'packed_at' => null];
                 }
-                $item->update($changes);
+                $item->update($changes + $priceFields);
             }
             foreach ($data['add_items'] ?? [] as $row) {
                 $p = $products->get($row['product_id']);
@@ -144,10 +171,21 @@ class OrderAmendment
                 }
                 $qty = (int) $row['quantity'];
                 $pricing = $prices[$p->id];
-                $unit = isset($row['unit_price']) && $row['unit_price'] !== '' ? self::cents($row['unit_price']) : $pricing['unit_cents'];
-                if ($unit === null) {
+                $entered = isset($row['unit_price']) && $row['unit_price'] !== '' ? self::cents($row['unit_price']) : null;
+                if (isset($row['discount_percent'])) {
+                    $base = $entered ?? $pricing['original_unit_cents'];
+                    $discount = self::cents($row['discount_percent']);
+                } elseif ($entered === null || $entered === $pricing['unit_cents']) {
+                    $base = $pricing['original_unit_cents'];
+                    $discount = $pricing['discount_bps'];
+                } else {
+                    $base = $entered;
+                    $discount = 0;
+                }
+                if ($base === null) {
                     $this->fail('Enter a selling price for '.$p->premium_marketing_name.'.');
                 }
+                $unit = $this->discountedUnit($base, $discount);
                 $tracked = $inventories->has($p->id) && $inventories[$p->id]->quantity_on_hand !== null;
                 $shortage = null;
                 if ($tracked) {
@@ -155,8 +193,7 @@ class OrderAmendment
                     $shortage = max(0, $qty - max(0, $movement['before']));
                 }
                 $order->items()->create(['product_id' => $p->id, 'name' => $p->premium_marketing_name, 'product_code' => $p->product_code, 'qr_code' => $p->qr_code, 'stock_deducted' => $tracked, 'inventory_shortage_quantity' => $shortage, 'quantity' => $qty, 'unit_cents' => $unit, 'line_cents' => $qty * $unit,
-                    'original_unit_cents' => $unit === $pricing['unit_cents'] ? $pricing['original_unit_cents'] : $unit,
-                    'discount_bps' => $unit === $pricing['unit_cents'] ? $pricing['discount_bps'] : 0]);
+                    'original_unit_cents' => $base, 'discount_bps' => $discount]);
             }
             if ($order->items()->count() > 100) {
                 $this->fail('An order can contain up to 100 different products.');
@@ -232,7 +269,7 @@ class OrderAmendment
             $scheduleNote = $previousSchedule?->timestamp !== $order->delivery_scheduled_at?->timestamp
                 ? ' · Delivery date & time (Toronto): '.(\App\Support\BusinessTime::format($previousSchedule) ?? 'Not set').' → '.(\App\Support\BusinessTime::format($order->delivery_scheduled_at) ?? 'Not set')
                 : '';
-            $after = $order->items()->get()->map(fn ($i) => ['name' => $i->name, 'quantity' => $i->quantity, 'unit_cents' => $i->unit_cents])->all();
+            $after = $order->items()->get()->map(fn ($item) => $item->only($eventFields))->all();
             $order->events()->create(['user_id' => $user, 'description' => ($fulfilled ? $record->number.' · Super Admin correction after delivery. ' : '').'Order amended: '.$data['reason'].$scheduleNote.' · fulfillment '.$order->fulfillment.' · total CAD '.number_format(($oldTotal ?? 0) / 100, 2).' → '.number_format($order->final_total_cents / 100, 2).' · Items before: '.json_encode($before, JSON_UNESCAPED_UNICODE).' · Items after: '.json_encode($after, JSON_UNESCAPED_UNICODE).($fulfilled ? ' · Stock returns: '.json_encode($stockReturns, JSON_UNESCAPED_UNICODE) : ''), 'created_at' => now()]);
         }, 3);
     }
@@ -240,7 +277,7 @@ class OrderAmendment
     private function snapshot(Order $order): array
     {
         return ['customer'=>$order->customer?->only(['id','name','business_name','account_type','email','phone']), 'order'=>$order->only(['number','first_name','last_name','email','phone','address','city','province','postal_code','country','fulfillment','pickup_address','delivery_scheduled_at','status','subtotal_cents','delivery_cents','tax_cents','order_discount_cents','refund_credit_cents','refund_credit_tax_cents']),
-            'items'=>$order->items()->get()->map(fn($item)=>$item->only(['product_id','name','product_code','quantity','unit_cents','line_cents','packed','packed_at']))->all(),
+            'items'=>$order->items()->get()->map(fn($item)=>$item->only(['product_id','name','product_code','quantity','original_unit_cents','discount_bps','unit_cents','line_cents','packed','packed_at']))->all(),
             'total_cents'=>$order->final_total_cents, 'adjusted_total_cents'=>$order->adjusted_total_cents,
             'net_received_cents'=>$order->net_received_cents, 'balance_cents'=>$order->balance_cents];
     }

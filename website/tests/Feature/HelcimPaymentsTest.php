@@ -42,14 +42,17 @@ class HelcimPaymentsTest extends TestCase
         });
     }
 
-    private function checkout(string $fulfillment = 'pickup', string $type = 'individual'): array
+    private function checkout(string $fulfillment = 'pickup', string $type = 'individual', array $options = []): array
     {
         $user = User::factory()->create(['account_type' => $type, 'business_approved_at' => $type === 'business' ? now() : null, 'is_active' => true, 'role_id' => Role::where('name', 'Customer')->value('id')]);
         $this->actingAs($user);
-        GeneralSetting::findOrFail(1)->update(['pickup_address' => '123 Test Street', 'delivery_cents' => 500, 'tax_basis_points' => 500]);
-        $product = Product::create(['category_id' => 1, 'slug' => 'helcim-cake', 'premium_marketing_name' => 'Helcim Cake', 'qr_code' => 'HEL-CARD', 'is_active' => true, 'total_selling_price_cad' => 10, 'business_selling_price_cad' => 6]);
+        if (isset($options['order_discount_bps'])) {
+            $user->customerRecord()->update(['order_discount_bps' => $options['order_discount_bps']]);
+        }
+        GeneralSetting::findOrFail(1)->update(($options['charges'] ?? []) + ['pickup_address' => '123 Test Street', 'delivery_cents' => 500, 'tax_basis_points' => 500]);
+        $product = Product::create(['category_id' => 1, 'slug' => 'helcim-cake', 'premium_marketing_name' => 'Helcim Cake', 'qr_code' => 'HEL-CARD', 'is_active' => true, 'total_selling_price_cad' => $options['price'] ?? 150, 'business_selling_price_cad' => 146]);
         $product->inventory()->create(['quantity_on_hand' => 10]);
-        $this->postJson(route('cart.add', $product), ['quantity' => 2])->assertOk();
+        $this->postJson(route('cart.add', $product), ['quantity' => $options['quantity'] ?? 2])->assertOk();
         $this->get('/checkout')->assertOk()->assertSee('Pay by card');
         $data = ['checkout_token' => session('checkout_token'), 'fulfillment' => $fulfillment, 'payment_method' => 'card',
             'first_name' => 'Test', 'last_name' => 'Customer', 'email' => $user->email, 'phone' => '123',
@@ -58,7 +61,7 @@ class HelcimPaymentsTest extends TestCase
         return [$product, $data, $response];
     }
 
-    private function row(string $type = 'purchase', string $amount = '21.00', string $id = '101'): array
+    private function row(string $type = 'purchase', string $amount = '315.00', string $id = '101'): array
     {
         return ['transactionId' => $id, 'invoiceNumber' => app(HelcimGateway::class)->invoiceNumber(Payment::firstOrFail()),
             'status' => 'APPROVED', 'type' => $type, 'currency' => 'CAD', 'amount' => $amount];
@@ -98,7 +101,35 @@ class HelcimPaymentsTest extends TestCase
         $this->assertStringNotContainsString('checkout-test-token', DB::table('payments')->value('checkout_token'));
         $this->assertArrayNotHasKey('checkout_token', $payment->toArray());
         Http::assertSentCount(1);
-        Http::assertSent(fn ($request) => $request['amount'] === 21 && $request['paymentMethod'] === 'cc' && $request['allowPartial'] === 0 && $request['invoiceRequest']['tax']['amount'] === 1);
+        Http::assertSent(fn ($request) => $request['amount'] === 315 && $request['paymentMethod'] === 'cc' && $request['allowPartial'] === 0 && $request['invoiceRequest']['tax']['amount'] === 15);
+    }
+
+    public function test_checkout_rejects_a_card_total_below_the_minimum_after_discount(): void
+    {
+        [$product, $data, $response] = $this->checkout(options: [
+            'price' => '333.32', 'quantity' => 1, 'order_discount_bps' => 1000, 'charges' => ['tax_basis_points' => 0],
+        ]);
+        $response->assertSessionHasErrors(['payment_method' => 'Credit card payments require a minimum of CAD $300.00. Please choose another payment method or update your cart.']);
+        $this->assertDatabaseCount('orders', 0);
+        $this->assertDatabaseCount('payments', 0);
+        $this->assertDatabaseCount('inventory_movements', 0);
+        $this->assertSame('10.000', $product->inventory->fresh()->quantity_on_hand);
+        Http::assertNothingSent();
+
+        $this->post('/checkout', array_replace($data, ['payment_method' => 'cash']))->assertRedirect('/order-success');
+        $this->assertSame(29999, Order::firstOrFail()->final_total_cents);
+    }
+
+    public function test_checkout_accepts_exact_minimum_including_delivery_and_tax(): void
+    {
+        [, , $response] = $this->checkout('delivery', options: [
+            'price' => '280.00', 'quantity' => 1, 'charges' => ['delivery_cents' => 600],
+        ]);
+        $payment = Payment::firstOrFail();
+        $response->assertRedirect(route('payment.show', $payment->reference));
+        $this->assertSame(30000, $payment->amount_cents);
+        $this->assertSame(30000, $payment->order->final_total_cents);
+        Http::assertSent(fn ($request) => str_ends_with($request->url(), '/helcim-pay/initialize') && $request['amount'] === 300);
     }
 
     public function test_verified_payment_moves_once_to_warehouse_and_appears_in_invoice_and_ledger(): void
@@ -112,15 +143,15 @@ class HelcimPaymentsTest extends TestCase
         $order = $payment->order->fresh();
         $this->assertSame('paid', $order->payment_status);
         $this->assertSame('warehouse_pending', $order->status);
-        $this->assertSame(2100, $order->collected_cents);
+        $this->assertSame(31500, $order->collected_cents);
         $this->assertSame(0, $order->balance_cents);
         $this->assertSame(1, $order->events()->count());
         $this->assertDatabaseCount('payment_events', 1);
         $this->get(route('payment.show', $payment->reference))->assertRedirect('/order-success');
         $this->get('/order-print')->assertOk()->assertSee('Helcim invoice reference:')->assertSee($payment->fresh()->provider_order_id)->assertSee('Transaction reference:')->assertSee('101')->assertDontSee('checkout-test-token')->assertDontSee('test-secret-token');
         $this->admin();
-        $this->get(route('admin.orders.payments', $order))->assertOk()->assertSee('+$21.00')->assertSee('Original receipt')->assertSee(route('admin.orders.initial-payment-document',$order),false);
-        $this->get('/admin/reports/payments?sandbox=1')->assertOk()->assertViewHas('summary', fn ($summary) => $summary['card']['gross'] === 2100);
+        $this->get(route('admin.orders.payments', $order))->assertOk()->assertSee('+$315.00')->assertSee('Original receipt')->assertSee(route('admin.orders.initial-payment-document',$order),false);
+        $this->get('/admin/reports/payments?sandbox=1')->assertOk()->assertViewHas('summary', fn ($summary) => $summary['card']['gross'] === 31500);
     }
 
     public function test_bad_signatures_wrong_invoice_amount_and_foreign_owner_cannot_confirm(): void
@@ -170,17 +201,17 @@ class HelcimPaymentsTest extends TestCase
         $this->transactions = [$this->row()];
         app(OnlinePayments::class)->sync($payment);
         $this->admin();
-        $this->post(route('admin.payments.refund', $payment), ['confirm' => 'REFUND', 'expected_cents' => 2100, 'amount' => '5.00'])->assertSessionHasNoErrors();
+        $this->post(route('admin.payments.refund', $payment), ['confirm' => 'REFUND', 'expected_cents' => 31500, 'amount' => '5.00'])->assertSessionHasNoErrors();
         $this->assertSame(500, $payment->fresh()->refunded_cents);
         $this->assertSame('partially_refunded', $payment->order->fresh()->payment_status);
         $this->assertDatabaseCount('payment_refunds', 1);
         $this->refundTimeout = true;
-        $this->post(route('admin.payments.refund', $payment), ['confirm' => 'REFUND', 'expected_cents' => 1600, 'amount' => '16.00', 'revision' => $payment->order->fresh()->revision, 'restock_inventory' => 1])->assertSessionHasErrors('payment');
+        $this->post(route('admin.payments.refund', $payment), ['confirm' => 'REFUND', 'expected_cents' => 31000, 'amount' => '310.00', 'revision' => $payment->order->fresh()->revision, 'restock_inventory' => 1])->assertSessionHasErrors('payment');
         $this->refundTimeout = false;
         app(OnlinePayments::class)->sync($payment);
-        $this->assertSame(2100, $payment->fresh()->refunded_cents);
+        $this->assertSame(31500, $payment->fresh()->refunded_cents);
         $this->assertSame('refunded', $payment->order->fresh()->payment_status);
-        $this->post(route('admin.payments.refund', $payment), ['confirm' => 'REFUND', 'expected_cents' => 1600, 'amount' => '16.00', 'revision' => $payment->order->fresh()->revision, 'restock_inventory' => 1])->assertSessionHasNoErrors();
+        $this->post(route('admin.payments.refund', $payment), ['confirm' => 'REFUND', 'expected_cents' => 31000, 'amount' => '310.00', 'revision' => $payment->order->fresh()->revision, 'restock_inventory' => 1])->assertSessionHasNoErrors();
         $this->assertDatabaseCount('payment_refunds', 2);
         $refunds = Http::recorded(fn ($request) => str_ends_with($request->url(), '/payment/refund'))->values();
         $this->assertCount(2, $refunds);
@@ -200,13 +231,13 @@ class HelcimPaymentsTest extends TestCase
     {
         $this->checkout('delivery');
         $payment = Payment::firstOrFail();
-        $this->transactions = [array_merge($this->row('purchase', '26.00'), ['status' => 'DECLINED'])];
+        $this->transactions = [array_merge($this->row('purchase', '320.00'), ['status' => 'DECLINED'])];
         app(OnlinePayments::class)->sync($payment);
         $this->assertNull($payment->fresh()->paid_at);
-        $this->transactions = [$this->row('purchase', '26.00')];
+        $this->transactions = [$this->row('purchase', '320.00')];
         $this->artisan('payments:reconcile')->assertExitCode(0);
         $this->assertSame('paid', $payment->order->fresh()->payment_status);
-        $this->assertSame(2600, $payment->order->fresh()->collected_cents);
+        $this->assertSame(32000, $payment->order->fresh()->collected_cents);
     }
 
     public function test_settings_mask_helcim_secrets_and_test_without_charging(): void
@@ -226,28 +257,28 @@ class HelcimPaymentsTest extends TestCase
         [$product, , $response] = $this->checkout('delivery', 'business');
         $response->assertSessionHasErrors('payment');
         $payment = Payment::firstOrFail();
-        $this->assertSame(1760, $payment->amount_cents);
+        $this->assertSame(31160, $payment->amount_cents);
         $this->assertSame('creating', $payment->status);
         $this->outage = false;
         $this->post(route('payment.start', $payment->reference))->assertRedirect();
         $this->assertSame('pending', $payment->fresh()->status);
         $this->assertDatabaseCount('orders', 1);
         $this->assertSame('8.000', $product->inventory->fresh()->quantity_on_hand);
-        Http::assertSent(fn ($request) => str_ends_with($request->url(), '/helcim-pay/initialize') && $request['amount'] === 17.6);
+        Http::assertSent(fn ($request) => str_ends_with($request->url(), '/helcim-pay/initialize') && $request['amount'] === 311.6);
     }
 
     public function test_duplicate_purchase_requires_review_and_customer_cannot_refund(): void
     {
         $this->checkout();
         $payment = Payment::firstOrFail();
-        $this->transactions = [$this->row(), $this->row('purchase', '21.00', '102')];
+        $this->transactions = [$this->row(), $this->row('purchase', '315.00', '102')];
         app(OnlinePayments::class)->sync($payment);
         $this->assertSame('payment_review', $payment->order->fresh()->status);
         $this->assertNull($payment->fresh()->paid_at);
-        $this->post(route('admin.payments.refund', $payment), ['confirm' => 'REFUND', 'expected_cents' => 2100])->assertRedirect(route('customer.orders'));
+        $this->post(route('admin.payments.refund', $payment), ['confirm' => 'REFUND', 'expected_cents' => 31500])->assertRedirect(route('customer.orders'));
         $role = Role::create(['name' => 'Refund restricted tester', 'permissions' => ['orders.view', 'orders.manage']]);
         $this->actingAs(User::factory()->create(['is_active' => true, 'role_id' => $role->id]));
-        $this->post(route('admin.payments.refund', $payment), ['confirm' => 'REFUND', 'expected_cents' => 2100])->assertForbidden();
+        $this->post(route('admin.payments.refund', $payment), ['confirm' => 'REFUND', 'expected_cents' => 31500])->assertForbidden();
         Http::assertNotSent(fn ($request) => str_ends_with($request->url(), '/payment/refund'));
     }
 
@@ -261,7 +292,7 @@ class HelcimPaymentsTest extends TestCase
         $this->transactions = [$this->row()];
         app(OnlinePayments::class)->sync($payment);
         $this->admin();
-        foreach ([['expected_cents' => 2100, 'amount' => '22.00'], ['expected_cents' => 2200, 'amount' => '5.00']] as $data) {
+        foreach ([['expected_cents' => 31500, 'amount' => '316.00'], ['expected_cents' => 31600, 'amount' => '5.00']] as $data) {
             $this->post(route('admin.payments.refund', $payment), $data + ['confirm' => 'REFUND'])->assertSessionHasErrors('payment');
         }
         Http::assertNotSent(fn ($request) => str_ends_with($request->url(), '/payment/refund'));
@@ -275,15 +306,15 @@ class HelcimPaymentsTest extends TestCase
         $this->transactions = [$this->row()];
         app(OnlinePayments::class)->sync($payment);
         // Simulate the totals produced by the separately tested order amendment service.
-        $payment->order->update(['subtotal_cents' => 1000, 'tax_cents' => 50]);
+        $payment->order->update(['subtotal_cents' => 29000, 'tax_cents' => 1450]);
         $this->admin();
-        $this->assertDocumentTotals($this->get(route('admin.orders.print', $payment->order))->assertOk(), ['Refund due'=>'$10.50','Net received'=>'$21.00','Balance due'=>'$0.00']);
+        $this->assertDocumentTotals($this->get(route('admin.orders.print', $payment->order))->assertOk(), ['Refund due'=>'$10.50','Net received'=>'$315.00','Balance due'=>'$0.00']);
         $this->assertDatabaseCount('payment_refunds', 0);
-        $this->post(route('admin.payments.refund', $payment), ['confirm' => 'REFUND', 'expected_cents' => 2100, 'amount' => '5.00'])->assertSessionHasNoErrors();
-        $this->post(route('admin.payments.refund', $payment), ['confirm' => 'REFUND', 'expected_cents' => 1600, 'amount' => '5.50'])->assertSessionHasNoErrors();
+        $this->post(route('admin.payments.refund', $payment), ['confirm' => 'REFUND', 'expected_cents' => 31500, 'amount' => '5.00'])->assertSessionHasNoErrors();
+        $this->post(route('admin.payments.refund', $payment), ['confirm' => 'REFUND', 'expected_cents' => 31000, 'amount' => '5.50'])->assertSessionHasNoErrors();
         $this->assertSame(0, $payment->order->fresh()->balance_cents);
-        $this->get(route('admin.orders.payments', $payment->order))->assertOk()->assertSee('−$5.00')->assertSee('−$5.50')->assertSee('+$21.00');
-        $this->assertDocumentTotals($this->get(route('admin.orders.print', $payment->order))->assertOk(), ['Balance due'=>'$0.00','Net received'=>'$10.50']);
+        $this->get(route('admin.orders.payments', $payment->order))->assertOk()->assertSee('−$5.00')->assertSee('−$5.50')->assertSee('+$315.00');
+        $this->assertDocumentTotals($this->get(route('admin.orders.print', $payment->order))->assertOk(), ['Balance due'=>'$0.00','Net received'=>'$304.50']);
     }
 
     public function test_manual_paid_resolution_restores_released_stock_and_is_idempotent(): void
@@ -345,7 +376,7 @@ class HelcimPaymentsTest extends TestCase
         $this->assertSame('cancelled', $p->order->fresh()->status);
         $this->assertSame('8.000', $product->inventory->fresh()->quantity_on_hand);
         // A late payment and its eventual provider refund cannot change the saved No.
-        $this->transactions = [$this->row(), $this->row('refund', '21.00', '202')];
+        $this->transactions = [$this->row(), $this->row('refund', '315.00', '202')];
         app(OnlinePayments::class)->sync($p);
         $this->assertSame('refunded', $p->order->fresh()->payment_status);
         $this->assertSame('8.000', $product->inventory->fresh()->quantity_on_hand);

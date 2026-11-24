@@ -23,18 +23,7 @@ class CartController extends Controller
         }
         $items = session('storefront_cart', []);
         $quantity = $r->isMethod('patch') ? $data['quantity'] : (int) ($items[$product->id] ?? 0) + $data['quantity'];
-        if ($quantity > 99) {
-            throw ValidationException::withMessages(['quantity' => 'Maximum quantity is 99 per product.']);
-        }
-        if (count($items) >= 100 && ! isset($items[$product->id])) {
-            throw ValidationException::withMessages(['quantity' => 'Your cart can contain up to 100 different products.']);
-        }
-        $stock = $product->inventory?->quantity_on_hand;
-        if ($stock !== null && $quantity > (float) $stock) {
-            throw ValidationException::withMessages(['quantity' => 'The requested quantity exceeds the available stock.']);
-        }
-        $items[$product->id] = (int) $quantity;
-        session(['storefront_cart' => $items]);
+        session(['storefront_cart' => $cart->withQuantity($items, $product, $quantity)]);
 
         return $this->respond($r, $cart, $r->isMethod('patch') ? 'Cart updated.' : 'Added to cart.');
     }

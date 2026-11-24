@@ -12,12 +12,17 @@
   let subtotal=0,valid=true;
   form.querySelectorAll('[data-existing-item],[data-add-row]').forEach(row=>{
    const qty=row.querySelector('input[name$="[quantity]"]'),price=row.querySelector('input[name$="[unit_price]"]');
-   const amount=cents(price),quantity=Number(qty.value);
-   const rowValid=qty.value!==''&&qty.validity.valid&&Number.isInteger(quantity)&&amount!==null&&(!row.matches('[data-add-row]')||row.querySelector('select').value!=='');
-   row.querySelector('[data-line-total]').textContent=rowValid?format(quantity*amount):'—';
-   if(rowValid)subtotal+=quantity*amount;else valid=false;
+   const discount=row.querySelector('input[name$="[discount_percent]"]');
+   const base=cents(price),discountBps=cents(discount),quantity=Number(qty.value);
+   const rowValid=qty.value!==''&&qty.validity.valid&&Number.isInteger(quantity)&&base!==null&&discountBps!==null&&(!row.matches('[data-add-row]')||row.querySelector('select').value!=='');
+   const lineTotal=rowValid ? quantity*(base-Math.round(base*discountBps/10000)) : null;
+   row.querySelector('[data-line-total]').textContent=lineTotal===null?'—':format(lineTotal);
+   if(rowValid)subtotal+=lineTotal;else valid=false;
   });
-  subtotal-=Math.round(subtotal*Number(form.dataset.discountBps||0)/10000);
+  const orderDiscount=Math.round(subtotal*Number(form.dataset.discountBps||0)/10000);
+  const orderDiscountDisplay=form.querySelector('[data-total="order-discount"]');
+  if(orderDiscountDisplay)orderDiscountDisplay.textContent=valid?format(-orderDiscount):'—';
+  subtotal-=orderDiscount;
   const deliveryInput=form.elements.delivery,pickup=form.elements.fulfillment.value==='pickup';
   if(previousFulfillment==='pickup'&&!pickup)deliveryInput.value=lastDelivery;
   if(previousFulfillment==='delivery'&&pickup)lastDelivery=deliveryInput.value;
@@ -35,7 +40,7 @@
   const values={subtotal:valid?subtotal:null,delivery,tax,grand:total,received,balance:balance===null?null:Math.abs(balance)};
   Object.entries(values).forEach(([key,value])=>form.querySelector('[data-total="'+key+'"]').textContent=value===null?'—':format(value));
   form.querySelector('[data-balance-label]').textContent=balance!==null&&balance<0?'Refund due':'Amount due';
-  form.querySelector('[data-preview-note]').textContent=total===null?'Complete valid quantities, prices and charges to calculate the total.':'Preview only. Save Order Changes to apply.';
+  form.querySelector('[data-preview-note]').textContent=total===null?'Complete valid quantities, prices, discounts and charges to calculate the total.':'Preview only. Save Order Changes to apply.';
  }
  const markDirty=()=>{dirty=true;recalculate();};
  form.addEventListener('input',markDirty);
@@ -60,10 +65,28 @@
    markDirty();
   });
  });
- form.querySelector('[data-add-order-item]').addEventListener('click',()=>{
+ const newItems=form.querySelector('#order-new-items');
+ function addRow(values={}){
   const frag=document.querySelector('#order-add-template').content.cloneNode(true),row=frag.querySelector('[data-add-row]');
   row.querySelectorAll('[data-field]').forEach(e=>e.name='add_items['+next+']['+e.dataset.field+']');next++;
   const select=row.querySelector('select'),toggle=row.querySelector('[data-product-toggle]');
+  const photo=row.querySelector('[data-product-photo]');
+  const placeholder=row.querySelector('[data-product-placeholder]');
+  const updateProduct=option=>{
+   toggle.firstElementChild.textContent=option.textContent;
+   row.querySelector('[data-field="unit_price"]').value=option.dataset.price ?? '';
+   row.querySelector('[data-field="discount_percent"]').value=option.dataset.discount ?? '0';
+   photo.hidden=!option.dataset.photo;
+   placeholder.hidden=!photo.hidden;
+   if(photo.hidden)photo.removeAttribute('src');else photo.src=option.dataset.photo;
+  };
+  if(values.product_id){
+   select.value=String(values.product_id);
+   if(select.selectedOptions[0])updateProduct(select.selectedOptions[0]);
+  }
+  for(const field of ['quantity','unit_price','discount_percent']){
+   if(typeof values[field]==='string'||typeof values[field]==='number')row.querySelector('[data-field="'+field+'"]').value=values[field];
+  }
   toggle.addEventListener('click',()=>{
    const prior=document.querySelector('.order-product-popup');if(prior)prior.dispatchEvent(new Event('close-picker'));
    const popup=document.createElement('div');popup.className='order-product-popup';
@@ -79,7 +102,7 @@
     list.replaceChildren();
     Array.from(select.options).slice(1).filter(o=>o.dataset.search.toLowerCase().includes(search.value.trim().toLowerCase())).forEach(o=>{
      const button=document.createElement('button');button.type='button';button.textContent=o.textContent;button.setAttribute('role','option');button.setAttribute('aria-selected',String(o.value===select.value));
-     button.onclick=()=>{select.value=o.value;toggle.firstElementChild.textContent=o.textContent;row.querySelector('[data-field="unit_price"]').value=o.dataset.price===''?'':Number(o.dataset.price).toFixed(2);markDirty();close();toggle.focus();};list.append(button);
+     button.onclick=()=>{select.value=o.value;updateProduct(o);markDirty();close();toggle.focus();};list.append(button);
     });
     if(!list.children.length){const empty=document.createElement('p');empty.textContent='No matching products';list.append(empty);}
    };
@@ -96,7 +119,14 @@
    if(!window.confirm('Remove this added item?'))return;
    row.remove();markDirty();
   });
-  document.querySelector('#order-new-items').append(frag);toggle.focus();markDirty();
+  newItems.append(frag);
+  return toggle;
+ }
+ for(const row of Object.values(JSON.parse(newItems.dataset.previousItems)||{})){
+  if(row && typeof row==='object')addRow(row);
+ }
+ form.querySelector('[data-add-order-item]').addEventListener('click',()=>{
+  addRow().focus();markDirty();
  });
  form.querySelector('[data-order-fulfillment]').addEventListener('change',e=>{
   recalculate();

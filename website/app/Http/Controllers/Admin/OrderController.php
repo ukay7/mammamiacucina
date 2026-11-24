@@ -80,9 +80,10 @@ class OrderController extends Controller
     {
         if ($order->isFulfilled()) abort_unless($r->user()->isSuper(), 403);
         $money = ['required', 'regex:/^\d{1,7}(\.\d{1,2})?$/'];
+        $discount = ['sometimes', 'required', 'numeric', 'between:0,100', 'regex:/^\d{1,3}(\.\d{1,2})?$/'];
         $rules = ['delivery_service'=>'nullable|string|max:20','revision' => 'required|integer|min:0', 'fulfillment' => 'required|in:pickup,delivery', 'delivery' => $money, 'tax' => $money, 'tax_mode' => 'required|in:manual,recalculate', 'reason' => 'required|string|max:1000',
-            'items' => 'required|array|min:1|max:100', 'items.*' => 'array:quantity,unit_price,restock_returned', 'items.*.restock_returned'=>'sometimes|boolean', 'items.*.quantity' => 'required|integer|min:0|max:999', 'items.*.unit_price' => $money,
-            'add_items' => 'sometimes|array|max:20', 'add_items.*' => 'array:product_id,quantity,unit_price', 'add_items.*.product_id' => 'required|integer|distinct|exists:products,id', 'add_items.*.quantity' => 'required|integer|min:1|max:999', 'add_items.*.unit_price' => ['nullable', 'regex:/^\d{1,7}(\.\d{1,2})?$/'],
+            'items' => 'required|array|min:1|max:100', 'items.*' => 'array:quantity,unit_price,discount_percent,restock_returned', 'items.*.restock_returned'=>'sometimes|boolean', 'items.*.quantity' => 'required|integer|min:0|max:999', 'items.*.unit_price' => $money, 'items.*.discount_percent' => $discount,
+            'add_items' => 'sometimes|array|max:20', 'add_items.*' => 'array:product_id,quantity,unit_price,discount_percent', 'add_items.*.product_id' => 'required|integer|distinct|exists:products,id', 'add_items.*.quantity' => 'required|integer|min:1|max:999', 'add_items.*.unit_price' => ['nullable', 'regex:/^\d{1,7}(\.\d{1,2})?$/'], 'add_items.*.discount_percent' => $discount,
             'first_name' => 'required|string|max:100', 'last_name' => 'nullable|string|max:100', 'email' => 'nullable|email|max:255', 'phone' => 'nullable|string|max:40'];
         foreach (['address', 'city', 'province', 'postal_code', 'country'] as $key) {
             $rules[$key] = 'nullable|string|max:255';

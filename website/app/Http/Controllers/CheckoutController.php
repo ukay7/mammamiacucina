@@ -7,6 +7,7 @@ use App\Models\Inventory;
 use App\Models\InventoryMovement;
 use App\Models\Order;
 use App\Models\Product;
+use App\Services\CheckoutReview;
 use App\Services\OnlinePayments;
 use App\Services\StorefrontCart;
 use Illuminate\Http\Request;
@@ -16,31 +17,16 @@ use Illuminate\Validation\ValidationException;
 
 class CheckoutController extends Controller
 {
-    public function create(StorefrontCart $service)
+    public const CARD_MINIMUM_CENTS = 30000;
+
+    public function create(Request $request, StorefrontCart $service, CheckoutReview $review)
     {
         $cart = $service->snapshot();
-        $user=auth()->user(); $parts=explode(' ',trim($user?->name ?? ''),2); $profile=['first_name'=>$parts[0],'last_name'=>$parts[1]??'','email'=>$user?->email,'phone'=>$user?->phone,'country'=>'Canada'];
-        $customer=$user->customerRecord();
-        $savedAddress=$customer->only(['address','city','province','postal_code','country']);
-        $profile=array_merge($profile,array_filter($savedAddress,fn($value)=>$value!==null && $value!==''));
-        if (! $cart['items']) {
-            return redirect()->route('theme.cart')->with('cart_status', 'Your cart is empty.');
+        if ($issue = $service->checkoutIssue($cart)) {
+            return redirect()->route('theme.cart')->with('cart_status', $issue);
         }
-        if (count($cart['items']) !== count(session('storefront_cart', []))) {
-            return redirect()->route('theme.cart')->with('cart_status', 'Some products are no longer available. Please review your cart.');
-        }
-        $quote = [];
-        foreach ($cart['items'] as $item) {
-            $quote[$item['product']->id] = [$item['quantity'], $item['unit_cents']];
-        }
-        $settings = GeneralSetting::findOrFail(1);
-        $charges = ['delivery' => $settings->delivery_cents, 'tax' => $settings->taxFor($cart['total']), 'rate' => $settings->tax_basis_points];
-        session(['checkout_charges' => ['delivery' => $settings->delivery_cents, 'rate' => $settings->tax_basis_points, 'matrix' => (bool) $settings->matrix_delivery_enabled, 'pickup_address' => $settings->pickup_address]]);
-        $token = (string) Str::uuid();
-        session(['checkout_terms_revision'=>$user->customerRecord()->commercial_revision,'checkout_token' => $token, 'checkout_quote' => $quote]);
-        session(['checkout_company_address'=>app(\App\Services\CustomerDeliveryAddress::class)->company($customer)]);
 
-        return response()->view('pages.checkout', compact('cart', 'token', 'charges', 'profile', 'settings', 'customer'))->header('Cache-Control', 'no-store, private');
+        return response()->view('pages.checkout', $review->prepare($request->user(), $cart))->header('Cache-Control', 'no-store, private');
     }
 
     public function store(Request $r)
@@ -127,7 +113,9 @@ class CheckoutController extends Controller
             foreach ($products as $p) {
                 $qty = (int) $quantities[$p->id];
                 $pricing=$terms->price($p,$customer);$price=$pricing['unit_cents'];
-                if (! $p->is_active || ! $p->categories()->where('is_active', true)->exists() || $p->storefront_price === null || $price < 0 || $qty < 1 || $qty > 99) {
+                $categories = $p->categories()->where('is_active', true)
+                    ->when(session('checkout_from_catalogue'), fn ($query) => $query->where('show_to_customer', true));
+                if (! $p->is_active || ! $categories->exists() || $p->storefront_price === null || $price < 0 || $qty < 1 || $qty > 99) {
                     throw ValidationException::withMessages(['cart' => 'A product is no longer available. Please review your cart.']);
                 }
                 if (($quote[$p->id] ?? null) !== [$qty, $price]) {
@@ -139,8 +127,15 @@ class CheckoutController extends Controller
             }
             $discount=$terms->orderDiscount($customer,$subtotal);$subtotal-=$discount;
             $delivery=$d['fulfillment']==='pickup'?0:($deliverySnapshot['delivery_cents']??$settings->delivery_cents);
-            $warning=$terms->check($customer,'website',$d['payment_method'],$subtotal+$delivery+$settings->taxFor($subtotal));
-            $order = Order::create(array_merge($d,$terms->snapshot($customer,$d['payment_method']), ['order_discount_cents'=>$discount,'credit_warning'=>$warning,'customer_id' => auth()->user()->customerRecord()->id, 'created_by' => auth()->id(), 'source' => 'website', 'number' => 'MMC-'.strtoupper((string) Str::ulid()), 'subtotal_cents' => $subtotal, 'delivery_cents' => ($d['fulfillment'] === 'pickup' ? 0 : ($deliverySnapshot['delivery_cents']??$settings->delivery_cents)), 'tax_cents' => $settings->taxFor($subtotal), 'tax_basis_points'=>$settings->tax_basis_points, 'payment_method' => $d['payment_method'], 'payment_status' => $d['payment_method'] === 'card' ? 'pending' : 'unpaid', 'status' => $d['payment_method'] === 'card' ? 'awaiting_payment' : 'parked_admin', 'warehouse_round' => 0, 'warehouse_sent_at' => null]));
+            $tax = $settings->taxFor($subtotal);
+            $total = $subtotal + $delivery + $tax;
+            $warning = $terms->check($customer, 'website', $d['payment_method'], $total);
+            if ($d['payment_method'] === 'card' && $total < self::CARD_MINIMUM_CENTS) {
+                throw ValidationException::withMessages([
+                    'payment_method' => 'Credit card payments require a minimum of CAD $'.number_format(self::CARD_MINIMUM_CENTS / 100, 2).'. Please choose another payment method or update your cart.',
+                ]);
+            }
+            $order = Order::create(array_merge($d,$terms->snapshot($customer,$d['payment_method']), ['order_discount_cents'=>$discount,'credit_warning'=>$warning,'customer_id' => auth()->user()->customerRecord()->id, 'created_by' => auth()->id(), 'source' => 'website', 'number' => 'MMC-'.strtoupper((string) Str::ulid()), 'subtotal_cents' => $subtotal, 'delivery_cents' => $delivery, 'tax_cents' => $tax, 'tax_basis_points'=>$settings->tax_basis_points, 'payment_method' => $d['payment_method'], 'payment_status' => $d['payment_method'] === 'card' ? 'pending' : 'unpaid', 'status' => $d['payment_method'] === 'card' ? 'awaiting_payment' : 'parked_admin', 'warehouse_round' => 0, 'warehouse_sent_at' => null]));
             if($deliverySnapshot) $order->update($deliverySnapshot);
             if ($d['fulfillment'] === 'delivery') $addresses->remember($customer, ['delivery_address_type'=>$addressChoice], $d);
             // The database-generated ID avoids collisions between simultaneous orders.
@@ -168,7 +163,7 @@ class CheckoutController extends Controller
             try {$r->merge(['revision'=>$order->revision]);app(TransferReceiptController::class)->store($r,$order);} catch (\Throwable $e) {report($e);session()->flash('receipt_status','Order saved. Please upload the receipt from your order page.');}
         }
         session(['last_order_id' => $order->id, 'last_order_token' => $order->checkout_token]);
-        session()->forget(['storefront_cart', 'checkout_token', 'checkout_quote', 'checkout_charges', 'checkout_company_address', 'delivery_quote']);
+        session()->forget(['storefront_cart', 'checkout_token', 'checkout_quote', 'checkout_charges', 'checkout_company_address', 'checkout_from_catalogue', 'delivery_quote']);
 
         if ($order->payment) {
             return app(PaymentController::class)->start($order->payment, app(OnlinePayments::class));

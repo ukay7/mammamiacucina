@@ -5,6 +5,7 @@
 <link rel="stylesheet" href="{{ asset('admin-assets/order-cancellation.css') }}?v={{ filemtime(public_path('admin-assets/order-cancellation.css')) }}">
 <link rel="stylesheet" href="{{ asset('admin-assets/business-customer-icon.css') }}?v={{ filemtime(public_path('admin-assets/business-customer-icon.css')) }}">
 <script src="{{ asset('admin-assets/business-customer-icon.js') }}?v={{ filemtime(public_path('admin-assets/business-customer-icon.js')) }}" data-icon-url="{{ app(\App\Services\BusinessCustomerIcon::class)->source() }}"></script>
+@stack('styles')
 </head>
 <body class="mod-bg-1 mod-nav-link mmc-admin @yield('page-class')"><div class="page-wrapper"><div class="page-inner"><aside class="page-sidebar"><div class="page-logo"><a href="{{ route(auth()->user()->accountRoute()) }}" class="page-logo-link"><img src="{{ $siteSettings?->logoUrl() ?? asset('logo.png') }}" alt="Mamma Mia Cucina"><span>Mamma Mia <small>ADMINISTRATION</small></span></a></div><nav class="primary-nav"><div class="mmc-sidebar-profile"><strong>{{ auth()->user()->name }} <x-business-customer-icon :customer="auth()->user()" /></strong><div class="mmc-sidebar-role"><span>{{ auth()->user()->role->name }}</span>@if(!auth()->user()->isWarehouseOnly())<a class="mmc-website-shortcut" href="{{ route('theme.index') }}" aria-label="Visit website" title="Visit website"><i class="fas fa-globe" aria-hidden="true"></i></a>@endif</div></div><ul class="nav-menu">
 @include('admin.sidebar-navigation')

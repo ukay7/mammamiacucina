@@ -2,21 +2,76 @@
 <div class="order-items-editor">
 <p>@if($order->isFulfilled())<strong>Super Admin correction after delivery.</strong> Reduced quantities are not restocked unless you confirm a saleable return below. Added quantities deduct stock; arrange any replacement delivery separately. A revision is saved and the original invoice is retained.@else Quantity changes adjust reserved stock.@endif Existing line prices are kept unless you edit them. Paid amounts stay unchanged; any difference becomes an amount due or refund due.</p>
 <form method="post" action="{{ route('admin.orders.amend',$order) }}" id="order-amend-form" data-matrix-delivery="{{ $order->delivery_service || \App\Models\GeneralSetting::findOrFail(1)->matrix_delivery_enabled?'1':'0' }}" data-delivery-options="{{ route('admin.orders.delivery-options') }}" data-tax-rate="{{ $order->tax_basis_points ?? \App\Models\GeneralSetting::findOrFail(1)->tax_basis_points }}" data-received="{{ $order->net_received_cents }}" data-credits="{{ $order->refund_credit_cents }}" data-discount-bps="{{ $order->order_discount_bps }}" data-default-delivery="{{ number_format((\App\Models\GeneralSetting::findOrFail(1)->delivery_cents ?? 0)/100,2,'.','') }}">@csrf<input type="hidden" name="revision" value="{{ $order->revision }}">
-<div class="table-responsive"><table class="table order-edit-table"><colgroup><col style="width:34%"><col style="width:15%"><col style="width:19%"><col style="width:17%"><col style="width:15%"></colgroup><thead><tr><th>Product</th><th>Quantity</th><th>Unit price CAD</th><th>Line total CAD</th><th>Action</th></tr></thead><tbody>
-@foreach($order->items as $item)<tr data-existing-item><td>{{ $item->name }} @if($order->isFulfilled() && $item->stock_deducted)<label class="d-block mt-2"><input type="checkbox" name="items[{{ $item->id }}][restock_returned]" value="1" @checked(old("items.$item->id.restock_returned"))> Restock removed quantity: received back and saleable</label>@endif @if($item->warehouse_note)<small class="d-block text-danger">{{ $item->warehouse_note }}</small>@endif</td><td><input class="form-control" aria-label="Quantity for {{ $item->name }}" type="number" min="0" max="999" name="items[{{ $item->id }}][quantity]" value="{{ old('items.'.$item->id.'.quantity',$item->quantity) }}" required></td><td><input class="form-control" aria-label="Unit price for {{ $item->name }}" type="number" data-number-display="decimal" min="0" step=".01" name="items[{{ $item->id }}][unit_price]" value="{{ old('items.'.$item->id.'.unit_price',number_format($item->unit_cents/100,2,'.','')) }}" required></td><td><strong data-line-total>—</strong></td><td><button type="button" class="btn btn-outline-danger" data-remove-existing>Remove</button></td></tr>@endforeach
-</tbody><tbody id="order-new-items"></tbody></table></div>
+@php
+    $amendment = app(\App\Services\OrderAmendment::class);
+@endphp
+<div class="table-responsive"><table class="table order-edit-table">
+    <colgroup><col style="width:7%"><col style="width:27%"><col style="width:10%"><col style="width:18%"><col style="width:12%"><col style="width:14%"><col style="width:12%"></colgroup>
+    <thead><tr><th scope="col">Photo</th><th scope="col">Product</th><th scope="col">Quantity</th><th scope="col">Unit price before discount (CAD)</th><th scope="col">Discount (%)</th><th scope="col">Line total (CAD)</th><th scope="col">Action</th></tr></thead>
+    <tbody>
+        @foreach($order->items as $item)
+            @php
+                $pricing = $amendment->savedLinePricing($item);
+            @endphp
+            <tr data-existing-item>
+                <td>
+                    @if($item->product?->media->first())
+                        <img class="order-edit-photo" src="{{ route('admin.orders.item-image', [$order, $item]) }}" alt="" width="44" height="44" loading="lazy" decoding="async">
+                    @else
+                        <span class="order-edit-photo-placeholder" aria-hidden="true"><i class="fas fa-box"></i></span>
+                    @endif
+                </td>
+                <td>
+                    {{ $item->name }}
+                    @if($order->isFulfilled() && $item->stock_deducted)<label class="d-block mt-2"><input type="checkbox" name="items[{{ $item->id }}][restock_returned]" value="1" @checked(old("items.$item->id.restock_returned"))> Restock removed quantity: received back and saleable</label>@endif
+                    @if($item->warehouse_note)<small class="d-block text-danger">{{ $item->warehouse_note }}</small>@endif
+                </td>
+                <td><input class="form-control" aria-label="Quantity for {{ $item->name }}" type="number" min="0" max="999" name="items[{{ $item->id }}][quantity]" value="{{ old('items.'.$item->id.'.quantity', $item->quantity) }}" required></td>
+                <td><input class="form-control" aria-label="Unit price before discount for {{ $item->name }}" type="number" data-number-display="decimal" min="0" step=".01" name="items[{{ $item->id }}][unit_price]" value="{{ old('items.'.$item->id.'.unit_price', number_format($pricing['original_unit_cents']/100, 2, '.', '')) }}" required></td>
+                <td><input class="form-control" aria-label="Discount percentage for {{ $item->name }}" type="number" min="0" max="100" step=".01" name="items[{{ $item->id }}][discount_percent]" value="{{ old('items.'.$item->id.'.discount_percent', number_format($pricing['discount_bps']/100, 2, '.', '')) }}" required></td>
+                <td><strong data-line-total>CAD {{ number_format($item->line_cents/100, 2) }}</strong></td>
+                <td><button type="button" class="btn btn-outline-danger" data-remove-existing>Remove</button></td>
+            </tr>
+        @endforeach
+    </tbody>
+    <tbody id="order-new-items" data-previous-items="{{ json_encode(old('add_items', [])) }}"></tbody>
+</table></div>
 <button type="button" class="btn btn-outline-primary mb-3" data-add-order-item>Add Item</button>
 @php
- $addableProducts=\App\Models\Product::where('is_active',true)->orderBy('premium_marketing_name')->get(['id','premium_marketing_name','qr_code','product_code','total_selling_price_cad','business_selling_price_cad']);
- $addablePrices=app(\App\Services\OrderAmendment::class)->productPrices($order,$addableProducts);
+ $canViewProductMedia = auth()->user()->hasAdminPermission('products.view');
+ $addableProducts = \App\Models\Product::where('is_active',true)->orderBy('premium_marketing_name')
+     ->when($canViewProductMedia, fn ($query) => $query->with(['media' => fn ($media) => $media->coverImage()]))
+     ->get(['id','premium_marketing_name','qr_code','product_code','total_selling_price_cad','business_selling_price_cad']);
+ $addablePrices = $amendment->productPrices($order, $addableProducts);
 @endphp
 <template id="order-add-template"><tr data-add-row><td>
-<select data-field="product_id" aria-label="Product" hidden><option value="">Select a product</option>@foreach($addableProducts as $product)<option value="{{ $product->id }}" data-price="{{ $addablePrices[$product->id]['unit_cents']===null?'':number_format($addablePrices[$product->id]['unit_cents']/100,2,'.','') }}" data-search="#{{ $product->id }} {{ $product->premium_marketing_name }} {{ $product->product_code }} {{ $product->qr_code }}">{{ $product->premium_marketing_name }}</option>@endforeach</select>
+    <span class="order-edit-photo-placeholder" data-product-placeholder aria-hidden="true"><i class="fas fa-box"></i></span>
+    <img class="order-edit-photo" data-product-photo alt="" width="44" height="44" hidden>
+</td><td>
+<select data-field="product_id" aria-label="Product" hidden><option value="">Select a product</option>
+@foreach($addableProducts as $product)
+    @php
+        $pricing = $addablePrices[$product->id];
+        $photo = $canViewProductMedia ? $product->media->first() : null;
+    @endphp
+    <option value="{{ $product->id }}" data-price="{{ $pricing['original_unit_cents'] === null ? '' : number_format($pricing['original_unit_cents']/100, 2, '.', '') }}"
+            data-discount="{{ $pricing['discount_bps']/100 }}" data-photo="{{ $photo ? route('admin.products.media', [$product, $photo]) : '' }}"
+            data-search="#{{ $product->id }} {{ $product->premium_marketing_name }} {{ $product->product_code }} {{ $product->qr_code }}">{{ $product->premium_marketing_name }}</option>
+@endforeach
+</select>
 <button type="button" class="form-control order-product-select" data-product-toggle aria-haspopup="listbox" aria-expanded="false"><span>Select a product</span><span aria-hidden="true">⌄</span></button>
-</td><td><input class="form-control" aria-label="Quantity for added item" data-field="quantity" type="number" min="1" max="999" value="1" required></td><td><input class="form-control" aria-label="Unit price for added item" data-field="unit_price" type="number" data-number-display="decimal" min="0" step=".01" required></td><td><strong data-line-total>—</strong></td><td><button type="button" class="btn btn-outline-danger" data-remove-order-item>Remove</button></td></tr></template>
+</td><td><input class="form-control" aria-label="Quantity for added item" data-field="quantity" type="number" min="1" max="999" value="1" required></td>
+<td><input class="form-control" aria-label="Unit price before discount for added item" data-field="unit_price" type="number" data-number-display="decimal" min="0" step=".01" required></td>
+<td><input class="form-control" aria-label="Discount percentage for added item" data-field="discount_percent" type="number" min="0" max="100" step=".01" value="0" required></td>
+<td><strong data-line-total>—</strong></td><td><button type="button" class="btn btn-outline-danger" data-remove-order-item>Remove</button></td></tr></template>
 <style>
 .order-charge-fields label{display:block;width:100%}.order-charge-fields .form-control{width:100%}.order-charge-fields{align-items:start;margin-top:20px}.order-charge-fields small{font-size:12px}.order-live-totals{max-width:520px;margin-left:auto;padding:20px;border:1px solid #ddc391;border-radius:6px;background:#fff9ef}.order-live-totals p{display:flex;justify-content:space-between;gap:20px}.order-edit-table{min-width:750px;table-layout:fixed}.order-edit-table td{vertical-align:middle}.order-product-select{display:flex;align-items:center;justify-content:space-between;text-align:left;gap:8px}.order-product-select span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .order-product-popup{position:fixed;z-index:9999;background:#fffaf2;border:1px solid #d5b580;border-radius:5px;padding:8px;box-shadow:0 6px 20px #0002}.order-product-options{max-height:230px;overflow:auto;margin-top:6px}.order-product-options button{display:block;width:100%;border:0;background:transparent;padding:10px;text-align:left;color:#382a1b}.order-product-options button:hover,.order-product-options button:focus{background:#f1e3cb}.order-product-options p{padding:10px;margin:0}
+.mmc-admin .order-edit-table th { white-space: normal; }
+.order-edit-photo,.order-edit-photo-placeholder { width:44px;height:44px;border:1px solid var(--theme-accent,#dfcba5);border-radius:6px;background:var(--theme-surface,#fffaf2); }
+.order-edit-photo { object-fit:contain; }
+.order-edit-photo-placeholder { display:inline-grid;place-items:center;color:var(--theme-text,#514231); }
+.order-edit-table [hidden] { display:none; }
 </style>
 <details class="mt-3 mb-3"><summary>Customer &amp; Delivery / Pick up</summary><div class="row">
 @foreach(['first_name'=>'First name','last_name'=>'Last name','email'=>'Email','phone'=>'Phone','address'=>'Address','city'=>'City','province'=>'Province','postal_code'=>'Postal code','country'=>'Country'] as $key=>$label)<div class="form-group col-md-4"><label>{{ $label }}<input class="form-control" name="{{ $key }}" value="{{ old($key,$order->$key) }}" @required($key==='first_name')></label></div>@endforeach
@@ -31,6 +86,7 @@
 @include('partials.delivery-schedule',['scheduleSavedAt'=>$order->delivery_scheduled_at,'schedulePrefix'=>'amend','scheduleFulfillment'=>'#order-amend-form [data-order-fulfillment]','scheduleInitialFulfillment'=>$order->fulfillment])
 <div class="order-live-totals mb-3" aria-live="polite" aria-atomic="true">
 <h3>Order total preview</h3>
+@if($order->order_discount_bps)<p>Order discount ({{ $order->order_discount_bps/100 }}%) <strong data-total="order-discount">—</strong></p>@endif
 <p>Product subtotal <strong data-total="subtotal">—</strong></p>
 <p><span data-fulfillment-total-label>Delivery charge</span> <strong data-total="delivery">—</strong></p>
 <p>Tax <strong data-total="tax">—</strong></p>
