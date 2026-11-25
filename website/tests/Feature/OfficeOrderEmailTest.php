@@ -47,11 +47,28 @@ class OfficeOrderEmailTest extends TestCase
             $this->assertSame(['info@mammamiacucina.ca'], $office->recipients());
             $this->assertSame('new_order_notification', $office->type);
             $this->assertStringContainsString(route('admin.orders.show', $order), $office->payload['body']);
+            $this->assertStringContainsString('1 × Office test cake', $office->payload['body']);
+            $this->assertStringContainsString('Pickup: Warehouse', $office->payload['body']);
             $this->assertStringNotContainsString(route('admin.orders.show', $order), $customer->payload['body']);
             $this->assertEquals($customer->payload['document'], $office->payload['document']);
             $service->order($order, 'order_status', 'order-status:'.$order->id.':1');
             $service->order($order, 'payment_received', 'order-paid:'.$order->id, 1000);
             $this->assertSame(1, EmailHistory::where('event_key', 'order-office:'.$order->id)->count());
+        }
+    }
+
+    public function test_custom_office_template_still_includes_business_contact_items_and_requested_delivery(): void
+    {
+        $buyer = User::factory()->create(['account_type' => 'business']);
+        $customer = $buyer->customerRecord();
+        $customer->update(['business_name' => 'Test Bakery']);
+        $order = $this->order(['customer_id' => $customer->id, 'fulfillment' => 'delivery', 'address' => '10 Test Road',
+            'city' => 'Toronto', 'delivery_scheduled_at' => '2026-11-25 19:00:00']);
+        EmailTemplate::findOrFail('new_order_notification')->update(['body' => "Open the order: {{admin_order_url}}"]);
+        app(CustomerEmails::class)->order($order, 'order_confirmation', 'order-created:'.$order->id);
+        $body = EmailHistory::where('type', 'new_order_notification')->sole()->payload['body'];
+        foreach ([mb_strtoupper($order->number), 'Test Bakery', 'Phone: 123', '1 × Office test cake', 'Delivery: 10 Test Road', '25 Nov 2026, 2:00 PM EST'] as $detail) {
+            $this->assertStringContainsString($detail, $body);
         }
     }
 

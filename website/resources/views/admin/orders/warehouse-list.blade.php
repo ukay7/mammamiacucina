@@ -2,7 +2,7 @@
 <section class="warehouse-orders" aria-label="Warehouse orders">
     <header class="warehouse-list-heading">
         <h1><i class="fas fa-box" aria-hidden="true"></i> {{ $completed?'Completed Orders':'Pending Orders' }}</h1>
-        <p>{{ $completed?'Completed orders created by you.':'Orders currently parked at the warehouse for packing.' }}</p>
+        <p>{{ $completed?'Completed orders created by you.':'Incoming orders and orders released for packing.' }}</p>
     </header>
     <details class="warehouse-filter-drawer" open>
     <summary><span><i class="fas fa-filter" aria-hidden="true"></i> Search &amp; filters @if($search || request('status'))<small> · Filters applied</small>@endif</span><i class="fas fa-chevron-down" aria-hidden="true"></i></summary>
@@ -58,7 +58,13 @@
             <div class="warehouse-card-customer"><i class="fas fa-{{ $order->customer?->account_type==='business'?'building':'user' }}" aria-hidden="true"></i>@include('admin.orders.customer-summary')</div>
             <dl class="warehouse-card-meta"><div><dt>Source</dt><dd><span class="warehouse-source">{{ $order->source==='pos'?'Quick Sale / POS':'Website' }}</span></dd></div><div><dt>Created by</dt><dd>{{ $order->creator?->name ?? ($order->created_by?'Former user':'Website customer') }}@if((int)$order->created_by===auth()->id())<small>Created by you</small>@endif</dd></div></dl>
             @if($order->status==='warehouse_issue')<p class="text-danger">Action needed — open order to review item notes.</p>@endif
-            <div class="warehouse-card-actions"><a class="btn btn-primary" href="{{ route('admin.orders.show',$order) }}"><i class="fas fa-{{ in_array($order->status,['warehouse_pending','packing'])?'box':'eye' }}" aria-hidden="true"></i> {{ in_array($order->status,['warehouse_pending','packing'])?'Pack / View':'View' }}</a><a class="btn btn-outline-primary" href="{{ route('admin.orders.print',$order) }}" target="_blank" rel="noopener"><i class="fas fa-print" aria-hidden="true"></i> Print</a>@include('admin.orders.delivery-actions')</div>
+            <div class="warehouse-card-actions">
+                <a class="btn btn-primary" href="{{ route('admin.orders.show',$order) }}"><i class="fas fa-{{ in_array($order->status,['warehouse_pending','packing'])?'box':'eye' }}" aria-hidden="true"></i> {{ in_array($order->status,['warehouse_pending','packing'])?'Pack / View':'View' }}</a>
+                @unless($order->awaitingWarehouseRelease())
+                    <a class="btn btn-outline-primary" href="{{ route('admin.orders.print',$order) }}" target="_blank" rel="noopener"><i class="fas fa-print" aria-hidden="true"></i> Print</a>
+                    @include('admin.orders.delivery-actions')
+                @endunless
+            </div>
         </article>
         @empty
         <div class="warehouse-empty"><i class="fas fa-box-open" aria-hidden="true"></i><h2>No orders found</h2><p>Try another date range or clear your search filters.</p></div>

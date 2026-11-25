@@ -35,6 +35,10 @@ class CustomerAccountController extends Controller {
   if(!$user||!$user->canSignIn()||!\Illuminate\Support\Facades\Hash::check($d['password'],$user->password)){\Illuminate\Support\Facades\RateLimiter::hit($key,60);throw ValidationException::withMessages(['email'=>'Email or password is incorrect.']);}
   \Illuminate\Support\Facades\RateLimiter::clear($key);
   Auth::login($user);$r->session()->regenerate();$r->session()->forget(['url.intended','checkout_token','checkout_quote','last_order_id','last_order_token']);
+  $creditApplication = $r->session()->pull('credit_application_after_login');
+  if ($creditApplication && $user->isCustomer() && $user->customerRecord()->creditApplications()->whereKey($creditApplication)->exists()) {
+   return redirect()->route('customer.credit-applications.show', $creditApplication);
+  }
   return redirect()->route($user->isCustomer()?$this->shoppingDestination():$user->accountRoute());
  }
  private function sendVerification(User $user,string $type='verification'):void{
@@ -53,21 +57,43 @@ class CustomerAccountController extends Controller {
   return redirect()->route($r->user()->businessApprovalPending()?'customer.business.pending':$this->shoppingDestination())->with('status','Email verified.');
  }
  public function logout(Request $r){$cart=$r->session()->get('storefront_cart',[]);Auth::logout();$r->session()->invalidate();$r->session()->regenerateToken();$r->session()->put('storefront_cart',$cart);return redirect()->route('theme.index');}
- public function orders(Request $r){$orders=$r->user()->customerRecord()->orders()->orderByDesc('ordered_at')->orderByDesc('id')->paginate(20);return view('customer.orders',compact('orders'));}
- public function order(Request $r,Order $order){abort_unless((int)$order->customer_id===$r->user()->customerRecord()->id,404);$order->load('items');return response()->view('customer.order',compact('order'))->header('Cache-Control','no-store, private');}
+ public function orders(Request $r)
+ {
+  $filters = $r->validate(['view' => 'nullable|in:open,closed,paid', 'from' => 'nullable|date_format:Y-m-d',
+   'to' => ['nullable', 'date_format:Y-m-d', ...($r->filled('from') ? ['after_or_equal:from'] : [])]]);
+  $closed = ['delivered', 'completed', 'cancelled'];
+  $orders = $r->user()->customerRecord()->orders()
+   ->when(isset($filters['from']), fn ($q) => $q->where('ordered_at', '>=', \App\Support\BusinessTime::start($filters['from'])))
+   ->when(isset($filters['to']), fn ($q) => $q->where('ordered_at', '<', \App\Support\BusinessTime::end($filters['to'])))
+   ->when(($filters['view'] ?? '') === 'open', fn ($q) => $q->whereNotIn('status', $closed))
+   ->when(($filters['view'] ?? '') === 'closed', fn ($q) => $q->whereIn('status', $closed))
+   ->when(($filters['view'] ?? '') === 'paid', fn ($q) => $q->where('payment_status', 'paid'))
+   ->latest('ordered_at')->latest('id')->paginate(20)->withQueryString();
+
+  return view('customer.orders', compact('orders', 'filters'));
+ }
+ public function order(Request $r, Order $order, \App\Services\CustomerOrderHistory $history){
+  abort_unless((int)$order->customer_id===$r->user()->customerRecord()->id,404);
+  $order->load('items');
+  $timeline = $history->forOrder($order);
+  $statusLabel = $history->label($order->status, $order) ?? 'Order placed';
+  return response()->view('customer.order',compact('order', 'timeline', 'statusLabel'))->header('Cache-Control','no-store, private');
+ }
  public function printOrder(Request $r,Order $order){
   abort_unless((int)$order->customer_id===$r->user()->customerRecord()->id,404);
   $order->load('items');
   return response()->view('orders.print',compact('order'))->header('Cache-Control','no-store, private');
  }
- public function profile(Request $r){return view('customer.profile',['user'=>$r->user(),'documents'=>app(\App\Services\CustomerDocuments::class)->listing($r->user()->customerRecord(),$r->user(),$r)]);}
- public function updateProfile(Request $r){
+ public function profile(Request $r){
+  $user = $r->user();
+  $customer = $user->customerRecord();
+  $documents = app(\App\Services\CustomerDocuments::class)->listing($customer, $user, $r);
+  $changes = $customer->profileRequests()->latest('id')->limit(10)->get();
+  return response()->view('customer.profile', compact('user', 'customer', 'documents', 'changes'))->header('Cache-Control', 'no-store, private');
+ }
+ public function updateProfile(Request $r, \App\Services\CustomerProfileChanges $profiles){
   $d=$r->validate(['name'=>'required|string|max:100','alternate_email'=>'sometimes|nullable|email:filter|max:255','phone'=>'required|string|max:40','address'=>'nullable|string|max:255','city'=>'nullable|string|max:100','province'=>'nullable|string|max:100','postal_code'=>'nullable|string|max:30','country'=>'nullable|string|max:100'] + \App\Services\BusinessDetails::rules($r->user()->account_type==='business'));
-  // Only these profile fields may change. Email, account type, verification and permissions are immutable here.
-    \Illuminate\Support\Facades\DB::transaction(function() use($r,$d){
-   $r->user()->forceFill(\Illuminate\Support\Arr::only($d,['name','phone']))->save();
-   $r->user()->customerRecord()->update(\Illuminate\Support\Arr::only($d,array_merge(['alternate_email','address','city','province','postal_code','country'],\App\Services\BusinessDetails::FIELDS)));
-  });
-  return redirect()->route('customer.profile')->with('status','Your profile has been updated.');
+  $profiles->submit($r->user(), $r->user()->customerRecord(), $d);
+  return redirect()->route('customer.profile')->with('status','Profile change request submitted for review.');
  }
 }

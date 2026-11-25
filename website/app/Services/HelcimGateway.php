@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Payment;
+use App\Models\InvoicePayment;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
@@ -60,14 +61,31 @@ class HelcimGateway
         if ($order->delivery_cents) {
             $lines[] = ['description' => 'Delivery', 'quantity' => 1, 'price' => $order->delivery_cents / 100, 'total' => $order->delivery_cents / 100];
         }
-        $data = $this->json($this->client($payment->mode)->post('/helcim-pay/initialize', [
-            'paymentType' => 'purchase', 'paymentMethod' => 'cc', 'amount' => $payment->amount_cents / 100,
+        return $this->initialize($payment->mode, $payment->amount_cents, [
+            'invoiceNumber' => $this->invoiceNumber($payment), 'contactName' => trim($order->first_name.' '.$order->last_name),
+            'notes' => 'Mamma Mia Cucina order '.$order->number, 'lineItems' => $lines,
+            'tax' => ['amount' => $order->tax_cents / 100, 'details' => 'Order tax'],
+        ]);
+    }
+
+    public function createInvoiceCheckout(InvoicePayment $payment): array
+    {
+        return $this->initialize($payment->mode, $payment->amount_cents, [
+            'invoiceNumber' => $payment->provider_invoice, 'contactName' => $payment->customer->name,
+            'lineItems' => $payment->allocations->map(fn ($line) => [
+                'description' => 'Outstanding balance for '.$line->invoice, 'quantity' => 1,
+                'price' => $line->amount_cents / 100, 'total' => $line->amount_cents / 100,
+            ])->all(),
+        ]);
+    }
+
+    private function initialize(string $mode, int $amount, array $invoice): array
+    {
+        $data = $this->json($this->client($mode)->post('/helcim-pay/initialize', [
+            'paymentType' => 'purchase', 'paymentMethod' => 'cc', 'amount' => $amount / 100,
             'currency' => 'CAD', 'allowPartial' => 0, 'hasConvenienceFee' => 0, 'confirmationScreen' => false,
             'hideExistingPaymentDetails' => 1, 'setAsDefaultPaymentMethod' => 0, 'language' => 'en',
-            'invoiceRequest' => ['invoiceNumber' => $this->invoiceNumber($payment),
-                'contactName' => trim($order->first_name.' '.$order->last_name),
-                'notes' => 'Mamma Mia Cucina order '.$order->number,
-                'lineItems' => $lines, 'tax' => ['amount' => $order->tax_cents / 100, 'details' => 'Order tax']],
+            'invoiceRequest' => $invoice,
         ]));
         if (! is_string($data['checkoutToken'] ?? null) || ! preg_match('/^[a-zA-Z0-9_-]{10,255}$/D', $data['checkoutToken'])) {
             throw new RuntimeException('Helcim checkout could not be initialized.');
@@ -78,16 +96,21 @@ class HelcimGateway
 
     public function transactions(Payment $payment): array
     {
+        return $this->transactionsForInvoice($payment->mode, $this->invoiceNumber($payment));
+    }
+
+    public function transactionsForInvoice(string $mode, string $invoice): array
+    {
         $all = [];
         for ($page = 1; $page <= 10; $page++) {
-            $rows = $this->json($this->client($payment->mode)->get('/card-transactions', [
-                'invoiceNumber' => $this->invoiceNumber($payment), 'limit' => 100, 'page' => $page,
+            $rows = $this->json($this->client($mode)->get('/card-transactions', [
+                'invoiceNumber' => $invoice, 'limit' => 100, 'page' => $page,
             ]));
             if (! array_is_list($rows)) {
                 throw new RuntimeException('Unexpected Helcim transaction list.');
             }
             foreach ($rows as $row) {
-                if (($row['invoiceNumber'] ?? '') !== $this->invoiceNumber($payment)) {
+                if (($row['invoiceNumber'] ?? '') !== $invoice) {
                     throw new RuntimeException('Helcim invoice mismatch.');
                 }
                 $all[(string) ($row['transactionId'] ?? '')] = $row;

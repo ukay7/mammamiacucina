@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Payment;
+use App\Models\InvoicePayment;
 use App\Services\HelcimGateway;
+use App\Services\InvoicePayments;
 use App\Services\OnlinePayments;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -28,7 +30,7 @@ class HelcimController extends Controller
         }
     }
 
-    public function webhook(Request $request, HelcimGateway $gateway, OnlinePayments $payments)
+    public function webhook(Request $request, HelcimGateway $gateway, OnlinePayments $payments, InvoicePayments $invoicePayments)
     {
         $mode = $request->query('mode');
         abort_unless(in_array($mode, ['sandbox', 'live'], true), 400);
@@ -48,6 +50,10 @@ class HelcimController extends Controller
             $payment = Payment::where('provider', 'helcim')->where('mode', $mode)->where('provider_order_id', $invoice)->first();
             if ($payment) {
                 $payments->sync($payment);
+            } elseif (str_starts_with($invoice, 'MMCI')) {
+                $invoicePayment = InvoicePayment::where('mode', $mode)->where('provider_invoice', $invoice)->first();
+                if (! $invoicePayment) return response('Invoice payment reconciliation pending', 503);
+                $invoicePayments->sync($invoicePayment);
             } elseif (str_starts_with($invoice, 'MMC')) {
                 // Allow a concurrent checkout transaction to commit before acknowledging delivery.
                 return response('Order reconciliation pending', 503);

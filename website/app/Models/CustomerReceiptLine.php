@@ -31,4 +31,9 @@ class CustomerReceiptLine extends Model
     {
         return self::STATUSES[$this->status] ?? $this->status;
     }
+
+    public static function methodLabel(string $method, ?string $gateway = null): string
+    {
+        return $gateway === 'helcim' ? 'Card (Helcim)' : (self::METHODS[$method] ?? ucfirst($method));
+    }
 }

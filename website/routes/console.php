@@ -14,6 +14,7 @@ Artisan::command('suppliers:backfill {--dry-run : Preview mappings without savin
 })->purpose('Map legacy product supplier names to supplier records without changing stock or prices');
 
 Schedule::command('payments:reconcile')->everyMinute()->withoutOverlapping(10);
+Schedule::command('invoices:reconcile-payments')->everyMinute()->withoutOverlapping(10)->runInBackground();
 Schedule::command('emails:deliver')->everyMinute()->withoutOverlapping(10)->runInBackground();
 Schedule::command('notifications:send')->everyMinute()->withoutOverlapping(5)->runInBackground();
 

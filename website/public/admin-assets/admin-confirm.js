@@ -1,7 +1,7 @@
 // Confirm changes before target-level form handlers can submit or lock the UI.
 document.addEventListener('submit',event=>{
  const form=event.target;if(!(form instanceof HTMLFormElement)||form.method.toLowerCase()==='get'||form.id==='complete-sale')return;
- if(form.method==='dialog'||form.matches('[data-catalogue],[data-place-order],[data-catalogue-remove]'))return;
+ if(form.method==='dialog'||form.matches('[data-catalogue],[data-place-order],[data-catalogue-remove],[data-catalogue-reorder],[data-invoice-pay-form],[data-credit-application-draft]'))return;
  // Order deletion already requires an explicit checkbox inside its modal.
  if(form.matches('[data-order-delete-form]') && form.closest('#order-delete-dialog')?.open)return;
  // Customer receipt forms require a signed allocation preview and explicit

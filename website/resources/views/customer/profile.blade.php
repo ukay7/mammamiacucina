@@ -1,11 +1,18 @@
 @extends('admin.layout')
 @section('title','My Profile')
+@include('customer.account-style')
 @section('content')
 <div class="panel panel-content" style="max-width:900px">
 <form method="post" action="{{ route('customer.profile.update') }}">
 @csrf @method('PUT')
-@php($customer=$user->customerRecord())
+@php($pending = $changes->firstWhere('status', 'pending'))
 <h2>{{ $customer->business_name ?: $user->name }} <x-business-customer-icon :customer="$customer" /></h2>
+@if($pending)
+<p class="account-profile-notice">Request #{{ $pending->id }} is pending. You can request further changes after it has been reviewed.</p>
+@else
+<p>Any changes you request take effect after approval.</p>
+@endif
+<fieldset @disabled($pending)>
 <div class="row">
 <div class="col-md-6 mb-4"><label for="profile-name">Full name</label><input class="form-control" id="profile-name" name="name" value="{{ old('name',$user->name) }}" required maxlength="100" autocomplete="name"></div>
 <div class="col-md-6 mb-4"><label for="profile-email">Primary email address</label><input class="form-control" id="profile-email" type="email" value="{{ $user->email }}" readonly aria-describedby="email-help"><small id="email-help" class="d-block mt-2">Your login email cannot be changed. Verification and password-reset links are sent only here.</small></div>
@@ -23,9 +30,25 @@
 </div>
 </section>
 @if($user->account_type==='business')@include('partials.business-fields',['businessProfile'=>$customer])@endif
-<button class="btn btn-primary" type="submit">Save Profile</button>
+<button class="btn btn-primary" type="submit">Request profile changes</button>
+</fieldset>
 <a class="btn btn-outline-primary ml-2" href="{{ route('customer.orders') }}">My Orders</a>
 </form>
 </div>
+@if($changes->isNotEmpty())
+<section class="panel panel-content mt-4" id="profile-requests">
+    <h2>Recent profile change requests</h2>
+    <div class="table-responsive"><table class="table account-table">
+        <thead><tr><th scope="col">Request</th><th scope="col">Requested changes</th><th scope="col">Status</th></tr></thead>
+        <tbody>@foreach($changes as $change)
+            <tr><td>#{{ $change->id }}<small class="d-block">{{ \App\Support\BusinessTime::format($change->created_at) }}</small></td>
+                <td>@foreach($change->proposed as $field => $value)<div>{{ \App\Services\CustomerProfileChanges::LABELS[$field] }} <strong>{{ $value ?? 'Clear this field' }}</strong></div>@endforeach</td>
+                <td><strong>{{ \App\Models\CustomerProfileRequest::STATUSES[$change->status] }}</strong>
+                    @if($change->reviewed_at)<small class="d-block">{{ \App\Support\BusinessTime::format($change->reviewed_at) }}</small>@endif
+                    @if($change->review_note)<p class="account-message mb-0">{{ $change->review_note }}</p>@endif</td></tr>
+        @endforeach</tbody>
+    </table></div>
+</section>
+@endif
 <div class="panel panel-content mt-4" id="customer-documents">@include('partials.customer-documents')</div>
 @endsection

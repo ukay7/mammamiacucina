@@ -7,6 +7,7 @@ use App\Models\CustomerInvoice;
 use App\Models\CustomerReceipt;
 use App\Models\CustomerReceiptEvent;
 use App\Models\CustomerReceiptLine;
+use App\Models\InvoicePayment;
 use App\Models\Order;
 use App\Models\User;
 use Illuminate\Support\Collection;
@@ -242,7 +243,28 @@ class CustomerReceipts
         }, 3);
     }
 
-    private function post(CustomerReceiptLine $line, array $allocations, string $receivedOn, User $actor, string $note): void
+    public function fromVerifiedInvoicePayment(InvoicePayment $payment, string $transaction): CustomerReceiptEvent
+    {
+        $customer = $payment->customer;
+        $planned = $payment->allocations->map(fn ($line) => $line->only(['order_id', 'number', 'invoice', 'amount_cents']))->all();
+        $date = \App\Support\BusinessTime::today()->toDateString();
+        $receipt = CustomerReceipt::create([
+            'customer_id' => $customer->id, 'customer_snapshot' => $this->customerSnapshot($customer),
+            'total_cents' => $payment->amount_cents, 'request_key' => $payment->reference,
+            'request_hash' => $this->sign($planned),
+        ]);
+        $receipt->update(['number' => 'CR-'.str_pad((string) $receipt->id, 6, '0', STR_PAD_LEFT)]);
+        $line = $receipt->lines()->create([
+            'customer_id' => $customer->id, 'client_key' => $payment->reference, 'method' => 'card', 'gateway' => 'helcim',
+            'amount_cents' => $payment->amount_cents, 'payment_date' => $date, 'reference' => $transaction,
+            'status' => 'confirmed', 'planned_allocations' => $planned,
+        ]);
+        $this->post($line, $planned, $date, null, $receipt->number.' · Helcim invoice payment');
+
+        return $this->audit($receipt, $line, null, 'received', 'Helcim confirmed the card payment. Funds were applied to the invoices selected by the customer.', $transaction);
+    }
+
+    private function post(CustomerReceiptLine $line, array $allocations, string $receivedOn, ?User $actor, string $note): void
     {
         foreach ($allocations as $allocation) {
             $order = Order::whereKey($allocation['order_id'])->lockForUpdate()->firstOrFail();
@@ -251,7 +273,7 @@ class CustomerReceipts
             $order->original_payment_method ??= $order->payment_method;
             $order->settlements()->create(['customer_receipt_line_id' => $line->id, 'amount_cents' => $allocation['amount_cents'],
                 'entry_kind' => 'payment', 'method' => $line->method, 'reference' => $line->reference, 'received_on' => $receivedOn,
-                'note' => $note.($line->note ? '. '.$line->note : ''), 'user_id' => $actor->id]);
+                'note' => $note.($line->note ? '. '.$line->note : ''), 'user_id' => $actor?->id]);
             $order->unsetRelation('settlements');
             $order->payment_status = $order->balance_cents <= 0 ? 'paid' : 'unpaid';
             if ($order->payment_status === 'paid') {
@@ -261,7 +283,7 @@ class CustomerReceipts
             // Recording an account collection does not issue invoices, send emails,
             // move inventory, or advance fulfillment through Order model hooks.
             $order->saveQuietly();
-            $order->events()->create(['user_id' => $actor->id, 'created_at' => now(), 'description' => $note.'. Receipt line #'.$line->id.' · '.$line->method.' · '.$this->money($allocation['amount_cents']).'. Balance '.$this->money($before).' → '.$this->money($order->balance_cents).'. Inventory and fulfillment unchanged.']);
+            $order->events()->create(['user_id' => $actor?->id, 'created_at' => now(), 'description' => $note.'. Receipt line #'.$line->id.' · '.$line->method.' · '.$this->money($allocation['amount_cents']).'. Balance '.$this->money($before).' → '.$this->money($order->balance_cents).'. Inventory and fulfillment unchanged.']);
         }
     }
 
@@ -403,14 +425,14 @@ class CustomerReceipts
         }, 3);
     }
 
-    private function audit(CustomerReceipt $receipt, ?CustomerReceiptLine $line, User $actor, string $action, string $reason, ?string $reference = null, array $before = []): CustomerReceiptEvent
+    private function audit(CustomerReceipt $receipt, ?CustomerReceiptLine $line, ?User $actor, string $action, string $reason, ?string $reference = null, array $before = []): CustomerReceiptEvent
     {
         $receipt->load('lines.allocations');
         $orderIds = $receipt->lines->flatMap(fn ($l) => $l->allocations->pluck('order_id'))->unique();
         $orders = Order::withTrashed()->whereIn('id', $orderIds)->with('settlements')->get()->keyBy('id');
         $invoices = CustomerInvoice::whereIn('order_id', $orderIds)->get()->keyBy('order_id');
         $lines = $receipt->lines->map(function ($l) use ($orders, $invoices) {
-            return ['id' => $l->id, 'method' => $l->method, 'amount_cents' => $l->amount_cents, 'payment_date' => $l->payment_date->toDateString(),
+            return ['id' => $l->id, 'method' => $l->method, 'gateway' => $l->gateway, 'amount_cents' => $l->amount_cents, 'payment_date' => $l->payment_date->toDateString(),
                 'reference' => $l->reference, 'bank' => $l->bank, 'cheque_date' => $l->cheque_date?->toDateString(), 'note' => $l->note,
                 'proof_name' => $l->proof_name, 'proof_hash' => $l->proof_hash, 'status' => $l->status, 'cleared_on' => $l->cleared_on?->toDateString(),
                 'clearance_reference' => $l->clearance_reference, 'planned_allocations' => $l->planned_allocations,
@@ -419,12 +441,12 @@ class CustomerReceipts
                     'date' => $s->received_on?->toDateString(), 'balance_cents' => $orders->get($s->order_id)?->balance_cents])->all()];
         })->all();
         $snapshot = ['customer' => $receipt->customer_snapshot, 'number' => $receipt->number, 'action' => $action, 'reason' => $reason, 'change' => $before,
-            'actor' => $actor->name, 'recorded_at' => now()->toIso8601String(), 'total_cents' => $receipt->total_cents, 'lines' => $lines,
+            'actor' => $actor?->name ?? 'Helcim verification', 'recorded_at' => now()->toIso8601String(), 'total_cents' => $receipt->total_cents, 'lines' => $lines,
             'confirmed_cents' => (int) $receipt->lines->filter(fn ($l) => in_array($l->status, ['confirmed', 'cleared'], true))->sum('amount_cents'),
             'pending_cents' => (int) $receipt->lines->where('status', 'awaiting_clearance')->sum('amount_cents'),
             'outstanding_cents' => app(CustomerInvoicing::class)->balances($receipt->customer)['pending']];
 
-        return $receipt->events()->create(['customer_receipt_line_id' => $line?->id, 'user_id' => $actor->id, 'actor_name' => $actor->name,
+        return $receipt->events()->create(['customer_receipt_line_id' => $line?->id, 'user_id' => $actor?->id, 'actor_name' => $actor?->name ?? 'Helcim verification',
             'action' => $action, 'reason' => $reason, 'reference' => $reference, 'snapshot' => $snapshot]);
     }
 }

@@ -31,8 +31,10 @@
 @if($inventoryShortage>0 || $inventoryUnset)<div class="alert alert-warning wh-inventory-warning" role="alert"><i class="fas fa-exclamation-triangle" aria-hidden="true"></i><div><strong>Inventory attention required</strong>@if($inventoryShortage>0)<span>This order was accepted with {{ \App\Support\NumberDisplay::quantity($inventoryShortage) }} units beyond available tracked stock. Review the highlighted packing items.</span>@endif @if($inventoryUnset)<span>At least one product did not have opening inventory configured when this order was placed.</span>@endif</div></div>@endif
 <div class="wh-detail-navigation" aria-label="Order actions">
     <a class="btn btn-outline-primary" href="{{ route($order->status==='completed'?'admin.orders.completed':'admin.orders.index') }}"><i class="fas fa-arrow-left" aria-hidden="true"></i> Back to Orders</a>
-    <a class="btn btn-outline-primary" href="{{ route('admin.orders.print',$order) }}" target="_blank" rel="noopener"><i class="fas fa-print" aria-hidden="true"></i> {{ $printLabel??(($receiptView??false)?'Print Receipt':'Print Packing Slip') }}</a>
-    @include('admin.orders.delivery-actions')
+    @if(!auth()->user()->isWarehouseOnly() || !$order->awaitingWarehouseRelease())
+        <a class="btn btn-outline-primary" href="{{ route('admin.orders.print',$order) }}" target="_blank" rel="noopener"><i class="fas fa-print" aria-hidden="true"></i> {{ $printLabel??(($receiptView??false)?'Print Receipt':'Print Packing Slip') }}</a>
+        @include('admin.orders.delivery-actions')
+    @endif
     @if($showOrderLinks??false)
         @if($order->invoice)<a class="btn btn-outline-primary" href="{{ route('admin.invoices.show',$order->invoice) }}" target="_blank" rel="noopener"><i class="fas fa-file-invoice" aria-hidden="true"></i> Invoice {{ $order->invoice->label }}</a>@endif
         <a class="btn btn-outline-primary" href="{{ route('admin.orders.payments',$order) }}"><i class="fas fa-money-check-alt" aria-hidden="true"></i> Payments &amp; receipts</a>

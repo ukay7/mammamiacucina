@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Services\CustomerEmails;
 use App\Services\CustomerInvoicing;
+use App\Services\CustomerOrderHistory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
@@ -60,6 +61,9 @@ class Order extends Model
             }
         });
         static::updated(function ($order) {
+            if ($order->customer_id && $order->wasChanged('status')) {
+                app(CustomerOrderHistory::class)->record($order);
+            }
             if (in_array($order->status, CustomerInvoicing::ELIGIBLE)) {
                 app(CustomerInvoicing::class)->issue($order);
             }
@@ -70,6 +74,11 @@ class Order extends Model
             $order->tracking_token ??= Str::random(48);
             // created_at remains the audit timestamp; ordered_at is the business date.
             $order->ordered_at ??= $order->created_at ?? now();
+        });
+        static::created(function ($order) {
+            if ($order->customer_id && $order->status && $order->status !== 'parked_admin') {
+                app(CustomerOrderHistory::class)->record($order);
+            }
         });
     }
 
@@ -182,12 +191,22 @@ class Order extends Model
         return [$this->status => $this->status_label] + array_intersect_key(self::STATUSES, array_flip($choices));
     }
 
-    public function scopeVisibleToWarehouse($query, int $userId)
+    private const WAREHOUSE_INCOMING_STATUSES = ['parked_admin', 'awaiting_payment', 'payment_review'];
+
+    public function awaitingWarehouseRelease(): bool
+    {
+        return $this->source === 'website' && in_array($this->status, self::WAREHOUSE_INCOMING_STATUSES, true);
+    }
+
+    public function scopeVisibleToWarehouse($query, int $userId, bool $includeIncoming = true)
     {
         return $query->where(fn ($visible) => $visible
             ->where(fn ($own) => $own->where('source', 'pos')->where('created_by', $userId))
             ->orWhere(fn ($parked) => $parked->whereIn('source', ['website', 'pos'])
-                ->whereIn('status', ['warehouse_pending', 'packing', 'ready_to_dispatch'])));
+                ->whereIn('status', ['warehouse_pending', 'packing', 'ready_to_dispatch']))
+            ->when($includeIncoming, fn ($scope) => $scope
+                ->orWhere(fn ($incoming) => $incoming->where('source', 'website')
+                    ->whereIn('status', self::WAREHOUSE_INCOMING_STATUSES))));
     }
 
     public function getPaymentStatusLabelAttribute(): string

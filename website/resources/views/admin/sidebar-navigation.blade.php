@@ -10,8 +10,13 @@ $active = static fn($item) => str_starts_with($item['match'], 'path:')
         && !($item['route'] === 'admin.reports.index' && request()->routeIs('admin.reports.inventory*','admin.reports.overdue-cheques'));
 @endphp
 @if(auth()->user()->isCustomer())
+<li class="{{ request()->routeIs('customer.dashboard') ? 'active' : '' }}"><a href="{{ route('customer.dashboard') }}"><i class="fas fa-home" aria-hidden="true"></i><span>My Account</span></a></li>
 <li class="{{ request()->routeIs('customer.catalogue*') ? 'active' : '' }}"><a href="{{ route('customer.catalogue') }}"><i class="fas fa-shopping-basket" aria-hidden="true"></i><span>Product Catalogue</span></a></li>
-<li><a href="{{ route('customer.orders') }}"><i class="fas fa-home" aria-hidden="true"></i><span>My Orders</span></a></li>
+<li class="{{ request()->routeIs('customer.orders','customer.order') ? 'active' : '' }}"><a href="{{ route('customer.orders') }}"><i class="fas fa-shopping-cart" aria-hidden="true"></i><span>My Orders</span></a></li>
+<li class="{{ request()->routeIs('customer.invoices','customer.invoice-payments.*') ? 'active' : '' }}"><a href="{{ route('customer.invoices') }}"><i class="fas fa-file-invoice" aria-hidden="true"></i><span>Invoices</span></a></li>
+<li class="{{ request()->routeIs('customer.receipts') ? 'active' : '' }}"><a href="{{ route('customer.receipts') }}"><i class="fas fa-receipt" aria-hidden="true"></i><span>Receipts</span></a></li>
+<li class="{{ request()->routeIs('customer.credit','customer.credit-applications.*') ? 'active' : '' }}"><a href="{{ route('customer.credit') }}"><i class="fas fa-credit-card" aria-hidden="true"></i><span>Credit &amp; Discounts</span></a></li>
+<li class="{{ request()->routeIs('customer.support.*') ? 'active' : '' }}"><a href="{{ route('customer.support.index') }}"><i class="fas fa-headset" aria-hidden="true"></i><span>Customer Service</span></a></li>
 <li class="{{ request()->routeIs('customer.profile*') ? 'active' : '' }}"><a href="{{ route('customer.profile') }}"><i class="fas fa-user" aria-hidden="true"></i><span>My Profile</span></a></li>
 <li class="{{ request()->routeIs('customer.documents*')?'active':'' }}"><a href="{{ route('customer.documents') }}"><i class="fas fa-file-alt" aria-hidden="true"></i><span>My Documents</span></a></li>
 @else

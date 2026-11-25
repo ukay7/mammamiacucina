@@ -46,9 +46,46 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
             Route::delete('/gallery/{event}/photos/{photo}', [GalleryController::class, 'removePhoto'])->name('gallery.photos.remove');
         });
         Route::middleware(AdminAccess::class.':enquiries.manage')->group(function () {
+            $support = \App\Http\Controllers\SupportTicketController::class;
+            Route::get('/support-tickets', [$support, 'index'])->name('support.index');
+            Route::get('/support-tickets/{ticket}', [$support, 'show'])->whereNumber('ticket')->name('support.show');
+            Route::post('/support-tickets/{ticket}/reply', [$support, 'reply'])->whereNumber('ticket')->middleware('throttle:30,1')->name('support.reply');
+            Route::patch('/support-tickets/{ticket}', [$support, 'status'])->whereNumber('ticket')->name('support.status');
             Route::get('/enquiries', [EnquiryController::class, 'index'])->name('enquiries.index');
             Route::get('/enquiries/{enquiry}', [EnquiryController::class, 'show'])->name('enquiries.show');
             Route::patch('/enquiries/{enquiry}', [EnquiryController::class, 'update'])->name('enquiries.update');
+        });
+        Route::middleware(AdminAccess::class.':payments.manage')->group(function () {
+            $invoicePayments = \App\Http\Controllers\InvoicePaymentController::class;
+            Route::get('/invoice-payments', [$invoicePayments, 'adminIndex'])->name('invoice-payments.index');
+            Route::get('/invoice-payments/{invoicePayment:reference}', [$invoicePayments, 'adminShow'])->name('invoice-payments.show');
+            Route::post('/invoice-payments/{invoicePayment:reference}/check', [$invoicePayments, 'adminCheck'])->middleware('throttle:20,1')->name('invoice-payments.check');
+        });
+        Route::middleware(AdminAccess::class.':customers.manage')->prefix('profile-requests')->name('profile-requests.')->group(function () {
+            $profiles = \App\Http\Controllers\Admin\CustomerProfileRequestController::class;
+            Route::get('/', [$profiles, 'index'])->name('index');
+            Route::get('/{change}', [$profiles, 'show'])->whereNumber('change')->name('show');
+            Route::patch('/{change}', [$profiles, 'review'])->whereNumber('change')->name('review');
+        });
+        Route::middleware(AdminAccess::class.':credit-applications.manage')->prefix('credit-applications')->name('credit-applications.')->group(function () {
+            $credits = \App\Http\Controllers\Admin\CreditApplicationController::class;
+            Route::get('/', [$credits, 'index'])->name('index');
+            Route::post('/invite', [$credits, 'invite'])->middleware('throttle:12,1,credit-application-invite')->name('invite');
+            Route::get('/{application}', [$credits, 'show'])->whereNumber('application')->name('show');
+            Route::get('/{application}/document', [$credits, 'document'])->whereNumber('application')->name('document');
+            Route::patch('/{application}', [$credits, 'review'])->whereNumber('application')->name('review');
+
+            Route::middleware(\App\Http\Middleware\SuperAdminOnly::class)->prefix('templates')->name('templates.')->group(function () {
+                $templates = \App\Http\Controllers\Admin\CreditApplicationTemplateController::class;
+                Route::get('/', [$templates, 'index'])->name('index');
+                Route::get('/create', [$templates, 'create'])->name('create');
+                Route::post('/', [$templates, 'save'])->name('store');
+                Route::get('/{template}', [$templates, 'show'])->whereNumber('template')->name('show');
+                Route::get('/{template}/edit', [$templates, 'edit'])->whereNumber('template')->name('edit');
+                Route::put('/{template}', [$templates, 'save'])->whereNumber('template')->name('update');
+                Route::post('/{template}/publish', [$templates, 'publish'])->whereNumber('template')->name('publish');
+                Route::post('/{template}/retire', [$templates, 'retire'])->whereNumber('template')->name('retire');
+            });
         });
         Route::middleware(AdminAccess::class.':pos.manage')->prefix('pos')->name('pos.')->group(function () {
             Route::get('/', [PosController::class, 'index'])->name('index');
@@ -76,6 +113,20 @@ Route::resource('catalogue',\App\Http\Controllers\CatalogueBookController::class
         });
         Route::get('/product-labels', [PosController::class, 'labels'])->middleware(AdminAccess::class.':products.view')->name('products.labels');
         Route::resource('allergies', AllergyController::class)->except('show')->middleware(AdminAccess::class.':allergies.manage');
+        Route::middleware(AdminAccess::class.':accounting.view')->prefix('reports/accounting')->name('accounting.')->group(function () {
+            $accounting = \App\Http\Controllers\Admin\AccountingController::class;
+            Route::get('/', [$accounting, 'index'])->name('index');
+            Route::get('/journal-template', [$accounting, 'template'])->name('template');
+            Route::post('/journal-import', [$accounting, 'import'])->name('import');
+            Route::get('/document/{customer}/{kind}/{document}', [\App\Http\Controllers\CustomerDocumentController::class, 'accountingFile'])->whereNumber(['customer', 'document'])->name('document');
+            Route::get('/{kind}', [$accounting, 'report'])->name('report');
+        });
+        Route::middleware(AdminAccess::class.':accounting.reconcile')->prefix('reports/payment-reconciliation')->name('payment-reconciliation.')->group(function () {
+            $reconciliation = \App\Http\Controllers\Admin\PaymentReconciliationController::class;
+            Route::get('/', [$reconciliation, 'index'])->name('index');
+            Route::post('/review', [$reconciliation, 'record'])->name('record');
+            Route::post('/complete', [$reconciliation, 'complete'])->name('complete');
+        });
         Route::middleware(AdminAccess::class.':orders.view')->group(function () {
             Route::get('/reports', [\App\Http\Controllers\Admin\BusinessReportController::class,'index'])->name('reports.index');
             Route::get('/reports/receivable-aging', [\App\Http\Controllers\Admin\ReceivableAgingController::class, 'index'])->name('reports.receivable-aging');

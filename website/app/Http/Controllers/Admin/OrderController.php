@@ -61,10 +61,10 @@ class OrderController extends Controller
         return auth()->user()->isWarehouseOnly();
     }
 
-    private function readable(Order $order): void
+    private function readable(Order $order, bool $includeIncoming = true): void
     {
         if ($this->warehouseOnly()) {
-            abort_unless(Order::whereKey($order->id)->visibleToWarehouse(auth()->id())->exists(), 404);
+            abort_unless(Order::whereKey($order->id)->visibleToWarehouse(auth()->id(), $includeIncoming)->exists(), 404);
         }
     }
 
@@ -248,7 +248,7 @@ class OrderController extends Controller
 
     public function printOrder(Order $order)
     {
-        $this->readable($order);
+        $this->readable($order, includeIncoming: false);
         $order->load('items.product');
         if ($this->warehouseOnly() && ! ($order->source === 'pos' && (int) $order->created_by === auth()->id())) {
             return response()->view('admin.orders.packing-print', compact('order'))->header('Cache-Control', 'no-store, private');
@@ -269,7 +269,7 @@ class OrderController extends Controller
 
     private function deliveryDocument(Request $request, Order $order, bool $envelope)
     {
-        $this->readable($order);
+        $this->readable($order, includeIncoming: false);
         $request->validate(['download' => 'nullable|boolean']);
         $pdf = $request->boolean('download');
         $doc = app(\App\Services\OrderDeliveryDocuments::class)->data($order, $envelope);

@@ -3,7 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
-use App\Services\{CustomerDocuments, CustomerInvoicing, DocumentTheme};
+use App\Services\{CustomerDocuments, CustomerInvoicing, DocumentTheme, InvoicePayments, ReceivableAging};
+use App\Support\BusinessTime;
 use Dompdf\{Dompdf, Options};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -23,15 +24,46 @@ class CustomerDocumentController extends Controller
         return $this->show($request, $request->user()->customerRecord(), $kind, $document, $documents);
     }
 
+    public function statement(Request $request, InvoicePayments $payments, ReceivableAging $aging, DocumentTheme $theme)
+    {
+        $customer = $request->user()->customerRecord();
+        $asOf = BusinessTime::now();
+        $rows = [];
+        foreach ($payments->invoices($customer)->oldest('issued_at')->oldest('id')->lazy(200) as $invoice) {
+            $balance = $aging->invoiceBalance($invoice);
+            if ($balance > 0) {
+                $rows[] = [
+                    'invoice' => $invoice->label,
+                    'order' => $invoice->order->number,
+                    'issued' => BusinessTime::format($invoice->issued_at, 'd M Y'),
+                    'due' => $invoice->paymentDueDate(),
+                    'balance' => $balance,
+                ];
+            }
+        }
+        $brand = $theme->brand();
+        $doc = ['brand' => $brand, 'title' => 'Statement of Account', 'number' => null, 'date' => $asOf->format('Y-m-d H:i:s T')];
+        $methods = $theme->remittance($brand);
+        $total = array_sum(array_column($rows, 'balance'));
+
+        return $this->renderDocument('documents.customer-statement', compact('customer', 'doc', 'rows', 'total', 'methods'),
+            'account-statement-'.$customer->id.'-'.$asOf->toDateString(), true);
+    }
+
     public function adminFile(Request $request, Customer $customer, string $kind, int $document, CustomerDocuments $documents)
     {
         return $this->show($request, $customer, $kind, $document, $documents);
     }
 
-    private function show(Request $request, Customer $customer, string $kind, int $id, CustomerDocuments $documents)
+    public function accountingFile(Request $request, Customer $customer, string $kind, int $document, CustomerDocuments $documents)
+    {
+        return $this->show($request, $customer, $kind, $document, $documents, accounting: true);
+    }
+
+    private function show(Request $request, Customer $customer, string $kind, int $id, CustomerDocuments $documents, bool $accounting = false)
     {
         $request->validate(['download' => 'nullable|boolean']);
-        [$record, $entry] = $documents->resolve($customer, $request->user(), $kind, $id);
+        [$record, $entry] = $documents->resolve($customer, $request->user(), $kind, $id, $accounting);
         $download = $request->boolean('download');
         $filename = Str::slug($entry['name']) ?: 'document-'.$id;
         if ($path = $documents->filePath($kind, $record)) {
@@ -47,10 +79,15 @@ class CustomerDocumentController extends Controller
             abort_unless($bytes && str_starts_with($bytes, '%PDF-'), 404);
             return $this->pdfResponse($bytes, $filename.'.pdf', $download);
         }
+        if ($kind === 'credit-application') {
+            return $this->pdfResponse(app(\App\Services\CreditApplicationDocuments::class)->signedBytes($record), strtolower($record->reference).'-signed.pdf', $download);
+        }
 
         $theme = app(DocumentTheme::class);
         if (in_array($kind, ['invoice', 'settlement'])) $record->load('order');
-        $backUrl = $request->user()->isCustomer() ? route('customer.documents') : route('admin.customers.show', $customer).'#customer-documents';
+        $backUrl = $request->user()->isCustomer() ? route(match ($entry['group']) {
+            'invoices' => 'customer.invoices', 'receipts' => 'customer.receipts', default => 'customer.documents',
+        }) : ($accounting ? route('admin.accounting.report', 'documents') : route('admin.customers.show', $customer).'#customer-documents');
         $downloadUrl = $request->url().'?download=1';
         $data = ['pdf' => $download, 'backUrl' => $backUrl, 'downloadUrl' => $downloadUrl];
         $view = 'documents.financial';
@@ -89,6 +126,11 @@ class CustomerDocumentController extends Controller
                 $view = 'documents.customer-receipt'; break;
             case 'quotation': $data['quotation'] = $record; $view = 'admin.quotations.print'; break;
         }
+        return $this->renderDocument($view, $data, $filename, $download);
+    }
+
+    private function renderDocument(string $view, array $data, string $filename, bool $download)
+    {
         $html = view($view, $data)->render();
         if (! $download) return response($html)->withHeaders($this->headers());
         abort_unless(extension_loaded('gd'), 503, 'PHP GD must be enabled before rendering document logos.');

@@ -29,6 +29,9 @@ class CustomerEmails
             return;
         }
         $message = EmailTemplate::renderMessage($type, $values + ['site_name' => 'Mamma Mia Cucina']);
+        if ($type === 'new_order_notification' && isset($values['office_details'])) {
+            $message['body'] .= "\n\nOrder details\n".$values['office_details'];
+        }
         $alternate = app(CustomerEmailRecipients::class)->alternate($type, $recipient, $customer);
         // Unique event key is the final concurrency guard; payload is encrypted at rest.
         $html = $type === 'business_registration_notification'
@@ -95,6 +98,8 @@ class CustomerEmails
         ];
         if ($order->fulfillment === 'delivery' && $order->delivery_scheduled_at) {
             $values['fulfillment'] .= "\nDelivery date & time: ".\App\Support\BusinessTime::format($order->delivery_scheduled_at, 'D, d M Y, g:i A T').' (Toronto)';
+        } elseif ($order->fulfillment_date) {
+            $values['fulfillment'] .= "\nRequested ".($order->fulfillment === 'pickup' ? 'pickup' : 'delivery').' date: '.$order->fulfillment_date;
         }
         $document = in_array($type, ['order_confirmation', 'payment_received']) ? [
             'values' => $values, 'date' => \App\Support\BusinessTime::format(now()), 'subtotal' => $money($order->subtotal_cents),
@@ -112,8 +117,21 @@ class CustomerEmails
         if ($type === 'order_confirmation') {
             // A separate internal event gives the office its own delivery/retry history.
             // Never route this message through a customer's alternate address.
+            $officeDetails = array_filter([
+                'Order '.mb_strtoupper($order->number),
+                'Customer: '.$values['name'],
+                $order->customer?->business_name ? 'Business: '.$order->customer->business_name : null,
+                $order->customer_id ? 'Account #'.$order->customer_id : null,
+                $order->email ? 'Email: '.$order->email : null,
+                $order->phone ? 'Phone: '.$order->phone : null,
+                $values['fulfillment'],
+                $order->notes ? 'Instructions: '.$order->notes : null,
+                'Items:',
+                ...$order->items->map(fn ($item) => $item->quantity.' × '.$item->name.($item->product_code ? ' ('.$item->product_code.')' : ''))->all(),
+            ]);
             $this->queue('order-office:'.$order->id, 'new_order_notification', config('mail.order_notification_address'),
                 $values + ['customer_email' => $order->email ?: 'Not provided',
+                    'office_details' => implode("\n", $officeDetails),
                     'source' => $order->source === 'pos' ? 'Quick Sale / POS' : 'Website',
                     'placed_by' => $order->creator?->name ?: trim($order->first_name.' '.$order->last_name),
                     'admin_order_url' => route('admin.orders.show', $order)], $document);

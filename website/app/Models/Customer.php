@@ -12,4 +12,6 @@ class Customer extends Model {
  }
  public function user(){return $this->belongsTo(User::class);}
  public function orders(){return $this->hasMany(Order::class);}
+ public function profileRequests(){return $this->hasMany(CustomerProfileRequest::class);}
+ public function creditApplications(){return $this->hasMany(CreditApplication::class);}
 }

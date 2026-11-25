@@ -115,13 +115,15 @@ class OrderCustomerIdentityTest extends TestCase
     {
         $customer = $this->customer();
         $visible = $this->order($customer);
+        $incoming = $this->order($customer);
+        $incoming->updateQuietly(['status' => 'parked_admin']);
         $private = $this->order($customer);
-        $private->updateQuietly(['status' => 'parked_admin']);
+        $private->updateQuietly(['status' => 'warehouse_issue']);
         $worker = User::factory()->create(['role_id' => Role::where('name', 'Warehouse User')->value('id'), 'is_active' => true]);
         $this->actingAs($worker)->get(route('admin.orders.index', ['q' => 'Sweet Boutique']))->assertOk()
             ->assertSee('warehouse-card-customer')->assertSee('Business customer')->assertSee('Sweet Boutique')->assertSee('Customer: Anthony Macri')
-            ->assertSee($visible->number)->assertDontSee($private->number)
-            ->assertViewHas('orders', fn ($orders) => $orders->total() === 1 && $orders->first()->relationLoaded('customer'));
+            ->assertSee($visible->number)->assertSee($incoming->number)->assertDontSee($private->number)
+            ->assertViewHas('orders', fn ($orders) => $orders->total() === 2 && $orders->first()->relationLoaded('customer'));
         $this->get(route('admin.orders.deleted.index'))->assertForbidden();
     }
 

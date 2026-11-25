@@ -5,11 +5,20 @@
 @endpush
 @section('content')
 @php
-    $restoreSelection = old('catalogue_version') === $cartVersion;
+    $prefill = $reorder['quantities'] ?? $basket;
+    $restoreSelection = ! $reorder && old('catalogue_version') === $cartVersion;
     $selection = $restoreSelection
         ? collect(old('selected'))->filter(fn ($id) => is_scalar($id))->map(fn ($id) => (int) $id)
-        : collect(array_keys($basket));
+        : collect(array_keys($prefill));
 @endphp
+@if($reorder)
+    <section class="panel panel-content mb-3" role="status">
+        <strong>Reorder {{ mb_strtoupper($reorder['order']) }}</strong>
+        <p class="mb-1">{{ $reorder['matched'] ? 'Available items are selected at current prices. Check the quantities, then review your order.' : 'No products from this order could be selected.' }}</p>
+        @if($reorder['adjusted'])<p class="mb-1">Quantities adjusted to current limits for {{ implode(', ', $reorder['adjusted']) }}.</p>@endif
+        @if($reorder['skipped'])<p class="mb-0">Could not select {{ implode(', ', $reorder['skipped']) }} because of availability or cart limits.</p>@endif
+    </section>
+@endif
 <form action="{{ route('customer.catalogue.cart') }}" method="post" data-catalogue
       data-discount-bps="{{ $customer->order_discount_bps }}" data-tax-bps="{{ $taxRate }}"
       data-unlisted-subtotal="{{ $unlistedSubtotal }}" data-unlisted-count="{{ $unlistedCount }}"
@@ -78,7 +87,7 @@
                             $stock = $product->inventory?->quantity_on_hand;
                             $max = $price['unit_cents'] === null ? 0 : ($stock === null ? 99 : min(99, (int) $stock));
                             $editable = $max > 0 || isset($basket[$product->id]);
-                            $savedQuantity = $basket[$product->id] ?? 1;
+                            $savedQuantity = $prefill[$product->id] ?? 1;
                             $quantity = $restoreSelection ? old('quantity.'.$product->id, $savedQuantity) : $savedQuantity;
                         @endphp
                         <tr data-catalogue-product data-categories="{{ implode(' ', $product->categories->modelKeys()) }}" data-search="{{ $product->premium_marketing_name }} {{ $product->product_code }} {{ $product->qr_code }} {{ $product->italian_subtitle }}" data-unit-cents="{{ $price['unit_cents'] }}">

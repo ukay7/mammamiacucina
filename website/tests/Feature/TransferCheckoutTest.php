@@ -69,7 +69,8 @@ class TransferCheckoutTest extends TestCase
         $this->get('/order-success')->assertOk()->assertSee('Upload a receipt or cheque photo');
         $this->get(route('customer.order',$order))->assertOk()->assertSee('Upload receipt');
         $worker=User::factory()->create(['is_active'=>true,'role_id'=>Role::where('name','Warehouse User')->value('id')]);
-        $this->actingAs($worker)->get(route('admin.orders.show',$order))->assertNotFound();
+        $this->actingAs($worker)->get(route('admin.orders.show',$order))->assertOk()
+            ->assertSee('Wait for it to be released to packing')->assertDontSee('Verify payment received');
         $this->get(route('orders.transfer-receipt',$order))->assertForbidden();
         $other=User::factory()->create(['is_active'=>true,'account_type'=>'individual','role_id'=>Role::where('name','Customer')->value('id')]);
         $this->actingAs($other)->post(route('orders.transfer-receipt.store',$order),['revision'=>0,'receipt'=>$this->image('receipt.png')])->assertNotFound();
@@ -91,7 +92,9 @@ class TransferCheckoutTest extends TestCase
         $this->assertNotNull($order->paid_at);
         $this->post(route('orders.transfer.verify',$order),['revision'=>$order->revision,'received'=>1])->assertSessionHasErrors('receipt');
         $this->actingAs($user)->post(route('orders.transfer-receipt.store',$order),['revision'=>$order->revision,'receipt'=>$this->image('replacement.png')])->assertSessionHasErrors('receipt');
-        $this->actingAs($worker)->get(route('admin.orders.show',$order))->assertNotFound();
+        $this->actingAs($worker)->get(route('admin.orders.show',$order))->assertOk()
+            ->assertSee('Wait for it to be released to packing')->assertDontSee('Save Packing Progress');
+        $this->get(route('orders.transfer-receipt',$order))->assertForbidden();
         $this->assertEquals(0,$order->fresh()->warehouse_round);
         $this->assertDatabaseCount('order_events',2);
     }

@@ -8,7 +8,7 @@
 @if($warehouseOnly)
 @include('admin.orders.warehouse-list')
 @else
-@if($warehouseOnly)<p>{{ $completed?'Completed orders created by you.':'Orders currently parked at the warehouse for packing.' }}</p>@endif
+@if($warehouseOnly)<p>{{ $completed?'Completed orders created by you.':'Incoming orders and orders released for packing.' }}</p>@endif
 <style>.warehouse-issue-row{background:#fff2c9;border-left:5px solid #bc8a16}.warehouse-issue-row .mmc-status-pill{color:#805200;font-weight:700}</style>
 <form action="{{ route($listRoute) }}" method="get" class="mmc-filters mmc-order-filters"><label>Search orders<input class="form-control" name="q" value="{{ $search }}" placeholder="Order number, business, customer or email"></label><label>From date<input class="form-control" type="date" name="from" value="{{ $from }}" required></label><label>To date<input class="form-control" type="date" name="to" value="{{ $to }}" required></label><label>Status<select class="form-control" name="status"><option value="">All statuses</option>@foreach(\App\Models\Order::STATUSES as $key=>$label)
 @if(($key==='completed')===$completed)<option value="{{ $key }}" @selected(request('status')===$key)>{{ $label }}</option>@endif

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Category;
 use App\Models\GeneralSetting;
+use App\Models\Order;
 use App\Models\Product;
 use App\Services\CheckoutReview;
 use App\Services\CustomerTerms;
@@ -34,6 +35,10 @@ class CustomerCatalogueController extends Controller
         $visibleCartCount = count($basket) - count($unlisted);
         $unlistedSubtotal = collect($snapshot['items'])->sum(fn ($item) => isset($unlisted[$item['product']->id]) ? $item['line_cents'] : 0);
         $cartVersion = $this->cartVersion($basket);
+        $reorder = $request->boolean('reorder') ? $request->session()->pull('catalogue_reorder') : null;
+        if ($reorder && $reorder['cart_version'] !== $cartVersion) {
+            return redirect()->route('customer.catalogue')->withErrors(['cart' => 'Your cart changed. Open the order and try Reorder again.']);
+        }
         $taxRate = GeneralSetting::findOrFail(1)->tax_basis_points;
         $review = null;
 
@@ -52,7 +57,47 @@ class CustomerCatalogueController extends Controller
             }
         }
 
-        return view('customer.catalogue', compact('categories', 'products', 'groups', 'prices', 'customer', 'basket', 'visibleCartCount', 'unlistedCount', 'unlistedSubtotal', 'cartVersion', 'taxRate', 'review'));
+        return view('customer.catalogue', compact('categories', 'products', 'groups', 'prices', 'customer', 'basket', 'visibleCartCount', 'unlistedCount', 'unlistedSubtotal', 'cartVersion', 'taxRate', 'review', 'reorder'));
+    }
+
+    public function reorder(Request $request, Order $order)
+    {
+        abort_unless((int) $order->customer_id === $request->user()->customerRecord()->id, 404);
+
+        $lines = $order->items()->get(['product_id', 'name', 'quantity'])->groupBy('product_id');
+        $products = $this->products()->whereKey($lines->keys()->filter()->all())
+            ->whereRaw(Product::storefrontPriceSql().' IS NOT NULL')->with('inventory')->get()->keyBy('id');
+        $basket = $request->session()->get('storefront_cart', []);
+        $quantities = $basket;
+        $skipped = [];
+        $adjusted = [];
+        $matched = 0;
+        foreach ($lines as $id => $items) {
+            $product = $products->get($id);
+            $stock = $product?->inventory?->quantity_on_hand;
+            if (! $product || ($stock !== null && $stock < 1) || (! isset($quantities[$id]) && count($quantities) >= 100)) {
+                array_push($skipped, ...$items->pluck('name')->all());
+                continue;
+            }
+            $requested = max((int) $items->sum('quantity'), $quantities[$id] ?? 0, 1);
+            $quantity = min($requested, 99, $stock === null ? 99 : (int) $stock);
+            if ($quantity < $requested) {
+                $adjusted[] = $product->premium_marketing_name;
+            }
+            $quantities[$id] = $quantity;
+            $matched++;
+        }
+
+        $request->session()->put('catalogue_reorder', [
+            'order' => $order->number,
+            'quantities' => $quantities,
+            'skipped' => array_unique($skipped),
+            'adjusted' => $adjusted,
+            'matched' => $matched,
+            'cart_version' => $this->cartVersion($basket),
+        ]);
+
+        return redirect()->route('customer.catalogue', ['reorder' => 1]);
     }
 
     public function save(Request $request, StorefrontCart $cart)

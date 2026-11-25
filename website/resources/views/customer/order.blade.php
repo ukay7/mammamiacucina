@@ -1,13 +1,30 @@
 @extends('admin.layout')
 @section('title','Order '.$order->number)
+@include('customer.account-style')
 @section('content')
-<p><a class="btn btn-outline-primary" href="{{ route('customer.documents',['document_search'=>$order->number]) }}">Documents for this order</a></p>
-<div class="customer-order-actions"><a href="{{ route('customer.orders') }}">← My Orders</a><a class="btn btn-outline-primary" href="{{ route('customer.order.print',$order) }}" target="_blank" rel="noopener">Print / Save PDF</a></div>
+<div class="customer-order-actions account-actions">
+    <a href="{{ route('customer.orders') }}">← My Orders</a>
+    <a class="btn btn-outline-primary" href="{{ route('customer.documents',['document_search'=>$order->number]) }}">Documents for this order</a>
+    <a class="btn btn-outline-primary" href="{{ route('customer.order.print',$order) }}" target="_blank" rel="noopener">Print / Save PDF</a>
+    <form method="post" action="{{ route('customer.order.reorder', $order) }}" data-catalogue-reorder>@csrf<button type="submit" class="btn btn-primary">Reorder</button></form>
+</div>
+<section class="panel panel-content account-order-history" aria-labelledby="order-history-title">
+    <div class="account-section-heading"><h2 id="order-history-title">Order status history</h2><strong>{{ $statusLabel }}</strong></div>
+    @if($timeline)
+        <ol class="account-timeline">
+            @foreach($timeline as $entry)
+                <li><strong>{{ $entry['label'] }}</strong><time datetime="{{ $entry['date']->toIso8601String() }}">{{ $entry['date']->format('d M Y, g:i A T') }}</time></li>
+            @endforeach
+        </ol>
+    @else
+        <p class="mb-0">No dated updates are available for this order yet.</p>
+    @endif
+</section>
 @if($order->payment && !$order->payment->paid_at && !$order->payment->released_at)<p><a class="btn btn-primary" href="{{ route('payment.show',$order->payment->reference) }}">Complete / check card payment</a></p>@endif
 @include('partials.transfer-receipt')
 <article class="customer-receipt">
 <header class="customer-receipt-brand"><img src="{{ $siteSettings?->logoUrl() ?? asset('logo.png') }}" alt="Mamma Mia Cucina"><div><h2>Mamma Mia Cucina</h2><p>ITALIAN TRADITION. MOMENTS TO SAVOUR.</p><small>mammamiacucina.ca</small></div></header>
-<div class="customer-receipt-title"><div><p class="receipt-eyebrow">YOUR ITALIAN FAVOURITES</p><h2>Order Confirmation</h2></div><div class="receipt-meta"><strong>{{ $order->number }}</strong><span>{{ \App\Support\BusinessTime::format($order->ordered_at,'d F Y, H:i T') }}</span><span class="receipt-status">{{ $order->status_label }}</span></div></div>
+<div class="customer-receipt-title"><div><p class="receipt-eyebrow">YOUR ITALIAN FAVOURITES</p><h2>Order Confirmation</h2></div><div class="receipt-meta"><strong>{{ $order->number }}</strong><span>{{ \App\Support\BusinessTime::format($order->ordered_at,'d F Y, H:i T') }}</span><span class="receipt-status">{{ $statusLabel }}</span></div></div>
 <div class="customer-receipt-details"><section><h3>Customer & {{ $order->fulfillment==='pickup'?'Pick up':'Delivery' }}</h3><strong>{{ $order->first_name }} {{ $order->last_name }} <x-business-customer-icon :customer="$order->customer" /></strong>@if($order->fulfillment!=='pickup')<address>{{ $order->address }}<br>{{ $order->city }}, {{ $order->province }} {{ $order->postal_code }}<br>{{ $order->country }}</address>@endif<p>{{ $order->email }}<br>{{ $order->phone }}</p></section><section><h3>Payment Details</h3><strong>{{ $order->payment_label }}</strong><p>Payment status: {{ $order->payment_status_label }}<br>Currency: CAD
 @if($order->payment)<br>Transaction: {{ $order->payment->transaction_id ?: 'Awaiting confirmation' }}@endif</p><p class="receipt-muted">Payment collection is shown by the payment status above.</p></section></div>
 <div class="receipt-table-wrap"><table><thead><tr><th>Product</th><th>Qty</th><th>Unit price</th><th>Amount</th></tr></thead><tbody>@foreach($order->items as $item)<tr><td>{{ $item->name }}</td><td>{{ $item->quantity }}</td><td>${{ number_format($item->unit_cents/100,2) }}</td><td>${{ number_format($item->line_cents/100,2) }}</td></tr>@endforeach</tbody></table></div>

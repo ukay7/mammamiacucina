@@ -91,23 +91,29 @@ class DocumentTheme {
     $doc['summary'][$label] = $money($balance[$bucket]);
    }
   }
-  $settings = GeneralSetting::find(1) ?? new GeneralSetting;
   $doc['invoice_due_date'] = $invoice->paymentDueDate();
   $doc['invoice_fulfillment'] = $issuedFulfillment;
   if ($order->payment_method === 'cheque') {
    $doc['instructions'] = 'Cheque payment is confirmed only after admin clearance.';
   }
-  $doc['invoice_payment_methods'] = [
+  $doc['invoice_payment_methods'] = $this->remittance($doc['brand']);
+
+  return $doc;
+ }
+
+ public function remittance(array $brand): array
+ {
+  $settings = GeneralSetting::find(1) ?? new GeneralSetting;
+
+  return [
    'eft' => array_filter([
     'transit' => $settings->invoice_eft_transit,
     'institution' => $settings->invoice_eft_institution,
     'account' => $settings->invoice_eft_account,
    ], fn ($value) => $value !== null),
    'etransfer' => $settings->eTransferEmail(),
-   'cheque' => $doc['brand']['mailing_address'],
+   'cheque' => $brand['mailing_address'],
   ];
-
-  return $doc;
  }
 
  public function order(Order $order,?\App\Models\CustomerInvoice $invoice=null,?\App\Models\OrderSettlement $receipt=null,int $additionalDeliveryCents=0):array {

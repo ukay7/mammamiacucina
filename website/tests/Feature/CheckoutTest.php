@@ -51,8 +51,9 @@ class CheckoutTest extends TestCase
         $this->assertEquals(0,$order->fresh()->warehouse_round);
         $this->assertSame('8.000', $p->inventory()->first()->quantity_on_hand);
         $worker=User::factory()->create(['role_id'=>Role::where('name','Warehouse User')->value('id'),'is_active'=>true]);
-        $this->actingAs($worker)->get('/admin/orders')->assertOk()->assertDontSee($order->number);
-        $this->get(route('admin.orders.show',$order))->assertNotFound();
+        $this->actingAs($worker)->get('/admin/orders')->assertOk()->assertSee($order->number);
+        $this->get(route('admin.orders.show', $order))->assertOk()
+            ->assertSee('Wait for it to be released to packing')->assertDontSee('Save Packing Progress');
         $p->update(['premium_marketing_name' => 'Changed Cake', 'total_selling_price_cad' => 999]);
         $this->get('/order-success')->assertOk()->assertSee('Order Cake')->assertSee('$21.40')->assertDontSee('Changed Cake');
         $this->get('/order-print')->assertOk()->assertSee('Order Confirmation')->assertSee('Order Cake')->assertSee('data:image/', false);

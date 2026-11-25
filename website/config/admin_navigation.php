@@ -17,11 +17,17 @@ return [
         $group('Customer Management', 'address-book', [
             $link('orders.view', 'admin.customers.index', 'admin.customers.*', 'View Customer', 'users'),
             $link('orders.view', 'admin.customers.business-requests', 'admin.customers.business-requests', 'Business Approval Requests', 'user-check'),
+            $link('customers.manage', 'admin.profile-requests.index', 'admin.profile-requests.*', 'Profile Change Requests', 'user-edit'),
+            $link('credit-applications.manage', 'admin.credit-applications.index', 'admin.credit-applications.*', 'Credit Applications', 'file-signature'),
         ]),
         $link('quotations.view|quotations.manage', 'admin.quotations.index', 'admin.quotations.*', 'Quotations', 'file-invoice'),
         $link('enquiries.manage', 'admin.enquiries.index', 'admin.enquiries.*', 'Customer Enquiries', 'envelope'),
+        $link('enquiries.manage', 'admin.support.index', 'admin.support.*', 'Customer Support', 'headset'),
     ],
     'Reports' => [
+        $link('accounting.view', 'admin.accounting.index', 'admin.accounting.*', 'Accounting Reports', 'book'),
+        $link('accounting.reconcile', 'admin.payment-reconciliation.index', 'admin.payment-reconciliation.*', 'Payment Reconciliation', 'tasks'),
+        $link('payments.manage', 'admin.invoice-payments.index', 'admin.invoice-payments.*', 'Invoice Payments', 'credit-card'),
         $link('pricing-lists.view|pricing-lists.manage', 'admin.pricing-lists.index', 'admin.pricing-lists.*', 'Pricing Lists', 'tags'),
         $link('orders.view', 'admin.reports.overdue-cheques', 'admin.reports.overdue-cheques', 'Overdue Cheques', 'money-check'),
         $link('orders.view', 'admin.reports.receivable-aging', 'admin.reports.receivable-aging', 'Accounts Receivable Aging', 'file-invoice-dollar'),

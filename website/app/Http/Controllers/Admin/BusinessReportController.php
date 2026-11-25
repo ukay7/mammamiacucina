@@ -107,7 +107,7 @@ class BusinessReportController extends Controller
             $money = fn ($v) => $v === null ? 'Unconfirmed' : number_format($v / 100, 2, '.', '');
             foreach ($query->cursor() as $r) {
                 $values = match ($kind) {
-                    'payments' => [$r->number, $r->first_name.' '.$r->last_name, \App\Support\BusinessTime::format($r->occurred_at), $r->method, $r->provider, $r->entry_type, $money($r->amount_cents), $r->reference],
+                    'payments' => [$r->number, $r->first_name.' '.$r->last_name, BusinessReports::movementDate($r->occurred_at), $r->method, $r->provider, $r->entry_type, $money($r->amount_cents), $r->reference],
                     'methods' => [$r->method, $r->provider, $r->transactions, $r->orders, $money($r->received), $money($r->refunded), $money($r->net), $money($r->reversed), $money($r->adjustments)],
                     'customers' => [$r->customer_id ?? '', $r->business_name ?? '', $r->first_name.' '.$r->last_name, $r->email, $r->orders, $money($r->value), $money($r->received), $money($r->due), $money($r->refund_due), $r->unpriced],
                     default => [$r->number, $r->first_name.' '.$r->last_name, $r->email, \App\Support\BusinessTime::format($r->ordered_at), Order::STATUSES[$r->status] ?? $r->status, $r->payment_method, $r->source, $r->fulfillment, $r->fulfillment_date, $money($r->total_cents), $money($r->net_cents), $money($r->balance_cents === null ? null : max(0, $r->balance_cents)), $money($r->balance_cents === null ? null : max(0, -$r->balance_cents))],

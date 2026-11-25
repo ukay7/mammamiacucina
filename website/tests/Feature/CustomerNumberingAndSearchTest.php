@@ -28,7 +28,8 @@ class CustomerNumberingAndSearchTest extends TestCase {
   $u=User::where('email',$data['email'])->firstOrFail();$u->forceFill(['email_verified_at'=>now(),'business_approved_at'=>now()])->save();
   $this->assertDatabaseHas('customers',$fields+['user_id'=>$u->id]);
   $this->actingAs($u->fresh())->get(route('customer.profile'))->assertOk()->assertSee('Company Ltd');
-  $this->put(route('customer.profile.update'),['name'=>'Owner','phone'=>'123456']+$fields+['email'=>'changed@example.test','account_type'=>'individual'])->assertSessionHasNoErrors();
+  $this->put(route('customer.profile.update'),['name'=>'Owner','phone'=>'123456']+$fields+['email'=>'changed@example.test','account_type'=>'individual'])->assertSessionHasErrors('profile');
+  $this->assertDatabaseCount('customer_profile_requests',0);
   $this->assertSame('business',$u->fresh()->account_type);$this->assertSame($data['email'],$u->fresh()->email);
   $this->actingAs($this->admin());$c=$u->customerRecord();
   $this->get(route('admin.customers.edit',$c))->assertOk()->assertSee('BIN-123');

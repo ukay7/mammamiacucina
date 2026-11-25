@@ -1,0 +1,76 @@
+.account-hero { flex-direction:row;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;border-top:3px solid var(--theme-primary,#8e0718); }
+.account-hero h2 { font-size:clamp(24px,3vw,38px);margin:0 0 4px;overflow-wrap:anywhere; }
+.account-hero p { margin:0; }
+.account-eyebrow { font-weight:600;color:var(--theme-primary,#8e0718); }
+.account-grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:14px;margin-bottom:22px; }
+.account-tile { margin:0;padding:18px;color:inherit;min-height:126px;gap:4px; }
+.account-tile strong { font-size:1.5rem;line-height:1.2;color:var(--theme-primary,#8e0718); }
+.account-tile[href]:hover { text-decoration:none;border-color:var(--theme-primary,#8e0718); }
+.account-tile small { opacity:.85; }
+.account-actions,.account-section-heading,.account-filters { display:flex;flex-wrap:wrap;gap:10px;align-items:center; }
+.account-section-heading { justify-content:space-between;margin-bottom:12px; }
+.account-section-heading h2 { margin:0;font-size:1.35rem; }
+.account-filters { align-items:end;margin-bottom:14px; }
+.account-filters label { margin:0; }
+.account-filters .form-control { min-width:150px; }
+.account-table td { vertical-align:middle; }
+.account-table tbody td:first-child { overflow-wrap:anywhere;min-width:115px; }
+.account-two-col { display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:16px;align-items:start; }
+.account-key-values { display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px; }
+.account-key-values dd { margin:0;overflow-wrap:anywhere; }
+.account-events,.account-thread { padding:0;margin:0;list-style:none; }
+.account-events li { padding:10px 0;border-bottom:1px solid var(--theme-accent,#dfcba5); }
+.account-events time,.account-thread time { font-size:.82rem; }
+.account-events p { margin:4px 0 0; }
+.account-state { display:inline-block;padding:3px 9px;border-radius:12px;background:#f5e9cf;color:#62430d;font-weight:600;white-space:nowrap; }
+.account-state[data-state="resolved"] { background:#e5f1e8;color:#235737; }
+.account-state[data-state="in_progress"] { background:#e5eff9;color:#244f7f; }
+.account-conversation { width:min(100%,1050px); }
+.account-thread { display:grid;gap:12px; }
+.account-thread li { width:min(100%,720px); }
+.account-thread li[data-message-kind="customer"] { justify-self:end; }
+.account-thread li[data-message-kind="status"] { justify-self:center;text-align:center; }
+.account-thread article { border:1px solid var(--theme-accent,#dfcba5);padding:12px 15px;border-radius:10px;background:var(--theme-background,#f7f0e4); }
+.account-thread [data-message-kind="staff"] article { background:var(--theme-surface,#fffaf2);border-left:3px solid var(--theme-primary,#8e0718); }
+.account-thread [data-message-kind="note"] article { background:#fff5da;color:#523913; }
+.account-thread article header { display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:6px; }
+.account-thread article p { margin:8px 0 0;white-space:pre-wrap;overflow-wrap:anywhere; }
+.account-reply { margin-top:18px;padding-top:16px;border-top:1px solid var(--theme-accent,#dfcba5); }
+.account-check { display:flex;gap:8px;align-items:center;margin-bottom:10px; }
+.account-dialog { width:min(640px,calc(100vw - 26px));max-height:calc(100dvh - 26px);padding:0;border:1px solid var(--theme-accent,#dfcba5);border-radius:12px;background:var(--theme-surface,#fffaf2);color:var(--theme-text,#514231); }
+.account-dialog::backdrop { background:#142034b0; }
+.account-dialog header { display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;border-bottom:1px solid var(--theme-accent,#dfcba5); }
+.account-dialog h2 { margin:0;font-size:1.3rem; }
+.account-dialog form { padding:18px; }
+.account-invoice-list { max-height:45dvh;overflow:auto;padding:0 6px;margin-bottom:14px; }
+.account-invoice-list label { display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;padding:11px 4px;margin:0;border-bottom:1px solid var(--theme-accent,#dfcba5); }
+.account-invoice-list small { display:block; }
+.account-dialog-total { display:flex;justify-content:space-between;gap:10px;background:var(--theme-background,#f7f0e4);padding:12px;border-radius:5px;margin-bottom:14px; }
+.account-credit-utilization { max-width:780px; }
+.account-credit-progress { appearance:none;display:block;width:100%;height:14px;margin:2px 0 12px;border:0;border-radius:8px;background:#ece2d1;overflow:hidden; }
+.account-credit-progress::-webkit-progress-bar { background:#ece2d1;border-radius:8px; }
+.account-credit-progress::-webkit-progress-value { background:var(--theme-primary,#214672);border-radius:8px; }
+.account-credit-progress::-moz-progress-bar { background:var(--theme-primary,#214672);border-radius:8px; }
+.account-credit-progress.is-near-limit::-webkit-progress-value { background:#a25724; }
+.account-credit-progress.is-near-limit::-moz-progress-bar { background:#a25724; }
+.account-profile-notice { padding:10px 13px;border-left:3px solid #a25724;border-radius:4px;background:#f9ead9;color:#683614; }
+.account-timeline { list-style:none;margin:0;padding:2px 0 0 8px; }
+.account-timeline li { position:relative;display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 12px;padding:0 0 14px 18px;border-left:1px solid #c9ad81; }
+.account-timeline li:last-child { padding-bottom:0;border-left-color:transparent; }
+.account-timeline li::before { position:absolute;top:4px;left:-5px;content:"";width:9px;height:9px;border-radius:50%;background:#946936; }
+.account-timeline time { color:var(--theme-text,#514231);font-size:.85rem; }
+.account-order-history { max-width:920px; }
+.account-message { overflow-wrap:anywhere;white-space:pre-wrap; }
+.account-state[data-state="approved"] { background:#e5f1e8;color:#235737; }
+.account-state[data-state="rejected"] { background:#f9e7e5;color:#8a3032; }
+.account-state[data-state="superseded"] { background:#eee9e2;color:#67594a; }
+.credit-application-review .doc-info { width:100%;table-layout:fixed;border-spacing:8px 0;margin:8px 0 16px; }
+.credit-application-review .doc-info td { padding:12px;vertical-align:top;background:var(--theme-background,#f7f0e4);border-radius:6px;overflow-wrap:anywhere; }
+.credit-application-review .doc-info h2,.credit-document-terms h2 { font-size:1.15rem; }
+.credit-document-text { white-space:pre-wrap;overflow-wrap:anywhere; }
+.credit-document-terms h2 { border-bottom:1px solid var(--theme-accent,#dfcba5);padding-bottom:6px; }
+.credit-application-consent { display:flex!important;gap:10px;align-items:flex-start;background:var(--theme-background,#f7f0e4);border-radius:6px;padding:12px;margin:12px 0; }
+.credit-application-consent input { flex:none;margin-top:.25rem; }
+.credit-application-consent span { white-space:pre-wrap;overflow-wrap:anywhere; }
+@media(max-width:560px) { .credit-application-review .doc-info td { display:block;margin-bottom:8px; } }
+@media(max-width:800px) { .account-two-col { grid-template-columns:1fr;gap:0; } }

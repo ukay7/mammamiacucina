@@ -18,6 +18,9 @@
 </div>
 <p class="report-note">Order value excludes cancelled orders and unconfirmed totals. Collections use recorded payment dates, including payments for older orders. Net collected means receipts minus recorded refunds, before provider fees; it is not a bank payout or profit figure.</p>
 <div class="report-cards">
+@if(auth()->user()->hasAdminPermission('accounting.view') && \App\Services\AdminNavigation::allowed(auth()->user(), \App\Services\AdminNavigation::nodes()['access.admin.accounting.index']))
+<a class="report-card" href="{{ route('admin.accounting.index') }}"><i class="fas fa-book" aria-hidden="true"></i><h2>Accounting Reports</h2><p>Financial statements, aging reports, sales, purchases and supporting documents.</p></a>
+@endif
 @if(\App\Services\AdminNavigation::allowed(auth()->user(),collect(\App\Services\AdminNavigation::nodes())->firstWhere('route','admin.reports.inventory-valuation')) && auth()->user()->hasAdminPermission('inventory.view'))
 <a class="report-card" href="{{ route('admin.reports.inventory-valuation') }}"><i class="fas fa-calculator" aria-hidden="true"></i><h2>Inventory Valuation</h2><p>Discounted carton costs × on-hand stock, with separate EUR and CAD totals.</p><span>Open report →</span></a>
 @endif

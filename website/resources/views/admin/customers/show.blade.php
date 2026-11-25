@@ -22,6 +22,9 @@
 @if($customer->account_type==='business')<span class="badge {{ $customer->user->business_approved_at?'badge-success':'badge-danger' }}">{{ $customer->user->business_approved_at?'Business approved':'Business approval pending' }}</span>@endif
 </div>
 <div class="customer-header-actions">
+@if(auth()->user()->hasAdminPermission('credit-applications.manage') && \App\Services\AdminNavigation::allowed(auth()->user(), \App\Services\AdminNavigation::nodes()['access.admin.credit-applications.index']))
+<a class="btn btn-outline-primary" href="{{ route('admin.credit-applications.index', ['customer_id' => $customer->id]) }}">Credit Applications</a>
+@endif
 @if(auth()->user()->hasAdminPermission('pos.manage'))<a class="btn btn-primary" href="{{ route('admin.pos.index',['customer_id'=>$customer->id]) }}"><i class="fas fa-plus mr-1" aria-hidden="true"></i>Quick Sale / New Order</a>@endif
 @if(auth()->user()->hasAdminPermission('customers.manage'))
 <button class="btn btn-outline-primary" type="button" data-toggle="modal" data-target="#customer-note-modal"><i class="fas fa-sticky-note mr-1" aria-hidden="true"></i>Add Note</button>

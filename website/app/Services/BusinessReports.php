@@ -7,6 +7,11 @@ use Illuminate\Support\Facades\DB;
 
 class BusinessReports
 {
+    public static function movementDate(?string $value): ?string
+    {
+        return $value !== null && strlen($value) === 10 ? $value : \App\Support\BusinessTime::format($value);
+    }
+
     public const TYPES = [
         'sales' => ['Orders & Sales', 'Order value, received amounts and remaining balances.', 'shopping-cart'],
         'customers' => ['Customer Summary', 'Customer-wise order value, collections and outstanding money.', 'users'],
@@ -43,15 +48,20 @@ class BusinessReports
     public function movements()
     {
         $gateway = DB::table('payments as p')->where('p.mode', 'live')->whereNotNull('p.paid_at')
-            ->selectRaw("p.order_id, p.paid_at AS occurred_at, CAST(p.amount_cents AS SIGNED) AS amount_cents, CASE WHEN p.provider = 'paypal' THEN 'paypal' ELSE 'card' END AS method, p.provider, p.transaction_id AS reference, 'Gateway payment' AS entry_type, 'payment' AS entry_kind");
+            ->selectRaw("p.order_id, p.paid_at AS occurred_at, CAST(p.amount_cents AS SIGNED) AS amount_cents, CASE WHEN p.provider = 'paypal' THEN 'paypal' ELSE 'card' END AS method, p.provider, p.transaction_id AS reference, 'Gateway payment' AS entry_type, 'payment' AS entry_kind, 'gateway' AS source_type, p.id AS source_id");
         $manual = DB::table('orders as o')->whereNull('o.deleted_at')->whereNotExists(fn ($q) => $q->selectRaw('1')->from('payments as p')->whereColumn('p.order_id', 'o.id')->whereNull('p.superseded_at'))
-            ->selectRaw("o.id AS order_id, o.paid_at AS occurred_at, CAST(COALESCE(o.manual_collected_cents, CASE WHEN o.payment_status IN ('paid','refunded') THEN COALESCE(o.subtotal_cents + o.delivery_cents + o.tax_cents,0) ELSE 0 END) AS SIGNED) AS amount_cents, COALESCE(o.original_payment_method,o.payment_method) AS method, 'manual' AS provider, NULL AS reference, 'Original manual payment' AS entry_type, 'payment' AS entry_kind");
-        $adjustments = DB::table('order_settlements as s')->selectRaw("s.order_id, COALESCE(s.received_on,s.created_at) AS occurred_at, s.amount_cents, s.method, 'manual' AS provider, s.reference, CASE s.entry_kind WHEN 'bounced_cheque' THEN 'Cheque bounced — payment reversed' WHEN 'reversal' THEN 'Payment reversal' WHEN 'correction_debit' THEN 'Method correction — removed' WHEN 'correction_credit' THEN 'Method correction — reassigned' ELSE CASE WHEN s.amount_cents < 0 THEN 'Refund' ELSE 'Payment received' END END AS entry_type, COALESCE(s.entry_kind,CASE WHEN s.amount_cents < 0 THEN 'refund' ELSE 'payment' END) AS entry_kind");
+            ->selectRaw("o.id AS order_id, o.paid_at AS occurred_at, CAST(COALESCE(o.manual_collected_cents, CASE WHEN o.payment_status IN ('paid','refunded') THEN COALESCE(o.subtotal_cents + o.delivery_cents + o.tax_cents,0) ELSE 0 END) AS SIGNED) AS amount_cents, COALESCE(o.original_payment_method,o.payment_method) AS method, 'manual' AS provider, NULL AS reference, 'Original manual payment' AS entry_type, 'payment' AS entry_kind, 'manual-original' AS source_type, o.id AS source_id");
+        $adjustments = DB::table('order_settlements as s')->leftJoin('customer_receipt_lines as l', 'l.id', '=', 's.customer_receipt_line_id')
+            ->selectRaw("s.order_id, COALESCE(SUBSTR(CAST(s.received_on AS CHAR),1,10),CAST(s.created_at AS CHAR)) AS occurred_at, s.amount_cents, s.method, COALESCE(l.gateway, 'manual') AS provider, s.reference,
+                CASE s.entry_kind WHEN 'bounced_cheque' THEN 'Cheque bounced — payment reversed' WHEN 'reversal' THEN 'Payment reversal' WHEN 'correction_debit' THEN 'Method correction — removed' WHEN 'correction_credit' THEN 'Method correction — reassigned' ELSE CASE WHEN s.amount_cents < 0 THEN 'Refund' ELSE 'Payment received' END END AS entry_type,
+                COALESCE(s.entry_kind,CASE WHEN s.amount_cents < 0 THEN 'refund' ELSE 'payment' END) AS entry_kind,
+                CASE WHEN l.id IS NOT NULL AND s.entry_kind = 'payment' THEN 'receipt-line' ELSE 'settlement' END AS source_type,
+                CASE WHEN l.id IS NOT NULL AND s.entry_kind = 'payment' THEN l.id ELSE s.id END AS source_id");
         $refunds = DB::table('payment_refunds as r')->join('payments as p', 'p.id', '=', 'r.payment_id')->where('p.mode', 'live')->whereIn('r.status', ['completed', 'succeeded'])
-            ->selectRaw("p.order_id, r.created_at AS occurred_at, -CAST(r.amount_cents AS SIGNED) AS amount_cents, CASE WHEN p.provider = 'paypal' THEN 'paypal' ELSE 'card' END AS method, p.provider, r.provider_refund_id AS reference, 'Gateway refund (entry recorded)' AS entry_type, 'refund' AS entry_kind");
+            ->selectRaw("p.order_id, r.created_at AS occurred_at, -CAST(r.amount_cents AS SIGNED) AS amount_cents, CASE WHEN p.provider = 'paypal' THEN 'paypal' ELSE 'card' END AS method, p.provider, r.provider_refund_id AS reference, 'Gateway refund (entry recorded)' AS entry_type, 'refund' AS entry_kind, 'gateway-refund' AS source_type, r.id AS source_id");
         // Historic aggregate refunds have no reliable transaction timestamp; explicitly leave them undated.
         $legacyRefunds = DB::table('orders as o')->whereNull('o.deleted_at')->whereNotExists(fn ($q) => $q->selectRaw('1')->from('payments as p')->whereColumn('p.order_id', 'o.id')->whereNull('p.superseded_at'))
-            ->selectRaw("o.id AS order_id, NULL AS occurred_at, -CAST(COALESCE(o.manual_refunded_cents, CASE WHEN o.payment_status = 'refunded' THEN COALESCE(o.manual_collected_cents,o.subtotal_cents + o.delivery_cents + o.tax_cents,0) ELSE 0 END) AS SIGNED) AS amount_cents, COALESCE(o.original_payment_method,o.payment_method) AS method, 'manual' AS provider, NULL AS reference, 'Historic refund — date unavailable' AS entry_type, 'refund' AS entry_kind");
+            ->selectRaw("o.id AS order_id, NULL AS occurred_at, -CAST(COALESCE(o.manual_refunded_cents, CASE WHEN o.payment_status = 'refunded' THEN COALESCE(o.manual_collected_cents,o.subtotal_cents + o.delivery_cents + o.tax_cents,0) ELSE 0 END) AS SIGNED) AS amount_cents, COALESCE(o.original_payment_method,o.payment_method) AS method, 'manual' AS provider, NULL AS reference, 'Historic refund — date unavailable' AS entry_type, 'refund' AS entry_kind, 'legacy-refund' AS source_type, o.id AS source_id");
 
         return $gateway->unionAll($manual)->unionAll($adjustments)->unionAll($refunds)->unionAll($legacyRefunds);
     }
@@ -66,7 +76,13 @@ class BusinessReports
             $query->where('m.provider', $f['provider']);
         }
         if ($dated) {
-            $query->where('m.occurred_at', '>=', \App\Support\BusinessTime::start($f['from']))->where('m.occurred_at', '<', \App\Support\BusinessTime::end($f['to']));
+            // Settlement receipts store a local calendar date, while gateway timestamps are UTC.
+            $query->where(function ($date) use ($f) {
+                $date->whereBetween('m.occurred_at', [$f['from'], $f['to']])->whereRaw('LENGTH(m.occurred_at) = 10')
+                    ->orWhere(fn ($instant) => $instant->whereRaw('LENGTH(m.occurred_at) > 10')
+                        ->where('m.occurred_at', '>=', \App\Support\BusinessTime::start($f['from']))
+                        ->where('m.occurred_at', '<', \App\Support\BusinessTime::end($f['to'])));
+            });
         }
 
         return $query;
@@ -93,7 +109,8 @@ class BusinessReports
             } else {
                 $rows = (clone $query)->select('o.id', 'o.number', 'o.first_name', 'o.last_name', 'o.account_type', 'm.*')->orderByDesc('m.occurred_at')->orderByDesc('m.order_id')->orderBy('m.entry_type');
             }
-            $daySql = \App\Support\BusinessTime::dayExpression('m.occurred_at', $f['from'], $f['to']);
+            $timestampDay = \App\Support\BusinessTime::dayExpression('m.occurred_at', $f['from'], $f['to']);
+            $daySql = "CASE WHEN LENGTH(m.occurred_at) = 10 THEN m.occurred_at ELSE $timestampDay END";
             $trend = (clone $query)->selectRaw("$daySql AS day, SUM(CASE WHEN m.entry_kind = 'payment' THEN m.amount_cents ELSE 0 END) AS amount")->groupByRaw($daySql)->orderBy('day')->get();
         } else {
             $query = $this->orders($f);

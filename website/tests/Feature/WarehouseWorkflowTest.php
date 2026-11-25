@@ -59,7 +59,7 @@ class WarehouseWorkflowTest extends TestCase
         $product->media()->create(['path'=>'products/test.png','original_name'=>'test.png','mime_type'=>'image/png','kind'=>'image']);
         $item = $order->items()->first();
         $url = route('admin.orders.item-image', [$order, $item]);
-        $this->actingAs($worker)->get($url)->assertNotFound();
+        $this->actingAs($worker)->get($url)->assertOk()->assertHeader('Content-Type', 'image/png');
         $this->actingAs($admin);
         $this->moveStatus($order, 'warehouse_pending')->assertOk();
         $this->get(route('admin.orders.show', $order))
@@ -191,7 +191,8 @@ class WarehouseWorkflowTest extends TestCase
     {
         [$o,$p,$admin,$worker] = $this->fixture();
         $this->actingAs($worker);
-        $this->get(route('admin.orders.show', $o))->assertNotFound();
+        $this->get(route('admin.orders.show', $o))->assertOk()->assertSee('Wait for it to be released to packing')->assertDontSee('Save Packing Progress');
+        $this->post(route('admin.orders.packing', $o), ['revision' => 0, 'action' => 'ready', 'items' => [$o->items()->first()->id => ['packed' => 1]]])->assertSessionHasErrors('warehouse');
         $this->get('/admin/reports/payments')->assertForbidden();
         $this->amend($o)->assertForbidden();
         $this->moveStatus($o, 'warehouse_pending')->assertForbidden();
@@ -402,7 +403,7 @@ class WarehouseWorkflowTest extends TestCase
             $this->assertEquals(8, $xpath->query('./td', $row)->length);
         }
         $this->actingAs($worker)->get('/admin/orders/completed')->assertSee('DONE-POS')->assertDontSee('DONE-WEBSITE');
-        $this->get('/admin/orders')->assertDontSee($pending->number);
+        $this->get('/admin/orders')->assertSee($pending->number);
         $this->get('/admin/orders/export?view=completed&format=print')->assertSee('DONE-POS')->assertDontSee('DONE-WEBSITE');
     }
 

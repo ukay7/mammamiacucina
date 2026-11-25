@@ -12,11 +12,11 @@ use Illuminate\Support\Facades\Storage;
 class CustomerDocuments
 {
     public const GROUPS = ['orders' => 'Orders', 'invoices' => 'Invoices', 'receipts' => 'Receipts & adjustments',
-        'uploads' => 'Uploaded files', 'quotations' => 'Quotations', 'email' => 'Saved email PDFs'];
+        'uploads' => 'Uploaded files', 'quotations' => 'Quotations', 'email' => 'Saved email PDFs', 'credit' => 'Credit applications'];
 
     private const KINDS = ['order' => 'orders', 'invoice' => 'invoices', 'initial-payment' => 'receipts',
         'settlement' => 'receipts', 'account-receipt' => 'receipts', 'refund' => 'receipts', 'credit-note' => 'receipts', 'revision'=>'receipts', 'transfer-proof' => 'uploads',
-        'settlement-proof' => 'uploads', 'account-proof' => 'uploads', 'quotation' => 'quotations', 'email-copy' => 'email'];
+        'settlement-proof' => 'uploads', 'account-proof' => 'uploads', 'quotation' => 'quotations', 'email-copy' => 'email', 'credit-application' => 'credit'];
 
     private function allowed(User $viewer, string $kind): bool
     {
@@ -26,6 +26,7 @@ class CustomerDocuments
             'account-receipt', 'account-proof', 'refund', 'credit-note' => false,
             'quotation' => $viewer->hasAdminPermission('quotations.view') || $viewer->hasAdminPermission('quotations.manage'),
             'email-copy' => $viewer->hasAdminPermission('settings.manage') && $viewer->hasAdminPermission('orders.view'),
+            'credit-application' => $viewer->hasAdminPermission('credit-applications.manage'),
             default => $viewer->hasAdminPermission('orders.view') || $viewer->hasAdminPermission('orders.manage'),
         };
     }
@@ -33,7 +34,7 @@ class CustomerDocuments
     private function orders(Customer $customer, User $viewer): Builder
     {
         return Order::where('customer_id', $customer->id)
-            ->when(! $viewer->isCustomer() && $viewer->isWarehouseOnly(), fn ($q) => $q->visibleToWarehouse($viewer->id));
+            ->when(! $viewer->isCustomer() && $viewer->isWarehouseOnly(), fn ($q) => $q->visibleToWarehouse($viewer->id, false));
     }
 
     private function query(Customer $customer, User $viewer, string $kind): Builder
@@ -51,6 +52,7 @@ class CustomerDocuments
             'account-receipt' => CustomerReceiptEvent::whereHas('receipt', fn ($q) => $q->where('customer_id', $customer->id))->with('receipt:id,customer_id,number'),
             'account-proof' => CustomerReceiptLine::whereHas('receipt', fn ($q) => $q->where('customer_id', $customer->id))->whereNotNull('proof_path')->with('receipt:id,customer_id,number'),
             'quotation' => Quotation::where('customer_id', $customer->id),
+            'credit-application' => $customer->creditApplications()->getQuery()->whereNotNull('submitted_at'),
             'email-copy' => EmailHistory::whereIn('order_id', $orders)->whereIn('type', ['order_confirmation', 'payment_received'])
                 ->where('status', 'accepted')->whereNotNull('archived_at')->whereNotNull('archive')->with('order:id,number'),
         };
@@ -70,6 +72,7 @@ class CustomerDocuments
             'account-proof' => ['id', 'customer_receipt_id', 'proof_path', 'proof_name', 'created_at'],
             'quotation' => ['id', 'created_at'],
             'email-copy' => ['id', 'order_id', 'type', 'sent_at', 'created_at'],
+            'credit-application' => ['id', 'template_id', 'submitted_at'],
         };
     }
 
@@ -80,6 +83,9 @@ class CustomerDocuments
         $note = '';
         $format = 'PDF';
         switch ($kind) {
+            case 'credit-application':
+                $name = 'Signed credit application '.$record->reference; $reference = $record->reference;
+                $date = $record->submitted_at; $note = 'Signed template v'.$record->template_id.'.'; break;
             case 'revision':
                 $name='Order adjustment — '.$record->number; $note='Saved correction after delivery. Original invoice retained; this is not proof of a refund.'; break;
             case 'refund':
@@ -160,11 +166,16 @@ class CustomerDocuments
         else abort_unless($viewer->hasAdminPermission('orders.view') || $viewer->hasAdminPermission('customers.manage'), 403);
     }
 
-    public function resolve(Customer $customer, User $viewer, string $kind, int $id): array
+    public function resolve(Customer $customer, User $viewer, string $kind, int $id, bool $accounting = false): array
     {
-        $this->authorizeCustomer($customer, $viewer);
-        abort_unless(isset(self::KINDS[$kind]), 404);
-        abort_unless($this->allowed($viewer, $kind), 403);
+        if ($accounting) {
+            abort_unless($viewer->hasAdminPermission('accounting.view'), 403);
+            abort_unless(isset(AccountingDocuments::TYPES[$kind]), 404);
+        } else {
+            $this->authorizeCustomer($customer, $viewer);
+            abort_unless(isset(self::KINDS[$kind]), 404);
+            abort_unless($this->allowed($viewer, $kind), 403);
+        }
         $record = $this->query($customer, $viewer, $kind)->findOrFail($id);
         $entry = $this->describe($kind, $record);
         abort_unless($entry, 404);

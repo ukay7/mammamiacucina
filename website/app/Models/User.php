@@ -63,7 +63,7 @@ class User extends Authenticatable
     public function businessApprovalPending(): bool {return $this->account_type==='business' && !$this->business_approved_at;}
     public function canSignIn(): bool {return $this->is_active && ($this->isCustomer() || $this->role !== null);}
     public function accountRoute(): string {
-        if($this->isCustomer())return 'customer.orders';
+        if($this->isCustomer())return 'customer.dashboard';
         return \App\Services\AdminNavigation::landing($this);
     }
     public function isWarehouseOnly(): bool { return ($this->hasAdminPermission('warehouse.pack') || $this->hasAdminPermission('orders.scope.restricted')) && !$this->hasAdminPermission('orders.manage') && !$this->hasAdminPermission('orders.scope.all'); }

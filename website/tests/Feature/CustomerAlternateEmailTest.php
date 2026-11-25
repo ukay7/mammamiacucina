@@ -54,7 +54,7 @@ class CustomerAlternateEmailTest extends TestCase
         return $order;
     }
 
-    public function test_customer_can_save_change_and_clear_alternate_without_changing_login_or_other_accounts(): void
+    public function test_customer_can_request_alternate_email_changes_without_changing_login_or_other_accounts(): void
     {
         $user = $this->customer();
         $other = $this->customer(['email' => 'other@example.test']);
@@ -63,12 +63,18 @@ class CustomerAlternateEmailTest extends TestCase
         $this->actingAs($user)->get(route('customer.profile'))->assertOk()->assertSee('Alternate email address (optional)')->assertSee('copy@example.test');
         $this->put($url, ['name' => $user->name, 'phone' => $user->phone, 'alternate_email' => '  New.Copy@Example.test  ',
             'email' => 'hijack@example.test', 'email_verified_at' => null, 'user_id' => $other->id])->assertSessionHasNoErrors();
+        $change = $user->customerRecord()->profileRequests()->sole();
+        $this->assertSame('copy@example.test', $user->customerRecord()->alternate_email);
+        $this->actingAs($this->admin())->patch(route('admin.profile-requests.review', $change), ['status' => 'approved'])->assertSessionHasNoErrors();
         $this->assertSame('new.copy@example.test', $user->customerRecord()->alternate_email);
         $this->assertEquals($before, $user->fresh()->only(array_keys($before)));
         $this->assertSame('copy@example.test', $other->customerRecord()->alternate_email);
-        $this->put($url, ['name' => $user->name, 'phone' => $user->phone])->assertSessionHasNoErrors();
+        $this->actingAs($user)->put($url, ['name' => $user->name, 'phone' => $user->phone])->assertSessionHasErrors('profile');
         $this->assertSame('new.copy@example.test', $user->customerRecord()->alternate_email);
         $this->put($url, ['name' => $user->name, 'phone' => $user->phone, 'alternate_email' => ''])->assertSessionHasNoErrors();
+        $this->assertSame('new.copy@example.test', $user->customerRecord()->alternate_email);
+        $clear = $user->customerRecord()->profileRequests()->where('status', 'pending')->sole();
+        $this->actingAs($this->admin())->patch(route('admin.profile-requests.review', $clear), ['status' => 'approved'])->assertSessionHasNoErrors();
         $this->assertNull($user->customerRecord()->alternate_email);
         auth()->logout();
         $this->put($url, ['alternate_email' => 'attacker@example.test'])->assertRedirect(route('customer.login'));
