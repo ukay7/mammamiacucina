@@ -1,4 +1,4 @@
-<table class="doc-header"><tr>
+<table @class(['doc-header', 'doc-header-revised' => $taxInHeader ?? false])><tr>
 <td class="doc-logo-cell">@if($doc['brand']['logo'])<img class="doc-logo" src="{{ $doc['brand']['logo'] }}" alt="Mamma Mia Cucina logo">@endif</td>
 <td class="doc-company-details">
     <div class="doc-company">{{ $doc['brand']['name'] }}</div>
@@ -6,7 +6,15 @@
     {{-- Printed documents and sandboxed previews cannot run Cloudflare's email decoder. Keep these HTML comments. --}}
     <div class="doc-contact-line">Contact Us: @if(filled($doc['brand']['phone']??null))<span>{{ $doc['brand']['phone'] }}</span>@endif @if(filled($doc['brand']['phone']??null) && filled($doc['brand']['email']??null))<span class="doc-contact-separator"> | </span>@endif @if(filled($doc['brand']['email']??null))<span><!--email_off-->{{ $doc['brand']['email'] }}<!--/email_off--></span>@endif</div>
     @endif
-    @if(filled($doc['brand']['mailing_address']??null))<div class="doc-contact-line doc-address">Mailing Address: {{ $doc['brand']['mailing_address'] }}</div>@endif
+    @if(filled($doc['brand']['mailing_address'] ?? null))
+        @php
+            $headerMailingAddress = $doc['brand']['mailing_address'];
+            if ($taxInHeader ?? false) {
+                $headerMailingAddress = preg_replace('/[,\h]*(?:\R\h*)+/u', ', ', trim($headerMailingAddress));
+            }
+        @endphp
+        <div class="doc-contact-line doc-address">Mailing Address: {{ $headerMailingAddress }}</div>
+    @endif
     @if(filled($doc['brand']['warehouse_address']??$doc['brand']['address']??null))<div class="doc-contact-line doc-address">Warehouse: {{ $doc['brand']['warehouse_address']??$doc['brand']['address'] }}</div>@endif
     @if(($taxInHeader ?? false) && filled($doc['brand']['tax_number'] ?? null))
         <div class="doc-contact-line doc-header-tax"><strong>GST/HST:</strong> {{ $doc['brand']['tax_number'] }}</div>

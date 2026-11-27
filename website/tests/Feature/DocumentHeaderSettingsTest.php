@@ -161,12 +161,15 @@ class DocumentHeaderSettingsTest extends TestCase
         $receiptUrl = route('admin.orders.initial-payment-document', $order);
 
         $this->get($invoiceUrl)->assertOk()->assertSee('91+ Days')->assertSee('Payment status');
-        $this->put(route('admin.settings.update'), $this->payload(['financial_document_layout' => 'compact']))
+        $mailingAddress = "1 Sir Bodwin Place,\r\n\r\nMarkham, ON L3P 2X7";
+        $this->put(route('admin.settings.update'), $this->payload(['financial_document_layout' => 'compact', 'mailing_address' => $mailingAddress]))
             ->assertSessionHasNoErrors();
+        $this->assertSame($mailingAddress, GeneralSetting::findOrFail(1)->mailing_address);
 
         $revisedInvoice = $this->get($invoiceUrl)->assertOk()
             ->assertSeeTextInOrder(['GST/HST:', 'Bill to', 'Total Due', 'Current Balance Owing', 'Historical cake', 'HST (13%)',
                 '$13.00', '$113.00', 'Pack with a test note.', 'Please quote invoice '.$invoice->label.' when making a payment.', 'Remit payment to:', 'Thank you'])
+            ->assertSee('Mailing Address: 1 Sir Bodwin Place, Markham, ON L3P 2X7')
             ->assertSee('Before Discount')->assertDontSee('91+ Days')->assertDontSee('Balances as of')
             ->assertDontSee('Payment status')->assertDontSee('Pickup Details')->assertDontSee('Order:')
             ->assertDontSee('with any enquiries');
@@ -177,6 +180,7 @@ class DocumentHeaderSettingsTest extends TestCase
         $this->get($receiptUrl)->assertOk()
             ->assertSeeTextInOrder(['GST/HST:', 'PAYMENT RECEIPT', 'Invoice # '.$invoice->label, 'Historical cake',
                 'This payment', '$113.00', 'HST (13%)', 'Net received', 'Balance due', '$0.00', 'Thank you'])
+            ->assertSee('Mailing Address: 1 Sir Bodwin Place, Markham, ON L3P 2X7')
             ->assertDontSee('Account summary')->assertDontSee('Before Discount')->assertSee('After Discount')
             ->assertDontSee('Payment instructions')->assertDontSee('Delivery / pickup details')
             ->assertDontSee('Pack with a test note.')->assertDontSee('with any enquiries');

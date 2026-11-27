@@ -4,6 +4,7 @@
 .doc-header .doc-logo-cell{width:108px;text-align:left}
 .doc-header .doc-logo{display:block;width:96px;height:96px;object-fit:contain;margin:0}
 .doc-header .doc-company-details{padding-right:12px;color:#645346}
+.doc-header-revised .doc-company-details{padding-right:6px}
 /* Give both heading blocks the same starting point, even when a title wraps. */
 .doc-header .doc-company-details,.doc-header .doc-meta{vertical-align:top;padding-top:12px}
 .doc-header .doc-company{font:700 18px/1.25 Arial,DejaVu Sans,sans-serif;margin:0 0 6px;word-wrap:break-word}
