@@ -18,8 +18,10 @@
 .doc-financial.doc-revised-receipt .doc-lines th:nth-child(4){width:16%}
 .doc-financial.doc-revised-receipt .doc-lines th:nth-child(5){width:7%}
 .doc-financial.doc-revised-receipt .doc-lines th:nth-child(6){width:14%}
-.doc-invoice-reference-label{font-size:11px;vertical-align:middle}
-.doc-invoice-reference-number{white-space:nowrap}
+.doc-payment-method-amount{width:100%;border-collapse:collapse}
+.doc-payment-method-amount th{font-weight:normal;text-align:left}
+.doc-payment-method-amount td{font-weight:bold;text-align:right;white-space:nowrap}
+.doc-payment-breakdown + .doc-box{margin-top:8px}
 .doc-invoice-payment-reference{font-size:11px;margin:8px 0;page-break-after:avoid}
 .doc-financial .doc-product-image{width:28px;height:28px;border-radius:3px}
 .doc-financial .doc-product-no-image{width:28px;min-height:28px;padding-top:8px;font-size:6px;border-radius:3px}

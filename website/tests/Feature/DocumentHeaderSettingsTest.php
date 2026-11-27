@@ -178,7 +178,7 @@ class DocumentHeaderSettingsTest extends TestCase
 
         $order->update(['payment_status' => 'paid', 'manual_collected_cents' => 11300]);
         $this->get($receiptUrl)->assertOk()
-            ->assertSeeTextInOrder(['GST/HST:', 'PAYMENT RECEIPT', 'Invoice # '.$invoice->label, 'Historical cake',
+            ->assertSeeTextInOrder(['GST/HST:', 'PAYMENT RECEIPT', 'Receipt # PAY-'.mb_strtoupper($order->number), 'Invoice # '.$invoice->label, 'Historical cake', 'Payment method',
                 'This payment', '$113.00', 'HST (13%)', 'Net received', 'Balance due', '$0.00', 'Thank you'])
             ->assertSee('Mailing Address: 1 Sir Bodwin Place, Markham, ON L3P 2X7')
             ->assertDontSee('Account summary')->assertDontSee('Before Discount')->assertSee('After Discount')
@@ -187,6 +187,7 @@ class DocumentHeaderSettingsTest extends TestCase
         $queued = EmailHistory::where('event_key', 'order-paid:'.$order->id)->firstOrFail();
         $emailedHtml = view('emails.order-document', $queued->payload['document'])->render();
         $this->assertStringContainsString($invoice->label, $emailedHtml);
+        $this->assertStringContainsString('doc-payment-method-amount', $emailedHtml);
         $this->assertStringContainsString('doc-header-tax', $emailedHtml);
         $this->assertStringNotContainsString('Before Discount', $emailedHtml);
 

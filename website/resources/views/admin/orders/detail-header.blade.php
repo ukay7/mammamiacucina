@@ -38,6 +38,7 @@
     @if($showOrderLinks??false)
         @if($order->invoice)<a class="btn btn-outline-primary" href="{{ route('admin.invoices.show',$order->invoice) }}" target="_blank" rel="noopener"><i class="fas fa-file-invoice" aria-hidden="true"></i> Invoice {{ $order->invoice->label }}</a>@endif
         <a class="btn btn-outline-primary" href="{{ route('admin.orders.payments',$order) }}"><i class="fas fa-money-check-alt" aria-hidden="true"></i> Payments &amp; receipts</a>
+        @if(!empty($splitPaymentUrl))<a class="btn btn-outline-primary" href="{{ $splitPaymentUrl }}">Record split payment</a>@endif
     @endif
 </div>
 @if($order->fulfillment==='delivery')<details class="wh-route-detail"><summary>Delivery service &amp; route</summary>@include('partials.order-delivery')</details>@endif

@@ -1,6 +1,6 @@
 <?php
 namespace App\Services;
-use App\Models\{GeneralSetting,Order};
+use App\Models\{GeneralSetting,Order,OrderSettlement};
 use Illuminate\Support\Facades\Storage;
 class DocumentTheme {
  private function paymentReferences(Order $order):array {
@@ -134,7 +134,33 @@ class DocumentTheme {
   return ((int) $rate === 1300 ? 'HST' : 'GST/HST').' ('.$percent.'%)';
  }
 
- public function order(Order $order,?\App\Models\CustomerInvoice $invoice=null,?\App\Models\OrderSettlement $receipt=null,int $additionalDeliveryCents=0):array {
+ public function receiptPaymentFields(Order $order, ?OrderSettlement $receipt = null, ?int $amountCents = null): array
+ {
+  $method = $receipt?->method ?? ($order->original_payment_method ?: $order->payment_method);
+  $label = CustomerTerms::METHODS[$method] ?? ($method === 'paypal' ? 'PayPal' : ucfirst($method ?: 'Unspecified'));
+  $amount = $amountCents ?? $receipt?->amount_cents ?? $order->collected_cents;
+
+  return [
+   'invoice_reference' => $order->invoice?->label,
+   'payment_amount' => '$'.number_format($amount / 100, 2),
+   'receipt_payment_method' => $label,
+  ];
+ }
+
+ public function initialPaymentReceipt(Order $order): array
+ {
+  $doc = $this->receiptPaymentFields($order) + $this->order($order, $order->revisions()->exists() ? $order->invoice : null);
+  $doc['title'] = 'Payment Receipt';
+  $doc['number'] = 'PAY-'.$order->number;
+  $doc['date'] = \App\Support\BusinessTime::format($order->paid_at ?? $order->payment?->paid_at ?? $order->ordered_at ?? $order->created_at);
+  $doc['totals'] = ['This payment' => $doc['payment_amount']] + $doc['totals'];
+  $doc['payment'] = $doc['receipt_payment_method'].' / Original recorded collection';
+  $doc['notice'] .= ' Original receipt retained. Any subsequent payment corrections or reversals are recorded separately; balances shown are current.';
+
+  return $doc;
+ }
+
+ public function order(Order $order,?\App\Models\CustomerInvoice $invoice=null,?OrderSettlement $receipt=null,int $additionalDeliveryCents=0):array {
   $order->loadMissing('items','customer','payment','settlements');$money=fn($n)=>$n===null?'To be confirmed':'$'.number_format($n/100,2);
   $snapshot=$invoice?->snapshot;$o=$snapshot['order']??$order->getAttributes();$items=$snapshot['items']??$order->items->toArray();$c=$order->customer;
   $images=app(DocumentProductImages::class)->forItems($items);
@@ -181,9 +207,7 @@ class DocumentTheme {
    if($order->balance_cents<0)$totals['Current refund due']=$money(-$order->balance_cents);
   }
   $billing=array_filter([$c?->business_name?:trim(($o['first_name']??'').' '.($o['last_name']??'')),$c?'Customer account #'.$c->id:null,$c?->address?:($o['address']??null),implode(', ',array_filter([$c?->city?:($o['city']??null),$c?->province?:($o['province']??null),$c?->postal_code?:($o['postal_code']??null)])),$o['email']??null,$o['phone']??null]);
-  $paymentFields = $title === 'Payment Receipt'
-   ? ['invoice_reference' => $order->invoice?->label, 'payment_amount' => $money($order->collected_cents)]
-   : [];
+  $paymentFields = $title === 'Payment Receipt' ? $this->receiptPaymentFields($order, $receipt) : [];
   return $paymentFields + ['tax_label'=>$this->taxLabel($o),'brand'=>$this->brand(),'title'=>$title,'number'=>$number,'balance_date'=>\App\Support\BusinessTime::format(now()),'date'=>\App\Support\BusinessTime::format($invoice?->issued_at??$receipt?->created_at??$order->ordered_at),'order_number'=>$order->number,'billing'=>$billing,'business_customer'=>$c?->account_type==='business','summary'=>$summary,'items'=>collect($items)->map(fn($i,$index)=>['image'=>$images[$index]??null,'code'=>$i['qr_code']?:$i['product_code'],'name'=>$i['name'],'quantity'=>$i['quantity'],'original'=>($i['discount_bps']??0)?$money($i['original_unit_cents']):null,'unit'=>$money($i['unit_cents']),'total'=>$money($i['line_cents']),'discount'=>($i['discount_bps']??0)?($i['discount_bps']/100).'% admin special discount':null])->all(),'totals'=>$totals,'instructions'=>$instructions,'payment_references'=>$receipt?[]:$this->paymentReferences($order),'payment'=>$receipt?((CustomerTerms::METHODS[$receipt->method]??ucfirst($receipt->method)).' / '.$receipt->entry_label.' / Reference: '.($receipt->reference?:'Cash')):$order->payment_label.' / '.$order->payment_status_label,'delivery'=>$this->deliveryDetails($o),'notes'=>$receipt?$receipt->note:$order->notes,'notice'=>($adjustment?'This records a payment correction or reversal only. No customer refund or new collection was made. ': '').($invoice?'Invoice amounts are fixed at issuance. Account and payment balances below are current.':'An unpaid or pending order is not proof of payment.').($order->status==='cancelled'?' Order cancelled. No further payment due.':'').($invoice && $order->final_total_cents!==null && $order->final_total_cents!=$invoice->total_cents?' Subsequent order adjustment: '.$money($order->final_total_cents-$invoice->total_cents).'.':''),'discount'=>$o['order_discount_cents']?'Additional order discount: '.$money($o['order_discount_cents']).' (included in product subtotal).':null];
  }
 }

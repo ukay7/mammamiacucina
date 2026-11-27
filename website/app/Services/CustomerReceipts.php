@@ -90,19 +90,38 @@ class CustomerReceipts
         return $query->get()->filter(fn ($o) => $o->balance_cents > 0)->sortBy([['ordered_at', 'asc'], ['id', 'asc']])->values();
     }
 
-    public function account(Customer $customer, ?int $exceptPendingLine = null, bool $lock = false): array
+    public function pendingForOrder(Order $order): int
+    {
+        return (int) CustomerReceiptLine::where('customer_id', $order->customer_id)->where('status', 'awaiting_clearance')
+            ->whereHas('receipt', fn ($query) => $query->where('target_order_id', $order->id))->sum('amount_cents');
+    }
+
+    public function account(Customer $customer, ?int $exceptPendingLine = null, bool $lock = false, ?int $targetOrderId = null): array
     {
         $orders = $this->orders($customer, $lock);
-        $pending = (int) CustomerReceiptLine::where('customer_id', $customer->id)->where('status', 'awaiting_clearance')
-            ->when($exceptPendingLine, fn ($q) => $q->where('id', '!=', $exceptPendingLine))->sum('amount_cents');
+        $pendingByOrder = CustomerReceiptLine::query()
+            ->join('customer_receipts', 'customer_receipts.id', '=', 'customer_receipt_lines.customer_receipt_id')
+            ->where('customer_receipt_lines.customer_id', $customer->id)->where('customer_receipt_lines.status', 'awaiting_clearance')
+            ->when($exceptPendingLine, fn ($q) => $q->where('customer_receipt_lines.id', '!=', $exceptPendingLine))
+            ->groupBy('customer_receipts.target_order_id')
+            ->selectRaw('customer_receipts.target_order_id, SUM(customer_receipt_lines.amount_cents) as reserved_cents')
+            ->pluck('reserved_cents', 'target_order_id');
         $eligible = (int) $orders->sum(fn ($o) => $o->balance_cents);
+        $pending = (int) $pendingByOrder->sum();
+        $maximum = max(0, $eligible - $pending);
+        if ($targetOrderId !== null) {
+            $orders = $orders->where('id', $targetOrderId)->values();
+            $eligible = (int) $orders->sum(fn ($o) => $o->balance_cents);
+            $maximum = min($maximum, max(0, $eligible - (int) $pendingByOrder->get($targetOrderId, 0)));
+        }
         $invoices = CustomerInvoice::whereIn('order_id', $orders->modelKeys())->get()->keyBy('order_id');
 
         return ['outstanding_cents' => app(CustomerInvoicing::class)->balances($customer)['pending'],
-            'eligible_cents' => $eligible, 'pending_cheques_cents' => $pending, 'maximum_cents' => max(0, $eligible - $pending),
+            'eligible_cents' => $eligible, 'pending_cheques_cents' => $pending, 'maximum_cents' => $maximum,
             'unpaid_orders' => $orders->count(), 'overdue_orders' => $orders->filter(fn ($o) => $o->cheque_due_date && $o->cheque_due_date < \App\Support\BusinessTime::today()->toDateString())->count(),
             'orders' => $orders->map(fn ($o) => ['id' => $o->id, 'number' => $o->number, 'invoice' => $invoices->get($o->id)?->label,
                 'date' => \App\Support\BusinessTime::local($o->ordered_at)->toDateString(), 'due_date' => $o->cheque_due_date, 'balance_cents' => $o->balance_cents,
+                'available_cents' => max(0, $o->balance_cents - (int) $pendingByOrder->get($o->id, 0)),
                 'revision' => (int) $o->revision])->all()];
     }
 
@@ -116,7 +135,7 @@ class CustomerReceipts
         return hash_hmac('sha256', json_encode($data, JSON_THROW_ON_ERROR), config('app.key'));
     }
 
-    private function plan(Customer $customer, array $lines, bool $lock = false, ?int $clearingLine = null): array
+    private function plan(Customer $customer, array $lines, bool $lock = false, ?int $clearingLine = null, ?int $targetOrderId = null): array
     {
         // One instrument can produce several order allocations, but must not be
         // recorded as another active payment line on this customer's account.
@@ -136,12 +155,12 @@ class CustomerReceipts
             }
             $references[$key] = true;
         }
-        $account = $this->account($customer, $clearingLine, $lock);
+        $account = $this->account($customer, $clearingLine, $lock, $targetOrderId);
         $total = array_sum(array_column($lines, 'amount_cents'));
         if ($total > $account['maximum_cents']) {
             $this->fail('Payment total '.$this->money($total).' exceeds the maximum '.$this->money($account['maximum_cents']).'. Enter this maximum or less. Eligible outstanding: '.$this->money($account['eligible_cents']).'; other cheques awaiting clearance: '.$this->money($account['pending_cheques_cents']).'. Customer advances are not supported.');
         }
-        $remaining = array_column($account['orders'], 'balance_cents', 'id');
+        $remaining = array_column($account['orders'], 'available_cents', 'id');
         $rows = [];
         $confirmed = 0;
         $pending = 0;
@@ -178,44 +197,44 @@ class CustomerReceipts
         }
         unset($row);
 
-        return ['customer' => $this->customerSnapshot($customer), 'account' => $account, 'lines' => $lines, 'orders' => array_values($rows),
+        return ['customer' => $this->customerSnapshot($customer), 'account' => $account, 'lines' => $lines, 'orders' => array_values($rows), 'target_order_id' => $targetOrderId,
             'total_cents' => $total, 'confirmed_cents' => $confirmed, 'pending_cents' => $pending,
-            'outstanding_after_confirmed_cents' => max(0, $account['outstanding_cents'] - $confirmed)];
+            'outstanding_after_confirmed_cents' => max(0, ($targetOrderId === null ? $account['outstanding_cents'] : $account['eligible_cents']) - $confirmed)];
     }
 
-    public function preview(Customer $customer, array $input, User $actor): array
+    public function preview(Customer $customer, array $input, User $actor, ?int $targetOrderId = null): array
     {
         $this->authorize($actor);
         $lines = $this->input($input);
 
-        return DB::transaction(function () use ($customer, $lines) {
-            $plan = $this->plan($customer->fresh(), $lines);
+        return DB::transaction(function () use ($customer, $lines, $targetOrderId) {
+            $plan = $this->plan($customer->fresh(), $lines, targetOrderId: $targetOrderId);
 
             return $plan + ['preview_hash' => $this->sign($plan)];
         });
     }
 
-    public function create(Customer $customer, array $input, User $actor, ?callable $storeProofs = null): CustomerReceipt
+    public function create(Customer $customer, array $input, User $actor, ?callable $storeProofs = null, ?int $targetOrderId = null): CustomerReceipt
     {
         $this->authorize($actor);
         $lines = $this->input($input);
         $confirmation = Validator::make($input, ['request_key' => 'required|uuid', 'preview_hash' => 'required|string|size:64', 'confirmed' => 'accepted'])->validate();
 
-        return DB::transaction(function () use ($customer, $lines, $confirmation, $actor, $storeProofs) {
+        return DB::transaction(function () use ($customer, $lines, $confirmation, $actor, $storeProofs, $targetOrderId) {
             $customer = Customer::whereKey($customer->id)->lockForUpdate()->firstOrFail();
             if ($existing = CustomerReceipt::where('request_key', $confirmation['request_key'])->first()) {
-                if ($existing->customer_id !== $customer->id || $existing->created_by !== $actor->id || ! hash_equals($existing->request_hash, $confirmation['preview_hash'])) {
+                if ($existing->customer_id !== $customer->id || $existing->created_by !== $actor->id || $existing->target_order_id !== $targetOrderId || ! hash_equals($existing->request_hash, $confirmation['preview_hash'])) {
                     $this->fail('This request has already been used. Reload before recording another payment.');
                 }
 
                 return $existing;
             }
-            $plan = $this->plan($customer, $lines, true);
+            $plan = $this->plan($customer, $lines, true, targetOrderId: $targetOrderId);
             if (! hash_equals($this->sign($plan), $confirmation['preview_hash'])) {
                 $this->fail('Customer details, balances, attachments or payments changed. Review the allocation again.');
             }
             $paths = $storeProofs ? $storeProofs() : [];
-            $receipt = CustomerReceipt::create(['customer_id' => $customer->id, 'created_by' => $actor->id, 'customer_snapshot' => $plan['customer'],
+            $receipt = CustomerReceipt::create(['customer_id' => $customer->id, 'target_order_id' => $targetOrderId, 'created_by' => $actor->id, 'customer_snapshot' => $plan['customer'],
                 'total_cents' => $plan['total_cents'], 'request_key' => $confirmation['request_key'], 'request_hash' => $confirmation['preview_hash']]);
             $receipt->update(['number' => 'CR-'.str_pad((string) $receipt->id, 6, '0', STR_PAD_LEFT)]);
             foreach ($lines as $entry) {
@@ -329,7 +348,7 @@ class CustomerReceipts
         if ($data['action'] === 'clear') {
             $entry = ['key' => $line->client_key, 'method' => 'cheque', 'amount_cents' => $line->amount_cents, 'reference' => $line->reference,
                 'payment_date' => $data['payment_date'], 'cheque_date' => $line->cheque_date->toDateString(), 'bank' => $line->bank, 'note' => $line->note, 'proof_hash' => $line->proof_hash, 'proof_name' => $line->proof_name];
-            $plan = $this->plan($receipt->customer, [$entry], $lock, $line->id);
+            $plan = $this->plan($receipt->customer, [$entry], $lock, $line->id, $receipt->target_order_id);
         } else {
             $entries = $line->allocations()->where('amount_cents', '>', 0)->orderBy('order_id')->get();
             $orders = Order::withTrashed()->whereIn('id', $entries->pluck('order_id'))->with('settlements')->orderBy('id');

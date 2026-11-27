@@ -9,6 +9,23 @@
 <div>Net received (CAD)<strong>${{ number_format($order->net_received_cents/100,2) }}</strong></div>
 <div>{{ $order->balance_cents<0?'Refund due':'Amount due' }} (CAD)<strong>${{ number_format(abs($order->balance_cents)/100,2) }}</strong></div>
 </div>
+@if($splitPaymentUrl || $splitReceipts->isNotEmpty())
+<section class="panel panel-content mb-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <h2 class="mb-0">Split payments</h2>
+        @if($splitPaymentUrl)
+            <a class="btn btn-primary" href="{{ $splitPaymentUrl }}">Record split payment</a>
+        @endif
+    </div>
+    @if($splitReceipts->isNotEmpty())
+        <ul class="mb-0 mt-3">
+            @foreach($splitReceipts as $splitReceipt)
+                <li><a href="{{ route('admin.customers.receipts.show', [$order->customer_id, $splitReceipt]) }}">{{ $splitReceipt->number }} · Details and cheque clearance</a> · <a href="{{ route('admin.customers.receipts.document', [$order->customer_id, $splitReceipt]) }}">Print receipt</a></li>
+            @endforeach
+        </ul>
+    @endif
+</section>
+@endif
 <p>Payment history distinguishes collections, actual refunds, reversals and method corrections. Corrections do not move money. Changing an order total changes the balance without recording a refund.</p>
 <div class="panel panel-content table-responsive"><h2>Payment history</h2><table class="table"><thead><tr><th>Date</th><th>Entry / Method</th><th>Reference / Notes</th><th>Recorded by</th><th>Amount (CAD)</th><th>Receipt</th></tr></thead><tbody>
 @if($order->collected_cents>0)
@@ -27,7 +44,11 @@
 @include('admin.orders.payment')
 @include('admin.orders.payment-controls')
 @unless($order->trashed())@include('partials.transfer-receipt')@endunless
-@if(!$order->trashed() && auth()->user()->hasAdminPermission('orders.manage') && $order->balance_cents!==0 && $order->final_total_cents!==null && (!$order->payment || ($order->payment->paid_at && $order->balance_cents>0)))
+@php($manualPaymentLimit = abs($order->balance_cents) - $pendingSplitChequeCents)
+@if($pendingSplitChequeCents > 0)
+<p class="alert alert-info">CAD {{ number_format($pendingSplitChequeCents / 100, 2) }} is reserved for split-payment cheques awaiting clearance.</p>
+@endif
+@if(!$order->trashed() && auth()->user()->hasAdminPermission('orders.manage') && $manualPaymentLimit > 0 && $order->final_total_cents!==null && (!$order->payment || ($order->payment->paid_at && $order->balance_cents>0)))
 <form method="post" enctype="multipart/form-data" action="{{ route('admin.orders.settlement',$order) }}" class="payment-entry" data-etransfer-payment-form>@csrf
 <h2>Record {{ $order->balance_cents<0?'a refund':'a payment' }}</h2>
 @if($order->payment_method==='etransfer')
@@ -35,7 +56,7 @@
 @endif
 <p>Record a completed transaction. This form does not charge a card or initiate a bank transfer.</p>
 <input type="hidden" name="revision" value="{{ $order->revision }}"><input type="hidden" name="direction" value="{{ $order->balance_cents<0?'refund':'collect' }}">
-<div class="fields"><label>Amount (CAD)<input class="form-control" name="amount" type="number" data-number-display="decimal" min="0.01" step="0.01" max="{{ abs($order->balance_cents)/100 }}" value="{{ old('amount',number_format(abs($order->balance_cents)/100,2,'.','')) }}" required></label><label>Method<select class="form-control" name="method">@foreach(['cash'=>'Cash','card'=>'Card','etransfer'=>'E-transfer','paypal'=>'PayPal','cheque'=>'Cheque'] as $value=>$label)<option value="{{ $value }}" @selected(old('method',$order->payment_method)===$value)>{{ $label }}</option>@endforeach</select></label><label>Transaction reference (required except cash)<input class="form-control" name="reference" maxlength="255" value="{{ old('reference') }}"></label><label>Receipt (JPG, PNG, WebP or PDF; max 5 MB)<input class="form-control" type="file" name="receipt" accept="image/jpeg,image/png,image/webp,application/pdf"></label></div>
+<div class="fields"><label>Amount (CAD)<input class="form-control" name="amount" type="number" data-number-display="decimal" min="0.01" step="0.01" max="{{ $manualPaymentLimit/100 }}" value="{{ old('amount',number_format($manualPaymentLimit/100,2,'.','')) }}" required></label><label>Method<select class="form-control" name="method">@foreach(['cash'=>'Cash','card'=>'Card','etransfer'=>'E-transfer','paypal'=>'PayPal','cheque'=>'Cheque'] as $value=>$label)<option value="{{ $value }}" @selected(old('method',$order->payment_method)===$value)>{{ $label }}</option>@endforeach</select></label><label>Transaction reference (required except cash)<input class="form-control" name="reference" maxlength="255" value="{{ old('reference') }}"></label><label>Receipt (JPG, PNG, WebP or PDF; max 5 MB)<input class="form-control" type="file" name="receipt" accept="image/jpeg,image/png,image/webp,application/pdf"></label></div>
 @if($order->balance_cents>0)<div data-etransfer-account @if(old('method',$order->payment_method)!=='etransfer') hidden @endif>@include('partials.etransfer-instructions',['etransferVerify'=>true])</div>@endif
 <label class="mt-3">Notes<textarea class="form-control" name="note" maxlength="1000" required>{{ old('note') }}</textarea></label>
 <label class="my-3"><input type="checkbox" name="received" value="1" required> I confirm this money has actually been {{ $order->balance_cents<0?'refunded':'received' }}.</label><button class="btn btn-primary">Record {{ $order->balance_cents<0?'refund':'payment' }}</button>

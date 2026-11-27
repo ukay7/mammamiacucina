@@ -14,6 +14,9 @@
 .doc-header .doc-meta{width:28%;text-align:right;vertical-align:top;color:#30271e}
 .doc-header .doc-meta strong{display:block;font:700 18px/1.25 Arial,DejaVu Sans,sans-serif;text-transform:uppercase}
 .doc-header .doc-reference{font:700 22px/1.25 Arial,DejaVu Sans,sans-serif;margin:6px 0;text-transform:uppercase;word-wrap:break-word}
+.doc-header .doc-receipt-reference-label{font-size:11px;text-transform:none;vertical-align:middle}
+.doc-header .doc-invoice-reference{font:11px/1.4 Arial,DejaVu Sans,sans-serif;margin:0 0 3px}
+.doc-header .doc-invoice-reference b{white-space:nowrap}
 .doc-header .doc-date{font:10px/1.5 Arial,DejaVu Sans,sans-serif}
 .doc-footer{page-break-inside:avoid}
 .doc-registration{margin-top:4px;font:10px/1.5 Arial,DejaVu Sans,sans-serif;color:#645346;text-align:right;page-break-inside:avoid;overflow-wrap:anywhere}

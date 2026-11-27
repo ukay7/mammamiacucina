@@ -49,7 +49,7 @@ class CustomerDocuments
             'credit-note' => \App\Models\OrderCredit::where('customer_id',$customer->id)->with('order:id,number'),
             'settlement', 'settlement-proof' => OrderSettlement::whereIn('order_id', $orders)->with('order:id,number')
                 ->when($kind === 'settlement-proof', fn ($q) => $q->whereNotNull('receipt_path')),
-            'account-receipt' => CustomerReceiptEvent::whereHas('receipt', fn ($q) => $q->where('customer_id', $customer->id))->with('receipt:id,customer_id,number'),
+            'account-receipt' => CustomerReceiptEvent::whereHas('receipt', fn ($q) => $q->where('customer_id', $customer->id))->with('receipt:id,customer_id,number,target_order_id'),
             'account-proof' => CustomerReceiptLine::whereHas('receipt', fn ($q) => $q->where('customer_id', $customer->id))->whereNotNull('proof_path')->with('receipt:id,customer_id,number'),
             'quotation' => Quotation::where('customer_id', $customer->id),
             'credit-application' => $customer->creditApplications()->getQuery()->whereNotNull('submitted_at'),

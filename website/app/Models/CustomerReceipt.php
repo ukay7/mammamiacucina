@@ -10,7 +10,7 @@ class CustomerReceipt extends Model
 
     protected function casts(): array
     {
-        return ['customer_snapshot' => 'array', 'total_cents' => 'integer'];
+        return ['customer_snapshot' => 'array', 'total_cents' => 'integer', 'target_order_id' => 'integer'];
     }
 
     public function customer()
@@ -21,6 +21,11 @@ class CustomerReceipt extends Model
     public function author()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function targetOrder()
+    {
+        return $this->belongsTo(Order::class, 'target_order_id')->withTrashed();
     }
 
     public function lines()

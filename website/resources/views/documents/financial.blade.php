@@ -6,12 +6,12 @@
     $revised = ($isInvoice || $isPaymentReceipt) && app(\App\Services\DocumentTheme::class)->usesRevisedFinancialLayout();
     $revisedReceipt = $revised && $isPaymentReceipt;
     $totals = $doc['totals'];
-    if ($revisedReceipt && isset($doc['payment_amount'])) {
+    if ($isPaymentReceipt && isset($doc['payment_amount'])) {
         $totals = ['This payment' => $totals['This payment'] ?? $doc['payment_amount']] + $totals;
     }
 @endphp
 <main @class(['document', 'doc-financial', 'doc-revised-receipt' => $revisedReceipt, 'doc-delivery-changed' => !$revised && isset($doc['current_delivery'])])>
-@include('documents.header', ['taxInHeader' => $revised, 'invoiceReference' => $revisedReceipt ? ($doc['invoice_reference'] ?? null) : null])
+@include('documents.header', ['taxInHeader' => $revised, 'isReceiptHeader' => $isPaymentReceipt, 'invoiceReferences' => $isPaymentReceipt && filled($doc['invoice_reference'] ?? null) ? [$doc['invoice_reference']] : []])
 <table class="doc-info"><tr><td><h2>Bill to</h2>@foreach($doc['billing'] as $billingIndex=>$line)<div @class(['doc-billing-line','doc-billing-name'=>$billingIndex===0,'doc-billing-account'=>$billingIndex===1 && str_starts_with((string)$line,'Customer account #')])>{{ $line }}@if($billingIndex===0)<x-business-customer-icon :business="$doc['business_customer'] ?? false" :embedded="true" />@endif</div>@endforeach</td>
 @unless($revisedReceipt)
 <td><h2>{{ $isInvoice ? 'Account Summary' : 'Account summary' }}</h2>
@@ -74,6 +74,14 @@
 @if($doc['discount']??null)<p>{{ $doc['discount'] }}</p>@endif
 @component('documents.payment-summary')
 @slot('instructions')
+@if($isPaymentReceipt && isset($doc['receipt_payment_method'], $doc['payment_amount']))
+    <div class="doc-box doc-payment-breakdown">
+        <h2>Payment method</h2>
+        <table class="doc-payment-method-amount">
+            <tr><th scope="row">{{ $doc['receipt_payment_method'] }}</th><td>{{ $doc['payment_amount'] }}</td></tr>
+        </table>
+    </div>
+@endif
 @unless($revised)
 <div class="doc-box"><h2>{{ $isInvoice ? 'Payment status' : 'Payment instructions' }}</h2><p>{{ $doc['instructions'] }}</p><p><strong>Payment details:</strong> {{ $doc['payment'] }}</p>@foreach($doc['payment_references'] ?? [] as $label=>$reference)<p><strong>{{ $label }}:</strong> {{ $reference }}</p>@endforeach</div>
 <div class="doc-box doc-delivery">

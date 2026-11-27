@@ -109,14 +109,7 @@ class CustomerDocumentController extends Controller
             case 'invoice': $data['doc'] = $theme->invoice($record); break;
             case 'settlement': $data['doc'] = $theme->order($record->order, receipt: $record); break;
             case 'initial-payment':
-                $doc = $theme->order($record, $record->revisions()->exists() ? $record->invoice : null);
-                $doc['title'] = 'Payment Receipt'; $doc['number'] = 'PAY-'.$record->number;
-                $doc['invoice_reference'] = $record->invoice?->label;
-                $doc['date'] = \App\Support\BusinessTime::format($entry['date']);
-                $doc['totals'] = ['This payment' => '$'.number_format($record->collected_cents / 100, 2)] + $doc['totals'];
-                $doc['payment'] = ucfirst($record->original_payment_method ?: $record->payment_method).' / Original recorded collection';
-                $doc['notice'] .= ' Original receipt retained. Any subsequent payment corrections or reversals are recorded separately; balances shown are current.';
-                $data['doc'] = $doc; break;
+                $data['doc'] = $theme->initialPaymentReceipt($record); break;
             case 'account-receipt':
                 $snapshot = $record->snapshot;
                 $title = in_array($record->action, ['reverse', 'bounce', 'cancel']) ? 'Payment Adjustment Record'

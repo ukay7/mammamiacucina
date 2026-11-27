@@ -302,6 +302,9 @@ class OrderAmendment
             if ($amount <= 0 || ($data['direction'] === 'collect' ? $balance < $amount : -$balance < $amount)) {
                 $this->fail('The amount exceeds the current amount due or refund due.');
             }
+            if ($data['direction'] === 'collect' && $amount > $balance - app(CustomerReceipts::class)->pendingForOrder($order)) {
+                $this->fail('Part of this balance is reserved for a cheque awaiting clearance. Resolve the cheque on its split receipt before recording another payment for that amount.');
+            }
             if (! $order->payment && $order->manual_collected_cents === null) {
                 $order->manual_collected_cents = $order->collected_cents;
             }
@@ -319,7 +322,7 @@ class OrderAmendment
             }
             $order->revision++;
             $order->save();
-            if ($data['direction'] === 'collect') app(CustomerEmails::class)->order($order, 'payment_received', 'settlement:'.$settlement->id, $amount);
+            if ($data['direction'] === 'collect') app(CustomerEmails::class)->order($order, 'payment_received', 'settlement:'.$settlement->id, $amount, $settlement);
             $order->events()->create(['user_id' => $user, 'description' => 'External '.($data['direction'] === 'refund' ? 'refund' : 'collection').' recorded: CAD '.number_format($amount / 100, 2).' via '.$data['method'].' · '.$data['note'], 'created_at' => now()]);
 
 

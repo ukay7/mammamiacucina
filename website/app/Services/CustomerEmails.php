@@ -72,7 +72,7 @@ class CustomerEmails
         }
     }
 
-    public function order(Order $order, string $type, string $key, ?int $amount = null): void
+    public function order(Order $order, string $type, string $key, ?int $amount = null, ?\App\Models\OrderSettlement $settlement = null): void
     {
         $order = $order->fresh(['items', 'payment', 'settlements']);
         if (! $order || $order->trashed() || (! $order->email && $type !== 'order_confirmation')) {
@@ -107,11 +107,14 @@ class CustomerEmails
             'items' => $order->items->map(fn ($i) => ['name' => $i->name, 'code' => $i->product_code, 'quantity' => $i->quantity, 'unit' => $money($i->unit_cents), 'total' => $money($i->line_cents)])->all(),
         ] : null;
         if ($document) {
-            $document['doc'] = app(DocumentTheme::class)->order($order);
+            $theme = app(DocumentTheme::class);
+            $document['doc'] = $theme->order($order, receipt: $settlement);
             if ($type === 'payment_received') {
+                $document['doc'] = $theme->receiptPaymentFields($order, $settlement, $amount) + $document['doc'];
                 $document['doc']['title'] = 'Payment Receipt';
-                $document['doc']['invoice_reference'] = $order->invoice?->label;
                 $document['doc']['totals'] = ['This payment'=>$money($amount)] + $document['doc']['totals'];
+                $values['payment_method'] = $document['doc']['receipt_payment_method'];
+                $document['values'] = $values;
             }
         }
         $this->queue($key, $type, (string) $order->email, $values, $document, $order->customer);

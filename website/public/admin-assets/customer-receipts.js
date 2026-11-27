@@ -11,7 +11,8 @@
     function cell(row,value){const td=document.createElement('td');td.textContent=value??'—';row.append(td);return td;}
     function renderPreview(target,plan) {
         const summary=target.querySelector('[data-receipt-preview-summary]');summary.replaceChildren();
-        const figures=plan.total_cents!==undefined?{'Total entered':plan.total_cents,'Confirmed funds':plan.confirmed_cents,'Cheque awaiting clearance':plan.pending_cents,'Outstanding after confirmed funds':plan.outstanding_after_confirmed_cents}:{'Amount to reverse / cancel':plan.amount_cents};
+        const balanceLabel = plan.target_order_id ? 'Order balance after confirmed funds' : 'Outstanding after confirmed funds';
+        const figures=plan.total_cents!==undefined?{'Total entered':plan.total_cents,'Confirmed funds':plan.confirmed_cents,'Cheque awaiting clearance':plan.pending_cents,[balanceLabel]:plan.outstanding_after_confirmed_cents}:{'Amount to reverse / cancel':plan.amount_cents};
         Object.entries(figures).forEach(([label,amount])=>{const box=document.createElement('div'),span=document.createElement('span'),strong=document.createElement('strong');span.textContent=label;strong.textContent=money(amount);box.append(span,strong);summary.append(box);});
         const body=target.querySelector('[data-receipt-preview-rows]');body.replaceChildren();
         for(const order of plan.orders){const row=document.createElement('tr');cell(row,`${order.number}${order.invoice?' / '+order.invoice:''}`);cell(row,money(order.balance_cents));

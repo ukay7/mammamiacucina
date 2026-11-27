@@ -135,6 +135,62 @@ class CustomerReceiptTest extends TestCase
         $this->assertSame(3000, (int) OrderSettlement::sum('amount_cents'));
     }
 
+    public function test_split_payment_from_order_records_one_receipt_and_keeps_cheque_clearance_on_that_order(): void
+    {
+        Storage::fake('local');
+        $this->actingAs($this->super());
+        $customer = $this->customer();
+        $older = $this->order($customer, 20000, ['ordered_at' => now()->subDays(20)]);
+        $order = $this->order($customer, 10000);
+        $order->items()->create(['name' => 'Test carton', 'quantity' => 1, 'unit_cents' => 10000, 'line_cents' => 10000]);
+        $invoice = app(CustomerInvoicing::class)->issue($order);
+        $paymentsUrl = route('admin.orders.payments', $order);
+        $createUrl = route('admin.customers.receipts.create', [$customer, 'target_order_id' => $order->id]);
+        $previewUrl = route('admin.customers.receipts.preview', $customer);
+        $storeUrl = route('admin.customers.receipts.store', $customer);
+        $this->get(route('admin.orders.show', $order))->assertOk()->assertSee($createUrl);
+        $this->get($paymentsUrl)->assertOk()->assertSee($createUrl)->assertSeeText('Record split payment');
+        $this->get($createUrl)->assertOk()->assertSeeText($invoice->label)->assertSeeText('Add Payment Method');
+        $this->get(route('admin.customers.receipts.create', [$this->customer(), 'target_order_id' => $order->id]))->assertNotFound();
+
+        $input = ['target_order_id' => $order->id, 'lines' => [
+            $this->line('cash', '45'),
+            $this->line('etransfer', '30', ['proof' => UploadedFile::fake()->create('bank-confirmation.pdf', 20, 'application/pdf')]),
+            $this->line('cheque', '25'),
+        ]];
+        $hash = $this->post($previewUrl, $input, ['Accept' => 'application/json'])->assertOk()
+            ->assertJsonCount(1, 'orders')->assertJsonPath('orders.0.id', $order->id)->assertJsonPath('confirmed_cents', 7500)
+            ->assertJsonPath('pending_cents', 2500)->json('preview_hash');
+        $confirmation = $input + ['preview_hash' => $hash, 'request_key' => (string) Str::uuid(), 'confirmed' => '1'];
+        $this->post($storeUrl, array_replace($confirmation, ['target_order_id' => $older->id]), ['Accept' => 'application/json'])->assertUnprocessable();
+        $this->post($storeUrl, $confirmation, ['Accept' => 'application/json'])->assertOk();
+        $this->post($storeUrl, $confirmation, ['Accept' => 'application/json'])->assertOk();
+        $receipt = CustomerReceipt::sole();
+        $cheque = $receipt->lines()->where('method', 'cheque')->sole();
+        $this->assertSame($order->id, $receipt->target_order_id);
+        $this->assertSame(2500, $order->fresh()->balance_cents);
+        $this->assertSame(20000, $older->fresh()->balance_cents);
+        $this->assertSame(0, app(CustomerReceipts::class)->account($customer, targetOrderId: $order->id)['maximum_cents']);
+        $this->get($paymentsUrl)->assertOk()->assertSee($receipt->number)->assertSeeText('Print receipt');
+        $this->postJson(route('admin.orders.settlement', $order), [
+            'revision' => $order->fresh()->revision, 'direction' => 'collect', 'method' => 'cash',
+            'amount' => '25', 'note' => 'Attempt to pay the reserved balance', 'received' => '1',
+        ])->assertUnprocessable();
+
+        $documentUrl = route('admin.customers.receipts.document', [$customer, $receipt]);
+        $this->get($documentUrl)->assertOk()->assertSeeTextInOrder([
+            'Receipt # '.$receipt->number, 'Invoice # '.$invoice->label, 'Payment methods and clearance',
+            'Cash', '45.00', 'E-transfer', '30.00', 'Cheque', '25.00', 'Awaiting clearance',
+        ]);
+        $this->get($documentUrl.'?pdf=1')->assertOk()->assertHeader('Content-Type', 'application/pdf');
+
+        $this->act($cheque, 'clear');
+        $this->assertSame(0, $order->fresh()->balance_cents);
+        $this->assertSame(20000, $older->fresh()->balance_cents);
+        $this->assertSame([$order->id], $cheque->allocations()->pluck('order_id')->all());
+        $this->get($documentUrl)->assertOk()->assertSeeTextInOrder(['Cheque', '25.00', 'Cleared']);
+    }
+
     public function test_clearance_reallocates_to_current_balances_and_bounce_reverses_only_that_cheque(): void
     {
         $this->actingAs($this->super());

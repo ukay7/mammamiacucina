@@ -1,19 +1,35 @@
 @extends('admin.layout')
-@section('title','Receive Customer Payment')
+@section('title', $targetOrder ? 'Record Split Payment' : 'Receive Customer Payment')
 @section('content')
 <link rel="stylesheet" href="{{ asset('admin-assets/customer-receipts.css') }}?v={{ filemtime(public_path('admin-assets/customer-receipts.css')) }}">
 <section class="panel panel-content">
-    <div class="receipt-toolbar"><div><h2>{{ $customer->business_name ?: $customer->name }} <x-business-customer-icon :customer="$customer" /></h2><p>Customer #{{ $customer->id }} · {{ $customer->name }} · {{ $customer->email }}</p></div><a class="btn btn-outline-primary" href="{{ route('admin.customers.show',$customer) }}#customer-payments">Back to Payments &amp; Cheques</a></div>
-    <div class="receipt-metrics">
-        <div><span>Current outstanding (CAD)</span><strong>${{ number_format($account['outstanding_cents']/100,2) }}</strong></div>
-        <div><span>Maximum new payment (CAD)</span><strong>${{ number_format($account['maximum_cents']/100,2) }}</strong></div>
-        <div><span>Cheques awaiting clearance</span><strong>${{ number_format($account['pending_cheques_cents']/100,2) }}</strong></div>
-        <div><span>Eligible unpaid orders</span><strong>{{ $account['unpaid_orders'] }}</strong><small>{{ $account['overdue_orders'] }} overdue by recorded due date</small></div>
+    <div class="receipt-toolbar">
+        <div><h2>{{ $customer->business_name ?: $customer->name }} <x-business-customer-icon :customer="$customer" /></h2><p>Customer #{{ $customer->id }} · {{ $customer->name }} · {{ $customer->email }}</p></div>
+        @if($targetOrder)
+            <a class="btn btn-outline-primary" href="{{ route('admin.orders.payments', $targetOrder) }}">Back to order payments</a>
+        @else
+            <a class="btn btn-outline-primary" href="{{ route('admin.customers.show', $customer) }}#customer-payments">Back to Payments &amp; Cheques</a>
+        @endif
     </div>
-    <p class="text-muted">The maximum is eligible outstanding less cheques already awaiting clearance. Cancelled/deleted orders, unfinished totals and orders with online-payment records are excluded. Customer advances are not supported.</p>
+    @if($targetOrder)
+        <p><strong>Order {{ mb_strtoupper($targetOrder->number) }}</strong>@if($targetOrder->invoice) · Invoice {{ $targetOrder->invoice->label }}@endif</p>
+    @endif
+    <div class="receipt-metrics">
+        <div><span>{{ $targetOrder ? 'Order balance' : 'Current outstanding' }} (CAD)</span><strong>${{ number_format(($targetOrder ? max(0, $targetOrder->balance_cents) : $account['outstanding_cents'])/100,2) }}</strong></div>
+        <div><span>Maximum new payment (CAD)</span><strong>${{ number_format($account['maximum_cents']/100,2) }}</strong></div>
+        <div><span>{{ $targetOrder ? 'Account cheques awaiting clearance' : 'Cheques awaiting clearance' }}</span><strong>${{ number_format($account['pending_cheques_cents']/100,2) }}</strong></div>
+        @unless($targetOrder)<div><span>Eligible unpaid orders</span><strong>{{ $account['unpaid_orders'] }}</strong><small>{{ $account['overdue_orders'] }} overdue by recorded due date</small></div>@endunless
+    </div>
+    @if($targetOrder)
+        <p class="text-muted">All payment methods entered here apply to this order. The maximum accounts for cheques already awaiting clearance.</p>
+    @else
+        <p class="text-muted">The maximum is eligible outstanding less cheques already awaiting clearance. Cancelled/deleted orders, unfinished totals and orders with online-payment records are excluded. Customer advances are not supported.</p>
+    @endif
 </section>
+@if(!$targetOrder || $account['maximum_cents'] > 0)
 <form class="panel panel-content" method="post" action="{{ route('admin.customers.receipts.store',$customer) }}" data-customer-receipt data-maximum="{{ $account['maximum_cents'] }}" data-preview-url="{{ route('admin.customers.receipts.preview',$customer) }}" data-store-url="{{ route('admin.customers.receipts.store',$customer) }}">
     @csrf
+    @if($targetOrder)<input type="hidden" name="target_order_id" value="{{ $targetOrder->id }}">@endif
     <input type="hidden" name="request_key" value="{{ (string)\Illuminate\Support\Str::uuid() }}">
     <div class="receipt-toolbar"><h2>Payment methods</h2><button class="btn btn-outline-primary" type="button" data-receipt-add>Add Payment Method</button></div>
     <p>Record actual cash or externally verified funds. Cheques are recorded as <strong>Awaiting clearance</strong> and will not reduce balances until Super Admin confirms bank clearance.</p>
@@ -23,12 +39,15 @@
     <button class="btn btn-primary" type="button" data-receipt-preview>Preview Allocation</button>
     <section class="receipt-preview" data-receipt-result hidden aria-live="polite">
         <h2>Allocation preview</h2><div data-receipt-preview-summary class="receipt-metrics"></div>
-        <p class="text-muted">Oldest outstanding order first. Pending cheque allocations are proposals; current balances are checked again at clearance.</p>
+        <p class="text-muted">{{ $targetOrder ? 'Allocations apply to this order only.' : 'Oldest outstanding order first.' }} Pending cheque allocations are proposals. Current balances are checked again at clearance.</p>
         <div class="table-responsive"><table class="table"><thead><tr><th>Order / invoice</th><th>Balance before</th><th>Payment allocations</th><th>Due after confirmed funds</th><th>Due if cheques clear</th></tr></thead><tbody data-receipt-preview-rows></tbody></table></div>
         <label class="d-block my-3"><input type="checkbox" name="confirmed" value="1" data-receipt-confirmed> I confirm these details and verified funds received. Cheques remain awaiting clearance.</label>
         <button class="btn btn-primary" type="submit" data-receipt-save disabled>Confirm &amp; Record Payment</button>
     </section>
 </form>
+@else
+    <p class="alert alert-info">There is no balance available for a new split payment on this order.</p>
+@endif
 <template id="customer-receipt-line-template">
     <fieldset class="receipt-line">
         <div class="receipt-toolbar"><legend data-receipt-line-title>Payment</legend><button class="btn btn-outline-danger btn-sm" type="button" data-receipt-remove>Remove</button></div>

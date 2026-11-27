@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\CustomerReceipt;
 use App\Models\Order;
 use App\Models\User;
+use App\Services\CustomerReceipts;
 use App\Services\OrderAmendment;
 use App\Services\OrderManagement;
 use App\Services\WarehousePacking;
@@ -105,19 +107,29 @@ class OrderController extends Controller
         $paymentSources = auth()->user()->isSuper() ? app(\App\Services\ManualPaymentControls::class)->sources($order) : [];
         $gatewayRefunds = $order->payment?->provider === 'helcim'
             ? \Illuminate\Support\Facades\DB::table('payment_refunds')->where('payment_id', $order->payment->id)->where('status', 'completed')->orderBy('id')->get() : collect();
-        return view('admin.orders.payments', compact('order', 'gatewayRefunds', 'paymentSources'));
+        $splitReceipts = auth()->user()->isSuper() && $order->customer_id
+            ? CustomerReceipt::where('target_order_id', $order->id)->where('customer_id', $order->customer_id)->latest('id')->get()
+            : collect();
+        $splitPaymentUrl = $this->splitPaymentUrl($order);
+        $pendingSplitChequeCents = $order->balance_cents > 0 && $order->customer_id ? app(CustomerReceipts::class)->pendingForOrder($order) : 0;
+
+        return view('admin.orders.payments', compact('order', 'gatewayRefunds', 'paymentSources', 'splitPaymentUrl', 'splitReceipts', 'pendingSplitChequeCents'));
+    }
+
+    private function splitPaymentUrl(Order $order): ?string
+    {
+        if (! auth()->user()->isSuper() || $order->trashed() || $order->balance_cents <= 0 || ! $order->customer
+            || app(CustomerReceipts::class)->account($order->customer, targetOrderId: $order->id)['maximum_cents'] <= 0) {
+            return null;
+        }
+
+        return route('admin.customers.receipts.create', [$order->customer_id, 'target_order_id' => $order->id]);
     }
 
     public function initialPaymentDocument(Order $order)
     {
         abort_unless($order->collected_cents>0,404);
-        $doc=app(\App\Services\DocumentTheme::class)->order($order, $order->revisions()->exists() ? $order->invoice : null);
-        $doc['title']='Payment Receipt';$doc['number']='PAY-'.$order->number;
-        $doc['invoice_reference']=$order->invoice?->label;
-        $doc['date']=\App\Support\BusinessTime::format($order->paid_at ?? $order->payment?->paid_at ?? $order->ordered_at);
-        $doc['totals']=['This payment'=>'$'.number_format($order->collected_cents/100,2)]+$doc['totals'];
-        $doc['payment']=ucfirst($order->original_payment_method ?: $order->payment_method).' / Original recorded collection';
-        $doc['notice'].=' Original receipt retained. Any subsequent payment corrections or reversals are recorded separately; balances shown are current.';
+        $doc = app(\App\Services\DocumentTheme::class)->initialPaymentReceipt($order);
         return view('documents.financial',compact('doc'));
     }
 
@@ -340,6 +352,6 @@ class OrderController extends Controller
             return view($order->source === 'pos' && !in_array($order->status,['warehouse_pending','packing','ready_to_dispatch']) ? 'admin.orders.own-sale' : 'admin.orders.warehouse', compact('order'));
         }
 
-        return view('admin.orders.show', compact('order'));
+        return view('admin.orders.show', ['order' => $order, 'splitPaymentUrl' => $this->splitPaymentUrl($order)]);
     }
 }

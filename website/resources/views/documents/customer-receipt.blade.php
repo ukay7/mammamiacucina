@@ -5,12 +5,23 @@ body{font-size:10px;line-height:1.35}.doc-info{margin-bottom:8px}.doc-info td{pa
 @if($pdf) body{background:white}.document{margin:0;padding:0;max-width:none}.doc-toolbar{display:none} @endif
 </style></head><body>
 @if(!$pdf)<div class="doc-toolbar"><a href="{{ $backUrl ?? route('admin.customers.receipts.show',[$customer,$receipt]) }}">Back</a><button onclick="window.print()">Print</button><a href="{{ $downloadUrl ?? route('admin.customers.receipts.document',[$customer,$receipt,'version'=>$event->id,'pdf'=>1]) }}">Download PDF</a></div>@endif
-@php($billing=$snapshot['customer'])
-<main class="document">@include('documents.header')
+@php
+    $billing = $snapshot['customer'];
+    $invoiceReferences = collect($snapshot['lines'])->flatMap(function ($line) use ($receipt) {
+        return array_merge($line['allocations'], $receipt->target_order_id || $line['status'] === 'awaiting_clearance' ? $line['planned_allocations'] : []);
+    })->pluck('invoice')->filter()->unique()->values();
+    if ($invoiceReferences->isEmpty() && $receipt->target_order_id && ($invoice = $receipt->targetOrder?->invoice)) {
+        $invoiceReferences->push($invoice->label);
+    }
+@endphp
+<main class="document">@include('documents.header', ['isReceiptHeader' => true, 'invoiceReferences' => $invoiceReferences->count() === 1 ? $invoiceReferences : []])
 <table class="doc-info"><tr><td><h2>Received from</h2><div class="doc-billing-line doc-billing-name">{{ $billing['business_name'] ?: $billing['name'] }} <x-business-customer-icon :customer="$billing" :embedded="true" /></div><div class="doc-billing-line doc-billing-account">Customer account #{{ $billing['id'] }}</div>
 @if($billing['business_name'])<div class="doc-billing-line">{{ $billing['name'] }}</div>@endif
 @foreach([$billing['address'],implode(', ',array_filter([$billing['city'],$billing['province'],$billing['postal_code']])),$billing['business_email']?:$billing['email'],$billing['business_phone']?:$billing['phone']] as $value)@if($value)<div class="doc-billing-line">{{ $value }}</div>@endif @endforeach
 </td><td><h2>Recorded receipt summary</h2><div>Original payment lines: <strong>CAD {{ number_format($snapshot['total_cents']/100,2) }}</strong></div><div>Confirmed payments: <strong>CAD {{ number_format($snapshot['confirmed_cents']/100,2) }}</strong></div><div>Cheques awaiting clearance: <strong>CAD {{ number_format($snapshot['pending_cents']/100,2) }}</strong></div><div>Outstanding at this action: <strong>CAD {{ number_format($snapshot['outstanding_cents']/100,2) }}</strong></div><small>Version #{{ $event->id }} · {{ $event->actor_name }}<br>{{ app(\App\Services\DocumentTheme::class)->dateLabel($doc['date']) }}</small></td></tr></table>
+@if($invoiceReferences->count() > 1)
+    <p class="doc-notice"><strong>Linked invoices</strong> {{ $invoiceReferences->implode(', ') }}</p>
+@endif
 <p class="doc-notice">Only confirmed funds count as paid. Uncleared cheques are awaiting clearance; their proposed allocations are provisional. This document records existing customer payments; it does not create an additional charge or initiate a bank/card transaction.</p>
 <h2 class="doc-section-title">Payment methods and clearance</h2>
 <table class="doc-lines doc-account-lines"><thead><tr><th>Method / line</th><th>Amount CAD</th><th>Received / cheque date</th><th>Reference / notes</th><th>Status</th></tr></thead><tbody>

@@ -22,11 +22,20 @@ class CustomerReceiptController extends Controller
         abort_unless((int) $receipt->customer_id === (int) $customer->id && (! $line || (int) $line->customer_receipt_id === (int) $receipt->id), 404);
     }
 
-    public function create(Customer $customer, CustomerReceipts $service)
+    public function create(Request $request, Customer $customer, CustomerReceipts $service)
     {
-        $account = $service->account($customer);
+        $targetOrderId = $this->targetOrderId($request);
+        $targetOrder = $targetOrderId === null ? null : $customer->orders()->with('invoice')->findOrFail($targetOrderId);
+        $account = $service->account($customer, targetOrderId: $targetOrderId);
 
-        return view('admin.customers.receive-payment', compact('customer', 'account'));
+        return view('admin.customers.receive-payment', compact('customer', 'account', 'targetOrder'));
+    }
+
+    private function targetOrderId(Request $request): ?int
+    {
+        $data = $request->validate(['target_order_id' => 'sometimes|required|integer|min:1']);
+
+        return isset($data['target_order_id']) ? (int) $data['target_order_id'] : null;
     }
 
     private function input(Request $request): array
@@ -53,11 +62,12 @@ class CustomerReceiptController extends Controller
 
     public function preview(Request $request, Customer $customer, CustomerReceipts $service)
     {
-        return response()->json($service->preview($customer, $this->input($request), $request->user()));
+        return response()->json($service->preview($customer, $this->input($request), $request->user(), $this->targetOrderId($request)));
     }
 
     public function store(Request $request, Customer $customer, CustomerReceipts $service)
     {
+        $targetOrderId = $this->targetOrderId($request);
         $data = $this->input($request);
         $stored = [];
         $storedPaths = null;
@@ -80,7 +90,7 @@ class CustomerReceiptController extends Controller
                 }
 
                 return $storedPaths;
-            });
+            }, $targetOrderId);
         } catch (\Throwable $e) {
             Storage::disk('local')->delete($stored);
             throw $e;
