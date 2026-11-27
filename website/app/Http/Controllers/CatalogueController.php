@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductMedia;
+use App\Services\CustomerTerms;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -73,11 +74,23 @@ class CatalogueController extends Controller
         return view('pages.product-grid', $data);
     }
 
-    public function show(string $slug)
+    public function show(Request $request, string $slug, CustomerTerms $terms)
     {
         $product = $this->visible()->where('slug', $slug)->with(['allergies', 'media', 'categories' => fn ($q) => $q->where('is_active', true)->where('show_to_customer', true)])->firstOrFail();
 
-        return view('pages.catalogue-product', compact('product'));
+        $user = $request->user();
+        $customer = $user?->isCustomer() && $user->is_active && $user->email_verified_at && ! $user->businessApprovalPending()
+            ? $user->customer
+            : null;
+        $pricing = $customer ? $terms->price($product, $customer) : null;
+        $unitPrice = match (true) {
+            $pricing === null => $product->storefront_price,
+            $pricing['unit_cents'] === null => null,
+            default => $pricing['unit_cents'] / 100,
+        };
+
+        return response()->view('pages.catalogue-product', compact('product', 'customer', 'pricing', 'unitPrice'))
+            ->header('Cache-Control', 'private, no-store');
     }
 
     public function media(Product $product, ProductMedia $media)

@@ -68,6 +68,25 @@ class CustomerCatalogueTest extends TestCase
         $this->get(route('customer.orders'))->assertOk()->assertSee($order->number)->assertSee($order->status_label);
     }
 
+    public function test_product_details_use_the_signed_in_customers_cart_pricing(): void
+    {
+        $product = $this->product('Visible Cake');
+        $url = route('catalogue.product', $product->slug);
+        $this->get($url)->assertOk()->assertSee('$25.00')->assertDontSee('account discount');
+
+        $individual = $this->buyer(['account_type' => 'individual']);
+        $individual->customerRecord()->update(['order_discount_bps' => 500]);
+        DB::table('customer_product_discounts')->insert([
+            'customer_id' => $individual->customerRecord()->id, 'product_id' => $product->id,
+            'discount_bps' => 1000, 'enabled' => true,
+        ]);
+        $this->actingAs($individual)->get($url)->assertOk()->assertSee('$22.50')->assertSee('10% off')
+            ->assertSee('5% account discount')->assertHeader('Cache-Control', 'no-store, private');
+
+        $this->actingAs($this->buyer())->get($url)->assertOk()->assertSee('$20.00')->assertDontSee('10% off')
+            ->assertDontSee('account discount')->assertDontSee('$22.50');
+    }
+
     public function test_invalid_bulk_selection_leaves_the_existing_cart_unchanged(): void
     {
         $first = $this->product('Visible Cake');

@@ -4,7 +4,16 @@
 <section class="mmc-two-col mmc-live-detail ps-product--detail">@include('partials.live-product-gallery')<div><p class="mmc-eyebrow">MAMMA MIA CUCINA</p><h2>{{ $product->premium_marketing_name }}</h2>
 @php($displayProductCode=filled($product->qr_code)?$product->qr_code:$product->product_code)
 @if(filled($displayProductCode))<p class="mmc-product-code">Product code: <strong>{{ $displayProductCode }}</strong></p>@endif
-@if($product->italian_subtitle)<p>{{ $product->italian_subtitle }}</p>@endif<p class="mmc-price">{{ $product->storefront_price===null?'PRICE ON REQUEST':'$'.number_format($product->storefront_price,2) }}</p><p>Contact us for serving sizes, ingredients, allergens and availability.</p>@if($product->storefront_price!==null)<form data-live-cart-form class="mmc-purchase" method="post" action="{{ route('cart.add',$product) }}">@csrf<label for="quantity">Quantity</label><input id="quantity" name="quantity" type="number" min="1" max="99" value="1" required><button class="mmc-button" type="submit">Add to Cart</button></form><p data-cart-feedback role="status"></p>@else<a class="mmc-button" href="{{ route('theme.contact') }}">Enquire About This Product</a>@endif
+@if($product->italian_subtitle)<p>{{ $product->italian_subtitle }}</p>@endif
+<p class="mmc-price">{{ $unitPrice === null ? 'PRICE ON REQUEST' : '$'.number_format($unitPrice, 2) }}</p>
+@if($unitPrice !== null && ($pricing['discount_bps'] ?? 0))
+    <p><del>${{ number_format($pricing['original_unit_cents'] / 100, 2) }}</del> · {{ $pricing['discount_bps'] / 100 }}% off</p>
+@endif
+@if($unitPrice !== null && ($customer?->order_discount_bps ?? 0))
+    <p>{{ $customer->order_discount_bps / 100 }}% account discount applies to the product subtotal in your cart.</p>
+@endif
+<p>Contact us for serving sizes, ingredients, allergens and availability.</p>
+@if($unitPrice !== null)<form data-live-cart-form class="mmc-purchase" method="post" action="{{ route('cart.add',$product) }}">@csrf<label for="quantity">Quantity</label><input id="quantity" name="quantity" type="number" min="1" max="99" value="1" required><button class="mmc-button" type="submit">Add to Cart</button></form><p data-cart-feedback role="status"></p>@else<a class="mmc-button" href="{{ route('theme.contact') }}">Enquire About This Product</a>@endif
 @if($product->categories->isNotEmpty())<div class="mmc-detail-meta">Categories: @foreach($product->categories as $category)<a href="{{ route('theme.product-grid',['category'=>$category->slug]) }}">{{ $category->name }}</a>{{ $loop->last?'':', ' }}@endforeach</div>@endif
 @if($product->allergies->isNotEmpty())
 <section class="mmc-product-allergies"><h3>Allergies & Dietary Information</h3><ul>@foreach($product->allergies as $allergy)<li><img src="{{ $allergy->iconUrl() }}" alt="" width="44" height="44"><span>{{ $allergy->name }}</span></li>@endforeach</ul></section>
