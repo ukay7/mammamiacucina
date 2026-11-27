@@ -111,6 +111,7 @@ class CustomerDocumentController extends Controller
             case 'initial-payment':
                 $doc = $theme->order($record, $record->revisions()->exists() ? $record->invoice : null);
                 $doc['title'] = 'Payment Receipt'; $doc['number'] = 'PAY-'.$record->number;
+                $doc['invoice_reference'] = $record->invoice?->label;
                 $doc['date'] = \App\Support\BusinessTime::format($entry['date']);
                 $doc['totals'] = ['This payment' => '$'.number_format($record->collected_cents / 100, 2)] + $doc['totals'];
                 $doc['payment'] = ucfirst($record->original_payment_method ?: $record->payment_method).' / Original recorded collection';

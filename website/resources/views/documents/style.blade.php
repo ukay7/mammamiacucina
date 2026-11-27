@@ -13,6 +13,14 @@
 .doc-financial .doc-lines th:nth-child(4),.doc-financial .doc-lines th:nth-child(5){width:16%}
 .doc-financial .doc-lines th:nth-child(6){width:6%}
 .doc-financial .doc-lines th:nth-child(7){width:12%}
+.doc-financial.doc-revised-receipt .doc-info{width:54%}
+.doc-financial.doc-revised-receipt .doc-lines th:nth-child(3){width:44%}
+.doc-financial.doc-revised-receipt .doc-lines th:nth-child(4){width:16%}
+.doc-financial.doc-revised-receipt .doc-lines th:nth-child(5){width:7%}
+.doc-financial.doc-revised-receipt .doc-lines th:nth-child(6){width:14%}
+.doc-invoice-reference-label{font-size:11px;vertical-align:middle}
+.doc-invoice-reference-number{white-space:nowrap}
+.doc-invoice-payment-reference{font-size:11px;margin:8px 0;page-break-after:avoid}
 .doc-financial .doc-product-image{width:28px;height:28px;border-radius:3px}
 .doc-financial .doc-product-no-image{width:28px;min-height:28px;padding-top:8px;font-size:6px;border-radius:3px}
 .doc-financial .doc-lines small{font-size:8px;line-height:1.25}
@@ -64,6 +72,7 @@
     .doc-remittance-badge:after{display:none}
 }
 @media screen and (max-width:600px){
+    .doc-financial.doc-revised-receipt .doc-info{width:100%}
     .doc-financial .doc-line-table{overflow-x:auto}
     .doc-financial .doc-line-table .doc-lines{min-width:560px}
     .doc-payment-summary,.doc-payment-summary>tbody,.doc-payment-summary>tbody>tr{display:block}

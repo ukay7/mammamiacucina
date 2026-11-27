@@ -110,6 +110,7 @@ class CustomerEmails
             $document['doc'] = app(DocumentTheme::class)->order($order);
             if ($type === 'payment_received') {
                 $document['doc']['title'] = 'Payment Receipt';
+                $document['doc']['invoice_reference'] = $order->invoice?->label;
                 $document['doc']['totals'] = ['This payment'=>$money($amount)] + $document['doc']['totals'];
             }
         }

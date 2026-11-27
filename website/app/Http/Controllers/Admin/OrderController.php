@@ -113,6 +113,7 @@ class OrderController extends Controller
         abort_unless($order->collected_cents>0,404);
         $doc=app(\App\Services\DocumentTheme::class)->order($order, $order->revisions()->exists() ? $order->invoice : null);
         $doc['title']='Payment Receipt';$doc['number']='PAY-'.$order->number;
+        $doc['invoice_reference']=$order->invoice?->label;
         $doc['date']=\App\Support\BusinessTime::format($order->paid_at ?? $order->payment?->paid_at ?? $order->ordered_at);
         $doc['totals']=['This payment'=>'$'.number_format($order->collected_cents/100,2)]+$doc['totals'];
         $doc['payment']=ucfirst($order->original_payment_method ?: $order->payment_method).' / Original recorded collection';

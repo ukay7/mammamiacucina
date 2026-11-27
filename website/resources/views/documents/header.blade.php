@@ -8,10 +8,15 @@
     @endif
     @if(filled($doc['brand']['mailing_address']??null))<div class="doc-contact-line doc-address">Mailing Address: {{ $doc['brand']['mailing_address'] }}</div>@endif
     @if(filled($doc['brand']['warehouse_address']??$doc['brand']['address']??null))<div class="doc-contact-line doc-address">Warehouse: {{ $doc['brand']['warehouse_address']??$doc['brand']['address'] }}</div>@endif
+    @if(($taxInHeader ?? false) && filled($doc['brand']['tax_number'] ?? null))
+        <div class="doc-contact-line doc-header-tax"><strong>GST/HST:</strong> {{ $doc['brand']['tax_number'] }}</div>
+    @endif
 </td>
 <td class="doc-meta">
     <strong>{{ mb_strtoupper((string)$doc['title']) }}</strong>
-    @if(filled($doc['number']??null))<div class="doc-reference">{{ mb_strtoupper((string)$doc['number']) }}</div>@endif
+    @if(filled($invoiceReference ?? null))
+        <div class="doc-reference"><span class="doc-invoice-reference-label">Invoice #</span> <span class="doc-invoice-reference-number">{{ mb_strtoupper($invoiceReference) }}</span></div>
+    @elseif(filled($doc['number']??null))<div class="doc-reference">{{ mb_strtoupper((string)$doc['number']) }}</div>@endif
     <div class="doc-date">{{ app(\App\Services\DocumentTheme::class)->dateLabel($doc['date']) }}</div>
 </td>
 </tr></table>

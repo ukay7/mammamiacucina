@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\{GeneralSetting, Order, OrderSettlement, Role, User};
+use App\Models\{EmailHistory, GeneralSetting, Order, OrderSettlement, Role, User};
 use App\Services\{CustomerInvoicing, DocumentTheme};
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -104,6 +104,8 @@ class DocumentHeaderSettingsTest extends TestCase
             $this->putJson(route('admin.settings.update'), $this->payload([$field => $value]))->assertUnprocessable()->assertJsonValidationErrors($field);
         }
         $this->putJson(route('admin.settings.update'), $this->payload(['document_company_name' => '  ']))->assertUnprocessable()->assertJsonValidationErrors('document_company_name');
+        $this->putJson(route('admin.settings.update'), $this->payload(['financial_document_layout' => 'unknown']))
+            ->assertUnprocessable()->assertJsonValidationErrors('financial_document_layout');
         $role = Role::create(['name' => 'Read only document header', 'permissions' => ['dashboard.view']]);
         $this->actingAs(User::factory()->create(['role_id' => $role->id, 'is_active' => true]));
         $this->get(route('admin.settings.general'))->assertForbidden();
@@ -145,5 +147,74 @@ class DocumentHeaderSettingsTest extends TestCase
         $this->assertStringContainsString('Mamma Mia Cucina INC.', $html);
         $this->assertStringContainsString('Check quantities before dispatch.', $html);
         $this->assertRegistrationInFooter($html);
+    }
+
+    public function test_revised_invoice_and_payment_receipt_can_switch_back_to_the_original_layout(): void
+    {
+        $this->login();
+        $order = $this->order();
+        $order->update(['tax_basis_points' => 1300, 'tax_cents' => 1300, 'notes' => 'Pack with a test note.']);
+        $invoice = app(CustomerInvoicing::class)->issue($order);
+        $this->assertSame(1300, data_get($invoice->snapshot, 'order.tax_basis_points'));
+        $savedInvoice = $invoice->getRawOriginal();
+        $invoiceUrl = route('admin.invoices.show', $invoice);
+        $receiptUrl = route('admin.orders.initial-payment-document', $order);
+
+        $this->get($invoiceUrl)->assertOk()->assertSee('91+ Days')->assertSee('Payment status');
+        $this->put(route('admin.settings.update'), $this->payload(['financial_document_layout' => 'compact']))
+            ->assertSessionHasNoErrors();
+
+        $revisedInvoice = $this->get($invoiceUrl)->assertOk()
+            ->assertSeeTextInOrder(['GST/HST:', 'Bill to', 'Total Due', 'Current Balance Owing', 'Historical cake', 'HST (13%)',
+                '$13.00', '$113.00', 'Pack with a test note.', 'Please quote invoice '.$invoice->label.' when making a payment.', 'Remit payment to:', 'Thank you'])
+            ->assertSee('Before Discount')->assertDontSee('91+ Days')->assertDontSee('Balances as of')
+            ->assertDontSee('Payment status')->assertDontSee('Pickup Details')->assertDontSee('Order:')
+            ->assertDontSee('with any enquiries');
+        $this->assertSame(1, substr_count($revisedInvoice->getContent(), 'class="doc-contact-line doc-header-tax"'));
+        $this->assertStringNotContainsString('class="doc-registration"', $revisedInvoice->getContent());
+
+        $order->update(['payment_status' => 'paid', 'manual_collected_cents' => 11300]);
+        $this->get($receiptUrl)->assertOk()
+            ->assertSeeTextInOrder(['GST/HST:', 'PAYMENT RECEIPT', 'Invoice # '.$invoice->label, 'Historical cake',
+                'This payment', '$113.00', 'HST (13%)', 'Net received', 'Balance due', '$0.00', 'Thank you'])
+            ->assertDontSee('Account summary')->assertDontSee('Before Discount')->assertSee('After Discount')
+            ->assertDontSee('Payment instructions')->assertDontSee('Delivery / pickup details')
+            ->assertDontSee('Pack with a test note.')->assertDontSee('with any enquiries');
+        $queued = EmailHistory::where('event_key', 'order-paid:'.$order->id)->firstOrFail();
+        $emailedHtml = view('emails.order-document', $queued->payload['document'])->render();
+        $this->assertStringContainsString($invoice->label, $emailedHtml);
+        $this->assertStringContainsString('doc-header-tax', $emailedHtml);
+        $this->assertStringNotContainsString('Before Discount', $emailedHtml);
+
+        $order->update(['tax_cents' => 0]);
+        $this->get($receiptUrl)->assertOk()->assertDontSee('HST (13%)');
+        $this->get($invoiceUrl)->assertOk()->assertSee('HST (13%)')->assertSee('$13.00');
+        $this->assertSame($savedInvoice, $invoice->fresh()->getRawOriginal());
+
+        $this->assertRegistrationInFooter($this->get(route('admin.orders.print', $order))->assertOk()->getContent());
+        $this->put(route('admin.settings.update'), $this->payload(['financial_document_layout' => 'classic']))
+            ->assertSessionHasNoErrors();
+        $this->assertRegistrationInFooter($this->get($invoiceUrl)->assertOk()->assertSee('91+ Days')->assertSee('Pickup Details')->getContent());
+        $this->assertRegistrationInFooter($this->get($receiptUrl)->assertOk()->assertSee('Account summary')->assertSee('Before Discount')->getContent());
+    }
+
+    public function test_deployment_command_switches_only_the_layout_and_is_safe_to_repeat(): void
+    {
+        $setting = GeneralSetting::findOrFail(1);
+        $initial = $setting->getRawOriginal();
+        $this->artisan('documents:financial-layout')->expectsOutput('Invoice and payment receipt layout: Original')->assertSuccessful();
+        $this->artisan('documents:financial-layout', ['layout' => 'unknown'])->assertExitCode(2);
+        $this->assertSame($initial, $setting->fresh()->getRawOriginal());
+
+        for ($attempt = 0; $attempt < 2; $attempt++) {
+            $this->artisan('documents:financial-layout', ['layout' => 'revised'])
+                ->expectsOutput('Invoice and payment receipt layout: Revised')->assertSuccessful();
+        }
+        $this->assertSame($initial['revision'] + 1, $setting->fresh()->revision);
+        $this->artisan('documents:financial-layout', ['layout' => 'original'])
+            ->expectsOutput('Invoice and payment receipt layout: Original')->assertSuccessful();
+        $this->assertSame($initial['revision'] + 2, $setting->fresh()->revision);
+        $this->assertSame(collect($initial)->except('revision', 'updated_at')->all(),
+            collect($setting->fresh()->getRawOriginal())->except('revision', 'updated_at')->all());
     }
 }

@@ -51,6 +51,7 @@ class GeneralSettingController extends Controller
             'mailing_address' => 'sometimes|nullable|string|max:2000',
             'document_warehouse_address' => 'sometimes|nullable|string|max:2000',
             'gst_hst_number' => 'sometimes|nullable|string|max:80',
+            'financial_document_layout' => ['sometimes', 'required', \Illuminate\Validation\Rule::in(array_keys(GeneralSetting::FINANCIAL_DOCUMENT_LAYOUTS))],
             'etransfer_email' => 'sometimes|required|email:rfc|max:255',
             'invoice_eft_transit' => ['sometimes', 'nullable', 'string', 'regex:/\A[0-9]{5}\z/'],
             'invoice_eft_institution' => ['sometimes', 'nullable', 'string', 'regex:/\A[0-9]{3}\z/'],
@@ -100,7 +101,7 @@ class GeneralSettingController extends Controller
 
                 return (int) $parts[0] * 100 + (int) str_pad($parts[1] ?? '', 2, '0');
             };
-            $extra=array_intersect_key($d,array_flip(['pickup_address','warehouse_postal_code','matrix_delivery_enabled','email','phone','opening_hours','facebook_url','instagram_url','twitter_url','document_company_name','mailing_address','document_warehouse_address','gst_hst_number','etransfer_email']));
+            $extra=array_intersect_key($d,array_flip(['pickup_address','warehouse_postal_code','matrix_delivery_enabled','email','phone','opening_hours','facebook_url','instagram_url','twitter_url','document_company_name','mailing_address','document_warehouse_address','gst_hst_number','etransfer_email','financial_document_layout']));
             $eftFields = ['invoice_eft_transit', 'invoice_eft_institution', 'invoice_eft_account'];
             $eft = array_intersect_key($d, array_flip($eftFields));
             if ($eft !== []) {

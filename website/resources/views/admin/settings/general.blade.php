@@ -30,7 +30,17 @@
         @endforeach
     </div>
 </fieldset>
-<div class="form-group"><label for="document-gst-hst">GST/HST number</label><input class="form-control" id="document-gst-hst" name="gst_hst_number" maxlength="80" value="{{ old('gst_hst_number',$settings->gst_hst_number) }}"><small>Printed at the bottom right of documents, in the footer.</small></div>
+<div class="form-group"><label for="document-gst-hst">GST/HST number</label><input class="form-control" id="document-gst-hst" name="gst_hst_number" maxlength="80" value="{{ old('gst_hst_number',$settings->gst_hst_number) }}"><small>Revised invoices and order-payment receipts show this in the header. Other documents show it in the footer.</small></div>
+<div class="form-group">
+    <label for="financial-document-layout">Invoice and payment receipt layout</label>
+    <select class="form-control" id="financial-document-layout" name="financial_document_layout" aria-describedby="financial-document-layout-help">
+        @foreach(\App\Models\GeneralSetting::FINANCIAL_DOCUMENT_LAYOUTS as $value => $label)
+            <option value="{{ $value }}" @selected(old('financial_document_layout', $settings->financial_document_layout ?? 'classic') === $value)>{{ $label }}</option>
+        @endforeach
+    </select>
+    <small id="financial-document-layout-help">Choose the layout for invoices and order-payment receipts. The selection applies the next time a document is opened or generated.</small>
+    @error('financial_document_layout')<div class="text-danger">{{ $message }}</div>@enderror
+</div>
 <hr><h2>Business Customer Icon</h2>
 <p>Show this icon beside business customer names throughout customer and order screens, reports and printed documents.</p>
 <div class="form-group">

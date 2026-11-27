@@ -10,6 +10,7 @@ class GeneralSetting extends Model
     protected $hidden = ['invoice_eft_transit', 'invoice_eft_institution', 'invoice_eft_account'];
 
     public const DOCUMENT_COMPANY_NAME = 'Mamma Mia Cucina INC.';
+    public const FINANCIAL_DOCUMENT_LAYOUTS = ['classic' => 'Original', 'compact' => 'Revised'];
 
     public function eTransferEmail(): string
     {
