@@ -82,6 +82,7 @@ class CatalogueController extends Controller
         $customer = $user?->isCustomer() && $user->is_active && $user->email_verified_at && ! $user->businessApprovalPending()
             ? $user->customer
             : null;
+        $customer?->setRelation('user', $user);
         $pricing = $customer ? $terms->price($product, $customer) : null;
         $unitPrice = match (true) {
             $pricing === null => $product->storefront_price,
