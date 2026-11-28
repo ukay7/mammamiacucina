@@ -22,12 +22,14 @@
 </td>
 <td class="doc-meta">
     <strong>{{ mb_strtoupper((string)$doc['title']) }}</strong>
-    @if(filled($doc['number'] ?? null))
+    @if(filled($primaryInvoiceReference ?? null))
+        <div class="doc-reference"><span class="doc-receipt-reference-label">Invoice #</span> {{ mb_strtoupper($primaryInvoiceReference) }}</div>
+    @elseif(filled($doc['number'] ?? null))
         <div class="doc-reference">@if($isReceiptHeader ?? false)<span class="doc-receipt-reference-label">Receipt #</span> @endif{{ mb_strtoupper((string) $doc['number']) }}</div>
     @endif
     @foreach($invoiceReferences ?? [] as $reference)
         <div class="doc-invoice-reference">Invoice # <b>{{ mb_strtoupper($reference) }}</b></div>
     @endforeach
-    <div class="doc-date">{{ app(\App\Services\DocumentTheme::class)->dateLabel($doc['date']) }}</div>
+    <div class="doc-date">@if(isset($dateLabel))<b>{{ $dateLabel }}:</b><br>@endif{{ app(\App\Services\DocumentTheme::class)->dateLabel($doc['date']) }}</div>
 </td>
 </tr></table>

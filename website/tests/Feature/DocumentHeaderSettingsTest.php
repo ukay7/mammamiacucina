@@ -167,27 +167,33 @@ class DocumentHeaderSettingsTest extends TestCase
         $this->assertSame($mailingAddress, GeneralSetting::findOrFail(1)->mailing_address);
 
         $revisedInvoice = $this->get($invoiceUrl)->assertOk()
-            ->assertSeeTextInOrder(['GST/HST:', 'Bill to', 'Total Due', 'Current Balance Owing', 'Historical cake', 'HST (13%)',
-                '$13.00', '$113.00', 'Pack with a test note.', 'Please quote invoice '.$invoice->label.' when making a payment.', 'Remit payment to:', 'Thank you'])
+            ->assertSeeTextInOrder(['GST/HST:', $invoice->label, 'Invoice date:', 'Bill to', 'Total Due', '$113.00', 'Current Balance Owing',
+                'Order # '.$order->number, 'Historical cake', 'HST (13%)', '$13.00', 'Total CAD', '$113.00', 'Balance due', '$113.00',
+                'Please quote invoice '.$invoice->label.' when making a payment.', 'Remit payment to:', 'Thank you'])
             ->assertSee('Mailing Address: 1 Sir Bodwin Place, Markham, ON L3P 2X7')
             ->assertSee('Before Discount')->assertDontSee('91+ Days')->assertDontSee('Balances as of')
-            ->assertDontSee('Payment status')->assertDontSee('Pickup Details')->assertDontSee('Order:')
+            ->assertDontSee('Payment status')->assertDontSee('Pickup Details')->assertDontSee('Invoice amounts are fixed at issuance')
+            ->assertDontSee('Pack with a test note.')->assertDontSee('Net received')
             ->assertDontSee('with any enquiries');
         $this->assertSame(1, substr_count($revisedInvoice->getContent(), 'class="doc-contact-line doc-header-tax"'));
         $this->assertStringNotContainsString('class="doc-registration"', $revisedInvoice->getContent());
 
+        $order->update(['manual_collected_cents' => 4000]);
+        $this->get($invoiceUrl)->assertOk()->assertSeeTextInOrder(['Total Due', '$73.00', 'Total CAD', '$113.00', 'Balance due', '$73.00']);
         $order->update(['payment_status' => 'paid', 'manual_collected_cents' => 11300]);
+        $this->get($invoiceUrl)->assertOk()->assertSeeTextInOrder(['Total Due', '$0.00', 'Total CAD', '$113.00', 'Balance due', '$0.00']);
         $this->get($receiptUrl)->assertOk()
-            ->assertSeeTextInOrder(['GST/HST:', 'PAYMENT RECEIPT', 'Receipt # PAY-'.mb_strtoupper($order->number), 'Invoice # '.$invoice->label, 'Historical cake', 'Payment method',
-                'This payment', '$113.00', 'HST (13%)', 'Net received', 'Balance due', '$0.00', 'Thank you'])
+            ->assertSeeTextInOrder(['GST/HST:', 'PAYMENT RECEIPT', 'Invoice # '.$invoice->label, 'Historical cake',
+                'This payment', '$113.00', 'HST (13%)', 'Net received', '-$113.00', 'Balance due', '$0.00', 'Thank you'])
             ->assertSee('Mailing Address: 1 Sir Bodwin Place, Markham, ON L3P 2X7')
+            ->assertDontSeeText('Receipt #')->assertDontSee('class="doc-box doc-payment-breakdown"', false)
             ->assertDontSee('Account summary')->assertDontSee('Before Discount')->assertSee('After Discount')
             ->assertDontSee('Payment instructions')->assertDontSee('Delivery / pickup details')
             ->assertDontSee('Pack with a test note.')->assertDontSee('with any enquiries');
         $queued = EmailHistory::where('event_key', 'order-paid:'.$order->id)->firstOrFail();
         $emailedHtml = view('emails.order-document', $queued->payload['document'])->render();
         $this->assertStringContainsString($invoice->label, $emailedHtml);
-        $this->assertStringContainsString('doc-payment-method-amount', $emailedHtml);
+        $this->assertStringNotContainsString('class="doc-box doc-payment-breakdown"', $emailedHtml);
         $this->assertStringContainsString('doc-header-tax', $emailedHtml);
         $this->assertStringNotContainsString('Before Discount', $emailedHtml);
 
@@ -196,11 +202,35 @@ class DocumentHeaderSettingsTest extends TestCase
         $this->get($invoiceUrl)->assertOk()->assertSee('HST (13%)')->assertSee('$13.00');
         $this->assertSame($savedInvoice, $invoice->fresh()->getRawOriginal());
 
-        $this->assertRegistrationInFooter($this->get(route('admin.orders.print', $order))->assertOk()->getContent());
+        $this->assertRegistrationInFooter($this->get(route('admin.orders.print', $order))->assertOk()->assertSee('Pack with a test note.')->getContent());
         $this->put(route('admin.settings.update'), $this->payload(['financial_document_layout' => 'classic']))
             ->assertSessionHasNoErrors();
         $this->assertRegistrationInFooter($this->get($invoiceUrl)->assertOk()->assertSee('91+ Days')->assertSee('Pickup Details')->getContent());
-        $this->assertRegistrationInFooter($this->get($receiptUrl)->assertOk()->assertSee('Account summary')->assertSee('Before Discount')->getContent());
+        $this->assertRegistrationInFooter($this->get($receiptUrl)->assertOk()->assertSee('Account summary')->assertSee('Before Discount')
+            ->assertSeeText('Receipt # PAY-'.mb_strtoupper($order->number))->assertSeeText('Payment method')->getContent());
+    }
+
+    public function test_default_tax_command_sets_thirteen_percent_without_repricing_existing_documents(): void
+    {
+        $order = $this->order();
+        $invoice = app(CustomerInvoicing::class)->issue($order);
+        $savedInvoice = $invoice->fresh()->getRawOriginal();
+        $setting = GeneralSetting::findOrFail(1);
+        $setting->update(['tax_basis_points' => 500]);
+        $before = $setting->getRawOriginal();
+
+        for ($attempt = 0; $attempt < 2; $attempt++) {
+            $this->artisan('settings:tax-13')->expectsOutput('Default tax in General Settings: 13.00%.')->assertSuccessful();
+        }
+
+        $after = $setting->fresh();
+        $this->assertSame(1300, $after->tax_basis_points);
+        $this->assertSame(1300, $after->taxFor(10000));
+        $this->assertSame($setting->revision + 1, $after->revision);
+        $this->assertSame(collect($before)->except('tax_basis_points', 'revision', 'updated_at')->all(),
+            collect($after->getRawOriginal())->except('tax_basis_points', 'revision', 'updated_at')->all());
+        $this->assertSame(0, $order->fresh()->tax_cents);
+        $this->assertSame($savedInvoice, $invoice->fresh()->getRawOriginal());
     }
 
     public function test_deployment_command_switches_only_the_layout_and_is_safe_to_repeat(): void

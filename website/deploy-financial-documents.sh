@@ -3,13 +3,13 @@
 set -euo pipefail
 
 usage() {
-    echo 'Usage: deploy-financial-documents.sh deploy <release-commit> | original | revised | status' >&2
+    echo 'Usage: deploy-financial-documents.sh deploy <release-commit> [--tax-13] | original | revised | status' >&2
     exit 2
 }
 
 action=${1:-}
 case "$action" in
-    deploy) [[ $# -eq 2 && ${2:-} =~ ^[0-9a-f]{40}$ ]] || usage ;;
+    deploy) [[ ${2:-} =~ ^[0-9a-f]{40}$ ]] && [[ $# -eq 2 || ( $# -eq 3 && $3 == --tax-13 ) ]] || usage ;;
     original|revised|status) [[ $# -eq 1 ]] || usage ;;
     *) usage ;;
 esac
@@ -52,9 +52,12 @@ systemctl is-active --quiet php8.4-fpm
 artisan down --retry=60
 trap 'if (( $? != 0 )); then echo "Deployment stopped during maintenance. Resolve the reported error, then rerun the deploy command." >&2; fi' EXIT
 as_deploy git merge --ff-only "$release"
-artisan migrate --path=database/migrations/2026_11_27_120000_add_financial_document_layout.php --force
+artisan migrate --force
 artisan view:cache
 artisan documents:financial-layout revised
+if [[ ${3:-} == --tax-13 ]]; then
+    artisan settings:tax-13
+fi
 artisan queue:restart
 systemctl reload php8.4-fpm
 artisan up

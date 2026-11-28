@@ -27,6 +27,7 @@
 .doc-financial .doc-product-no-image{width:28px;min-height:28px;padding-top:8px;font-size:6px;border-radius:3px}
 .doc-financial .doc-lines small{font-size:8px;line-height:1.25}
 .doc-financial .doc-footer{margin-top:10px;padding-top:6px}
+.doc-revised-receipt .doc-footer{text-align:center}
 .doc-financial .doc-delivery{padding:8px 12px}
 .doc-payment-summary{width:100%;table-layout:fixed;border-collapse:collapse;margin:14px 0 16px;page-break-inside:avoid;break-inside:avoid}
 .doc-payment-summary>tbody>tr>td{vertical-align:top;padding:0;word-wrap:break-word;overflow-wrap:anywhere}

@@ -5,19 +5,36 @@
     $isPaymentReceipt = $doc['title'] === 'Payment Receipt';
     $revised = ($isInvoice || $isPaymentReceipt) && app(\App\Services\DocumentTheme::class)->usesRevisedFinancialLayout();
     $revisedReceipt = $revised && $isPaymentReceipt;
+    $revisedInvoice = $revised && $isInvoice;
+    $receiptInvoice = $isPaymentReceipt ? ($doc['invoice_reference'] ?? null) : null;
     $totals = $doc['totals'];
     if ($isPaymentReceipt && isset($doc['payment_amount'])) {
         $totals = ['This payment' => $totals['This payment'] ?? $doc['payment_amount']] + $totals;
     }
+    if ($revisedInvoice) {
+        unset($totals['Net received']);
+        $dueLabel = isset($totals['Current balance due']) ? 'Current balance due' : 'Balance due';
+        $totals[$dueLabel] = $doc['summary']['Total Due'];
+    }
+    if ($revisedReceipt && isset($totals['Net received']) && $totals['Net received'] !== '$0.00') {
+        $received = $totals['Net received'];
+        $totals['Net received'] = str_starts_with($received, '$-') ? '+$'.substr($received, 2) : '-'.$received;
+    }
 @endphp
 <main @class(['document', 'doc-financial', 'doc-revised-receipt' => $revisedReceipt, 'doc-delivery-changed' => !$revised && isset($doc['current_delivery'])])>
-@include('documents.header', ['taxInHeader' => $revised, 'isReceiptHeader' => $isPaymentReceipt, 'invoiceReferences' => $isPaymentReceipt && filled($doc['invoice_reference'] ?? null) ? [$doc['invoice_reference']] : []])
+@include('documents.header', [
+    'taxInHeader' => $revised,
+    'isReceiptHeader' => $isPaymentReceipt,
+    'primaryInvoiceReference' => $revisedReceipt ? $receiptInvoice : null,
+    'invoiceReferences' => !$revisedReceipt && filled($receiptInvoice) ? [$receiptInvoice] : [],
+    'dateLabel' => $revisedInvoice ? 'Invoice date' : null,
+])
 <table class="doc-info"><tr><td><h2>Bill to</h2>@foreach($doc['billing'] as $billingIndex=>$line)<div @class(['doc-billing-line','doc-billing-name'=>$billingIndex===0,'doc-billing-account'=>$billingIndex===1 && str_starts_with((string)$line,'Customer account #')])>{{ $line }}@if($billingIndex===0)<x-business-customer-icon :business="$doc['business_customer'] ?? false" :embedded="true" />@endif</div>@endforeach</td>
 @unless($revisedReceipt)
 <td><h2>{{ $isInvoice ? 'Account Summary' : 'Account summary' }}</h2>
 @if($isInvoice)
     <table class="doc-invoice-aging">
-        @foreach(($revised ? array_intersect_key($doc['summary'], array_flip(['Total Due', 'Current Balance Owing'])) : $doc['summary']) as $label => $value)
+        @foreach(($revisedInvoice ? array_intersect_key($doc['summary'], array_flip(['Total Due', 'Current Balance Owing'])) : $doc['summary']) as $label => $value)
             <tr><th scope="row">{{ $label }}</th><td class="money">{{ $value }}</td></tr>
         @endforeach
     </table>
@@ -34,9 +51,11 @@
         Balances as of {{ app(\App\Services\DocumentTheme::class)->dateLabel($doc['balance_date']) }}.
     </p>
 @endif
-@unless($revised)
+@if($revisedInvoice)
+    <p class="doc-notice">Order # <strong class="doc-order-reference">{{ mb_strtoupper((string) $doc['order_number']) }}</strong></p>
+@elseif(!$revised)
     <p class="doc-notice">Order: <strong class="doc-order-reference">{{ mb_strtoupper((string)$doc['order_number']) }}</strong>. {{ $doc['notice'] }}</p>
-@endunless
+@endif
 <div class="doc-line-table" role="region" aria-label="Order items" tabindex="0">
     <table class="doc-lines">
         <thead>
@@ -74,7 +93,7 @@
 @if($doc['discount']??null)<p>{{ $doc['discount'] }}</p>@endif
 @component('documents.payment-summary')
 @slot('instructions')
-@if($isPaymentReceipt && isset($doc['receipt_payment_method'], $doc['payment_amount']))
+@if($isPaymentReceipt && !$revisedReceipt && isset($doc['receipt_payment_method'], $doc['payment_amount']))
     <div class="doc-box doc-payment-breakdown">
         <h2>Payment method</h2>
         <table class="doc-payment-method-amount">
@@ -105,9 +124,9 @@
 @endslot
 <table class="doc-totals">@foreach($totals as $label=>$value)<tr><td>{{ $revised && $label === 'Tax' ? ($doc['tax_label'] ?? 'GST/HST') : $label }}</td><td class="money">{{ $value }}</td></tr>@endforeach</table>
 @endcomponent
-@if(!$revisedReceipt && $doc['notes'])<div class="doc-box"><h2>Notes</h2><p style="white-space:pre-line">{{ $doc['notes'] }}</p></div>@endif
+@if(!$revised && $doc['notes'])<div class="doc-box"><h2>Notes</h2><p style="white-space:pre-line">{{ $doc['notes'] }}</p></div>@endif
 <div class="doc-financial-ending">
-@if($revised && $isInvoice)
+@if($revisedInvoice)
     <p class="doc-invoice-payment-reference">Please quote invoice <strong>{{ mb_strtoupper((string) $doc['number']) }}</strong> when making a payment.</p>
 @endif
 @if($isInvoice) @include('documents.invoice-payment-methods', ['methods' => $doc['invoice_payment_methods']]) @endif

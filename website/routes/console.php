@@ -36,6 +36,17 @@ Artisan::command('documents:financial-layout {layout? : original or revised}', f
     return 0;
 })->purpose('Show or switch the invoice and order-payment receipt layout');
 
+Artisan::command('settings:tax-13', function () {
+    DB::transaction(function () {
+        $settings = GeneralSetting::query()->lockForUpdate()->findOrFail(1);
+        if ($settings->tax_basis_points !== 1300) {
+            $settings->update(['tax_basis_points' => 1300, 'revision' => $settings->revision + 1]);
+        }
+    }, 3);
+
+    $this->info('Default tax in General Settings: 13.00%.');
+})->purpose('Set the default tax percentage to 13%');
+
 Artisan::command('suppliers:backfill {--dry-run : Preview mappings without saving}', function () {
     $result = app(\App\Services\SupplierDirectory::class)->backfill((bool) $this->option('dry-run'));
     $this->info(($this->option('dry-run') ? 'Dry run: ' : '')."{$result['linked']} products mapped; {$result['created']} suppliers created; {$result['blank']} blank supplier names skipped.");
